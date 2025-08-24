@@ -10,6 +10,7 @@ int main () {
     TwoHalfD::Level level;
     engine.loadLevel(level);
     while (engine.getState() == TwoHalfD::EngineState::running) {
+        std::span<const TwoHalfD::Event> inputs = engine.getFrameInputs();
         engine.render();
     }
 

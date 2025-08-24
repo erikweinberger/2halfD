@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <vector>
 #include <iostream>
+#include <span>
 
 namespace TwoHalfD {
 using ObjectId = std::uint64_t;
@@ -39,7 +40,7 @@ struct Level {
   std::vector<SpriteEntity> sprites;
 };
 
-/*struct Event {
+struct Event {
     enum class Type {
         None,
         KeyPressed,
@@ -48,7 +49,15 @@ struct Level {
         MouseButtonPressed,
         MouseButtonReleased,
     };
-};*/
+
+    Type type{Type::None};
+
+    union {
+        struct { int keyCode; int x, y; } keyboard;
+        struct { int x, y; } mouseMove;
+        struct { int button; int x, y; } mouseButton;
+    };
+};
 
 enum class EngineState {
     None,
@@ -58,8 +67,21 @@ enum class EngineState {
 };
 
 class Engine {
+
+private:
+    EngineSettings m_engineSettings;
+    EngineState m_engineState; 
+    Level m_level;
+    Position m_cameraPos;
+    std::array<Event, 512> m_inputArray{};
+    int m_currentInput { 0 };
+
+    // RENDERCOMPONENTS
+    sf::RenderWindow m_window;
+    sf::RenderTexture m_renderTexture;
+
 public:
-  Engine() = default;
+   Engine() = default;
 
     Engine(const EngineSettings &engineSettings) : 
         m_engineSettings(engineSettings),
@@ -75,6 +97,8 @@ public:
 
     void loadLevel(const Level &level);
     EngineState getState();
+    std::span<const TwoHalfD::Event> getFrameInputs();
+    void clearFrameInputs();
     // void update(float dt);
     // std::vector<Event> getEvents();
 
@@ -82,14 +106,5 @@ public:
     void render();
     void renderFloorCeil();
 
-private:
-    EngineSettings m_engineSettings;
-    EngineState m_engineState; 
-    Level m_level;
-    Position m_cameraPos;
-
-    // RENDERCOMPONENTS
-    sf::RenderWindow m_window;
-    sf::RenderTexture m_renderTexture;
 };
 } // namespace TwoHalfD

@@ -6,6 +6,17 @@ void TwoHalfD::Engine::loadLevel(const Level &level) {
     this->m_level = level;
 }
 
+
+std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs() {
+    return std::span<const TwoHalfD::Event>(m_inputArray.data(), m_currentInput);
+}
+
+void TwoHalfD::Engine::clearFrameInputs() {
+    m_currentInput = 0;
+}
+
+
+
 void TwoHalfD::Engine::render() {
     sf::Event event;
     while (m_window.pollEvent(event)) {
