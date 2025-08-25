@@ -94,7 +94,7 @@ void TwoHalfD::Engine::renderFloorCeil() {
 
         floorTileImage.getSize();
         sf::Vector2f floor =
-            m_cameraPos.pos / textureSize + rowDistance * rayDirLeft;
+            m_cameraPos.u.posf / textureSize + rowDistance * rayDirLeft;
 
         for (size_t x = 0; x < m_engineSettings.resolution.x; ++x)
         {
@@ -123,4 +123,3 @@ void TwoHalfD::Engine::renderFloorCeil() {
 TwoHalfD::EngineState TwoHalfD::Engine::getState() {
     return this->m_engineState;
 }
-

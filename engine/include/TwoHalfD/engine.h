@@ -1,3 +1,6 @@
+#ifndef ENGINE_H
+#define ENGINE_H
+
 #include <SFML/Graphics.hpp>
 #include <unordered_map>
 #include <vector>
@@ -8,7 +11,10 @@ namespace TwoHalfD {
 using ObjectId = std::uint64_t;
 
 struct Position {
-    sf::Vector2f pos = {50, 400};
+    union {
+        struct { float x, y; } pos;
+        sf::Vector2f posf;
+    } u = { {50.f, 400.f} };
     float direction = 0.f;
     
     Position() = default;
@@ -108,3 +114,6 @@ public:
 
 };
 } // namespace TwoHalfD
+
+
+#endif

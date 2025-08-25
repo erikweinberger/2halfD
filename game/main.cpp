@@ -1,12 +1,18 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
-
 #include <TwoHalfD/engine.h>
+
+#include "game.h"
 
 int main () {
     TwoHalfD::EngineSettings engineSettings;
     TwoHalfD::Engine engine(engineSettings);
     
+    Game game {};
+    TwoHalfD::Position position = game.showPosition();
+    std::cout << "Position: " << position.u.pos.x << " , " << position.u.pos.y << std::endl;
+    std::cout << "Position_sf: " << position.u.posf.x << " , " << position.u.posf.y << std::endl;
+
     TwoHalfD::Level level;
     engine.loadLevel(level);
     while (engine.getState() == TwoHalfD::EngineState::running) {
