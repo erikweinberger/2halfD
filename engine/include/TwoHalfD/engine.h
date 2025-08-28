@@ -21,15 +21,15 @@ struct Position {
 };
 
 struct Wall {
-  int id;
-  sf::Vector2f start, end;
-  int textureId;
+    int id;
+    sf::Vector2f start, end;
+    int textureId;
 };
 struct SpriteEntity {
-  int id;
-  TwoHalfD::Position pos;
-  int textureId;
-  float scale;
+    int id;
+    TwoHalfD::Position pos;
+    int textureId;
+    float scale;
 };
 
 struct EngineSettings {
@@ -58,11 +58,64 @@ struct Event {
 
     Type type{Type::None};
 
-    union {
-        struct { int keyCode; int x, y; } keyboard;
-        struct { int x, y; } mouseMove;
-        struct { int button; int x, y; } mouseButton;
+    struct KeyEvent {
+        int keyCode;
+        int x, y;
     };
+
+    struct MouseMoveEvent {
+        int x, y;
+    };
+
+    struct MouseButtonEvent {
+        int button;
+        int x, y;
+    };
+
+    // Union of possible event payloads
+    union {
+        KeyEvent key;
+        MouseMoveEvent mouseMove;
+        MouseButtonEvent mouseButton;
+    };
+
+    Event() : type(Type::None) {}
+
+    static Event KeyPressed(int keyCode, int x = 0, int y = 0) {
+        Event e;
+        e.type = Type::KeyPressed;
+        e.key = { keyCode, x, y };
+        return e;
+    }
+
+    static Event KeyReleased(int keyCode, int x = 0, int y = 0) {
+        Event e;
+        e.type = Type::KeyReleased;
+        e.key = { keyCode, x, y };
+        return e;
+    }
+
+    static Event MouseMoved(int x, int y) {
+        Event e;
+        e.type = Type::MouseMoved;
+        e.mouseMove = { x, y };
+        return e;
+    }
+
+    static Event MouseButtonPressed(int button, int x, int y) {
+        Event e;
+        e.type = Type::MouseButtonPressed;
+        e.mouseButton = { button, x, y };
+        return e;
+    }
+
+    static Event MouseButtonReleased(int button, int x, int y) {
+        Event e;
+        e.type = Type::MouseButtonReleased;
+        e.mouseButton = { button, x, y };
+        return e;
+    }
+
 };
 
 enum class EngineState {

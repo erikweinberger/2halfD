@@ -8,6 +8,29 @@ void TwoHalfD::Engine::loadLevel(const Level &level) {
 
 
 std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs() {
+    sf::Event event;
+    while (m_window.pollEvent(event)) {
+        switch (event.type) {
+            case sf::Event::Closed: {
+                m_window.close();
+                m_engineState = EngineState::ended;
+                break;
+            }
+            case sf::Event::KeyPressed: {
+                sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
+                m_inputArray[m_currentInput] = TwoHalfD::Event::KeyPressed(event.key.code, mouseWinPos.x, mouseWinPos.y);
+                ++m_currentInput;
+                break;
+            }
+            case sf::Event::KeyReleased: {
+                sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
+                m_inputArray[m_currentInput] = TwoHalfD::Event::KeyReleased(event.key.code, mouseWinPos.x, mouseWinPos.y);
+                ++m_currentInput;
+            }
+            default:
+                break;
+        }
+    }
     return std::span<const TwoHalfD::Event>(m_inputArray.data(), m_currentInput);
 }
 
@@ -18,13 +41,6 @@ void TwoHalfD::Engine::clearFrameInputs() {
 
 
 void TwoHalfD::Engine::render() {
-    sf::Event event;
-    while (m_window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
-            m_window.close();
-            m_engineState = EngineState::ended;
-        }
-    }
     /*
     m_window.clear(sf::Color::Black);
 
