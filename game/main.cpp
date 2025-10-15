@@ -10,8 +10,8 @@ int main () {
     
     Game game {};
     TwoHalfD::Position position = game.showPosition();
-    std::cout << "Position: " << position.u.pos.x << " , " << position.u.pos.y << std::endl;
-    std::cout << "Position_sf: " << position.u.posf.x << " , " << position.u.posf.y << std::endl;
+    std::cout << "Position: " << position.pos.x << " , " << position.pos.y << std::endl;
+    std::cout << "Position_sf: " << position.posf.x << " , " << position.posf.y << std::endl;
     
     game.run();
 

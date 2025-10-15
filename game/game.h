@@ -6,12 +6,12 @@
 struct GameState {
     struct PlayerState {
         TwoHalfD::Position playerPos;
-        struct MoveDireaction {int w, a, s, d;};
+        struct MoveDireaction {float w, a, s, d;};
 
         MoveDireaction moveDir {0, 0, 0, 0};
     };
-        
-        
+
+    std::array<int, 2> m_prevMousePos {0, 0};
 
 
     PlayerState playerState {};
@@ -32,11 +32,13 @@ public:
     
 
     void run();
-
+    void updateGameState();
     // Input handleing
     void handleFrameInputs();
     void handleKeyPressedEvent(const TwoHalfD::Event & event);
     void handleKeyReleasedEvent(const TwoHalfD::Event & event);
+    void handleMouseMoveEvent(const TwoHalfD::Event & event); 
+
 
 
     

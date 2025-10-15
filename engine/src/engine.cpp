@@ -1,12 +1,14 @@
 #include <TwoHalfD/engine.h>
+#include "TwoHalfD/engine_types.h"
 #include "utils/mathUtil.h"
 
 void TwoHalfD::Engine::loadLevel(const Level &level) {
-    this->m_engineState = EngineState::running;
+    this->m_engineState = EngineState::fpsState;
     this->m_level = level;
+    m_window.setMouseCursorVisible(false);
 }
 
-
+//Game Inputs
 std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs() {
     sf::Event event;
     while (m_window.pollEvent(event)) {
@@ -24,13 +26,23 @@ std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs() {
             }
             case sf::Event::KeyReleased: {
                 sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
+                std::cerr << "Mouse pos is: " << mouseWinPos.x << " , " << mouseWinPos.y << '\n';
                 m_inputArray[m_currentInput] = TwoHalfD::Event::KeyReleased(event.key.code, mouseWinPos.x, mouseWinPos.y);
+                ++m_currentInput;
+                break;
+            }
+            case sf::Event::MouseMoved: {
+                XYVector mouseDelta = m_engineContext.currentMousePosition - XYVector{ event.mouseMove.x, event.mouseMove.y };
+                m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
+                m_engineContext.currentMousePosition = { event.mouseMove.x, event.mouseMove.y };
+                m_inputArray[m_currentInput] = TwoHalfD::Event::MouseMoved(event.mouseMove.x, event.mouseMove.y, mouseDelta);
                 ++m_currentInput;
             }
             default:
                 break;
         }
     }
+    backgroundFrameUpdates();
     return std::span<const TwoHalfD::Event>(m_inputArray.data(), m_currentInput);
 }
 
@@ -38,8 +50,44 @@ void TwoHalfD::Engine::clearFrameInputs() {
     m_currentInput = 0;
 }
 
+void TwoHalfD::Engine::backgroundFrameUpdates() {
+    //Calculate current context
+    if (m_engineState == TwoHalfD::EngineState::fpsState) {
+        XYVector middleScreen = { m_engineSettings.windowDim.x / 2, m_engineSettings.windowDim.y / 2 };
+        sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
+        XYVector mousePosition = { mouseWinPos.x, mouseWinPos.y };
+        m_engineContext.MouseDelta = mousePosition - middleScreen;
+        m_engineContext.currentMousePosition = middleScreen;
+        m_engineContext.prevMousePosition = mousePosition;
+    }
 
 
+    //Reset stats for next iteration
+    if (m_engineState == TwoHalfD::EngineState::fpsState) {
+        sf::Mouse::setPosition({ m_engineContext.currentMousePosition.x, m_engineContext.currentMousePosition.y }, m_window);
+    }
+}
+
+
+TwoHalfD::XYVector TwoHalfD::Engine::getMouseDeltaFrame() {
+    return m_engineContext.MouseDelta;
+}
+
+//Getters and setters
+TwoHalfD::WindowDim TwoHalfD::Engine::getWindowDimension() {
+    return { m_engineSettings.windowDim.x, m_engineSettings.windowDim.y };
+}
+
+
+void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos) {
+    m_cameraPos = newPos;
+}
+
+void TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate) {
+    m_cameraPos += posUpdate;
+}
+
+//Render Logic
 void TwoHalfD::Engine::render() {
     /*
     m_window.clear(sf::Color::Black);
@@ -59,6 +107,7 @@ void TwoHalfD::Engine::render() {
     m_window.draw(sprite);
     m_window.display();
 }
+
 
 void TwoHalfD::Engine::renderFloorCeil() {
     static sf::Texture floorTileTexture;
@@ -80,7 +129,7 @@ void TwoHalfD::Engine::renderFloorCeil() {
         loaded = true;
     }
 
-    float cameraDirRad = degreeToRad(m_cameraPos.direction);
+    float cameraDirRad = m_cameraPos.direction;
     sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
     sf::Vector2f plane{-direction.y, direction.x * 0.66f};
 
@@ -110,7 +159,7 @@ void TwoHalfD::Engine::renderFloorCeil() {
 
         floorTileImage.getSize();
         sf::Vector2f floor =
-            m_cameraPos.u.posf / textureSize + rowDistance * rayDirLeft;
+            m_cameraPos.posf / textureSize + rowDistance * rayDirLeft;
 
         for (size_t x = 0; x < m_engineSettings.resolution.x; ++x)
         {
