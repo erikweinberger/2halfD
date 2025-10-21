@@ -78,6 +78,9 @@ TwoHalfD::WindowDim TwoHalfD::Engine::getWindowDimension() {
     return { m_engineSettings.windowDim.x, m_engineSettings.windowDim.y };
 }
 
+TwoHalfD::Position TwoHalfD::Engine::getCameraPosition() {
+    return m_cameraPos;
+}
 
 void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos) {
     m_cameraPos = newPos;
@@ -99,6 +102,7 @@ void TwoHalfD::Engine::render() {
     */
     
     this->renderFloorCeil();
+    this->renderWalls();
     
     m_renderTexture.display();
     sf::Sprite sprite(m_renderTexture.getTexture());
@@ -106,6 +110,16 @@ void TwoHalfD::Engine::render() {
                     static_cast<float>(m_engineSettings.windowDim.y) / m_engineSettings.resolution.y);
     m_window.draw(sprite);
     m_window.display();
+}
+
+
+void TwoHalfD::Engine::renderWalls() {
+    float lowerBoundingAngle = m_cameraPos.direction;
+    lowerBoundingAngle  = std::fmod(lowerBoundingAngle, 2 * std::numbers::pi_v<float>);
+    if (lowerBoundingAngle < 0) lowerBoundingAngle += 2 * std::numbers::pi_v<float>;
+    for (int i = 0; i < 120; ++i) {
+        
+    }
 }
 
 

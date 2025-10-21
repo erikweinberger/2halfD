@@ -6,6 +6,8 @@
 #include <vector>
 #include <iostream>
 #include <span>
+#include <cmath>
+#include <numbers>
 
 #include "engine_types.h"
 
@@ -49,7 +51,8 @@ public:
     void clearFrameInputs();
     void backgroundFrameUpdates();
     XYVector getMouseDeltaFrame();
-
+    
+    TwoHalfD::Position getCameraPosition();
     void setCameraPosition(const Position & newPos);
     void updateCameraPosition(const Position &posUpdate);
     WindowDim getWindowDimension();
@@ -59,6 +62,7 @@ public:
 
     // RENDER FUNCTIONS
     void render();
+    void renderWalls();
     void renderFloorCeil();
 
 };
