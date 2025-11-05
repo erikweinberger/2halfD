@@ -8,7 +8,7 @@ Makefile
 
 # Formatters and lsp
 .clangd
-.clangd-format
+.clang-format
 
 # Binaries
 *.o
@@ -20,4 +20,5 @@ Makefile
 *.so
 *.dll
 *.dylib
+.cache/
 
