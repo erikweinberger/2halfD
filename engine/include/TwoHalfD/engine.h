@@ -2,6 +2,7 @@
 #define ENGINE_H
 
 #include <SFML/Graphics.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 #include <cmath>
 #include <iostream>
 #include <numbers>
@@ -22,8 +23,7 @@ class Engine
     EngineState m_engineState;
     EngineContext m_engineContext;
     Level m_level;
-    Position m_cameraPos;
-    float m_cameraHeight;
+    CameraObject m_cameraObject;
     std::array<Event, 512> m_inputArray{};
     int m_currentInput{0};
 
@@ -31,15 +31,16 @@ class Engine
     sf::RenderWindow m_window;
     sf::RenderWindow m_window_above;
     sf::RenderTexture m_renderTexture;
+    TwoHalfD::RenderZBuffer m_renderZBuffer{};
     std::unordered_map<int, sf::Texture> m_textures;
 
   public:
     Engine() = default;
 
     Engine(const EngineSettings &engineSettings)
-        : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_engineContext(), m_level(), m_cameraPos(),
+        : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_engineContext(), m_level(), m_cameraObject(),
           m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
-          m_window_above(sf::VideoMode(1920, 1080), "Mini Map")
+          m_window_above(sf::VideoMode(1, 1), "Mini Map"), m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)})
     {
         m_renderTexture.create(engineSettings.resolution.x, engineSettings.resolution.y);
         m_engineState = EngineState::initlised;
@@ -62,6 +63,7 @@ class Engine
     // RENDER FUNCTIONS
     void renderAbove();
     void render();
+    void renderObjects();
     void renderWalls();
     void renderFloor();
 };

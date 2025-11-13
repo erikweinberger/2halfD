@@ -1,13 +1,18 @@
 #include "TwoHalfD/engine_types.h"
 #include "utils/mathUtil.h"
+#include <SFML/Graphics/BlendMode.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/RenderStates.hpp>
 #include <SFML/Graphics/Shader.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/Vertex.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <TwoHalfD/engine.h>
 #include <cmath>
 #include <cstdio>
+#include <queue>
 
 void TwoHalfD::Engine::loadLevel(const Level &level)
 {
@@ -15,7 +20,7 @@ void TwoHalfD::Engine::loadLevel(const Level &level)
     this->m_level = level;
     m_window.setMouseCursorVisible(false);
 
-    m_cameraHeight = level.cameraHeightStart;
+    m_cameraObject.cameraHeight = level.cameraHeightStart;
 
     // Add proper loading later
     // for (auto texture : m_level.textures) {
@@ -26,10 +31,25 @@ void TwoHalfD::Engine::loadLevel(const Level &level)
     tex.setRepeated(true);
     m_textures[1] = tex;
 
+    sf::Texture tex2;
+    tex2.setRepeated(false);
+    tex2.loadFromFile("../assets/textures/enemy_1.png");
+    tex2.setRepeated(false);
+    tex2.setSmooth(false);
+    m_textures[2] = tex2;
+
     Wall wall{1, {300, 256}, {1000, 256}, 256, 1};
     m_level.walls = {wall};
     Wall wall2{1, {0, 512}, {300, 256}, 256, 1};
     m_level.walls.push_back(wall2);
+
+    TwoHalfD::Position spritePos{384, 512, 0};
+    TwoHalfD::SpriteEntity sprite1{1, spritePos, 32, 128, 2, 1};
+    m_level.sprites = {sprite1};
+
+    TwoHalfD::Position spritePos2{384, 400, 0};
+    TwoHalfD::SpriteEntity sprite2{2, spritePos2, 32, 128, 2, 1};
+    m_level.sprites.push_back(sprite2);
 }
 
 // Game Inputs
@@ -117,17 +137,17 @@ TwoHalfD::WindowDim TwoHalfD::Engine::getWindowDimension()
 
 TwoHalfD::Position TwoHalfD::Engine::getCameraPosition()
 {
-    return m_cameraPos;
+    return m_cameraObject.cameraPos;
 }
 
 void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos)
 {
-    m_cameraPos = newPos;
+    m_cameraObject.cameraPos = newPos;
 }
 
 void TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate)
 {
-    m_cameraPos += posUpdate;
+    m_cameraObject.cameraPos += posUpdate;
 }
 
 void TwoHalfD::Engine::setState(TwoHalfD::EngineState newState)
@@ -192,11 +212,12 @@ void TwoHalfD::Engine::renderAbove()
 // Render Logic
 void TwoHalfD::Engine::render()
 {
-    renderAbove();
+    // renderAbove();
     m_window.clear(sf::Color::Black);
-    m_renderTexture.clear(sf::Color::Black);
-    this->renderFloor();
-    this->renderWalls();
+    m_renderTexture.clear(sf::Color::Transparent);
+    renderFloor();
+    renderWalls();
+    renderObjects();
 
     m_renderTexture.display();
     sf::Sprite sprite(m_renderTexture.getTexture());
@@ -206,11 +227,129 @@ void TwoHalfD::Engine::render()
     m_window.display();
 }
 
+void TwoHalfD::Engine::renderObjects()
+{
+    float cameraDirRad = m_cameraObject.cameraPos.direction;
+    sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
+    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
+    const float planeLen = std::sqrt(plane.x * plane.x + plane.y * plane.y);
+    const sf::Vector2f normalizedPlane = {plane.x / planeLen, plane.y / planeLen};
+
+    float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
+
+    for (int x = 0; x < m_engineSettings.numRays; ++x)
+    {
+        float cameraX =
+            2.0f * x * (1.0f * m_engineSettings.resolution.x / m_engineSettings.numRays) / static_cast<float>(m_engineSettings.resolution.x) - 1.0f;
+        sf::Vector2f rayDir = direction + plane * cameraX;
+        float rayLength = std::sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y);
+        rayDir.x /= rayLength;
+        rayDir.y /= rayLength;
+
+        float rayDirX = rayDir.x;
+        float rayDirY = rayDir.y;
+
+        auto cmp = [](const auto &a, const auto &b) { return a.first < b.first; };
+
+        std::priority_queue<std::pair<float, TwoHalfD::SpriteEntity>, std::vector<std::pair<float, TwoHalfD::SpriteEntity>>, decltype(cmp)>
+            spriteOrderedDistance(cmp);
+        for (const auto &object : m_level.sprites)
+        {
+            if (object.textureId == -1)
+                continue;
+            // https://en.wikipedia.org/wiki/Line–line_intersection
+            const float x1 = m_cameraObject.cameraPos.pos.x, y1 = m_cameraObject.cameraPos.pos.y;
+            const float x2 = x1 + 1000.0f * rayDirX, y2 = y1 + 1000.0f * rayDirY;
+
+            const float x3 = object.pos.posf.x + object.radius * normalizedPlane.x, y3 = object.pos.posf.y + object.radius * normalizedPlane.y;
+            const float x4 = object.pos.posf.x - object.radius * normalizedPlane.x, y4 = object.pos.posf.y - object.radius * normalizedPlane.y;
+
+            float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+            if (std::abs(denom) < 0.00001f)
+                continue;
+
+            float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
+            float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
+
+            float t = numeratorT / denom;
+            float u = numeratorU / denom;
+
+            if (u < 0 || u > 1 || t < 0)
+                continue;
+
+            spriteOrderedDistance.push({t * 1000.0f, object});
+        }
+
+        while (!spriteOrderedDistance.empty())
+        {
+            const auto distSpritePair = spriteOrderedDistance.top();
+            spriteOrderedDistance.pop();
+            const float distToSprite = distSpritePair.first;
+            const TwoHalfD::SpriteEntity currSprite = distSpritePair.second;
+            const auto &textureIt = m_textures.find(currSprite.textureId);
+            if (textureIt == m_textures.end())
+            {
+                exit(1);
+            }
+            const sf::Texture &tex = textureIt->second;
+            const sf::Vector2u texSize = tex.getSize();
+
+            float perpWorldDistance = distToSprite * (rayDirX * direction.x + rayDirY * direction.y);
+
+            const float bottomOfSpriteScreen = focalLength * m_cameraObject.cameraHeight / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+            const float topSpriteScreen =
+                focalLength * (m_cameraObject.cameraHeight - currSprite.height) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+
+            const float spriteHeightScreen = bottomOfSpriteScreen - topSpriteScreen;
+
+            const sf::Vector2f spriteStartPos = {currSprite.pos.posf.x - currSprite.radius * normalizedPlane.x,
+                                                 currSprite.pos.posf.y - currSprite.radius * normalizedPlane.y};
+            const sf::Vector2f spriteEndPos = {currSprite.pos.posf.x + currSprite.radius * normalizedPlane.x,
+                                               currSprite.pos.posf.y + currSprite.radius * normalizedPlane.y};
+
+            const float intersectX = m_cameraObject.cameraPos.pos.x + distToSprite * rayDirX;
+            const float intersectY = m_cameraObject.cameraPos.pos.y + distToSprite * rayDirY;
+
+            float spriteDirX = spriteEndPos.x - spriteStartPos.x;
+            float spriteDirY = spriteEndPos.y - spriteStartPos.y;
+            const float wallLen = std::sqrtf(spriteDirX * spriteDirX + spriteDirY * spriteDirY);
+
+            spriteDirX /= wallLen;
+            spriteDirY /= wallLen;
+
+            const float toIntersectX = intersectX - spriteStartPos.x;
+            const float toIntersectY = intersectY - spriteStartPos.y;
+
+            float lenToIntercept = toIntersectX * spriteDirX + toIntersectY * spriteDirY;
+            float texX = (lenToIntercept / (2.0f * currSprite.radius)) * texSize.x;
+
+            texX = std::max(0.0f, std::min(texX, static_cast<float>(texSize.x - 1)));
+
+            int sliceWidth = m_engineSettings.resolution.x / m_engineSettings.numRays;
+
+            sf::Sprite sprite;
+            sprite.setTexture(tex);
+            sf::IntRect subRect(static_cast<int>(texX), 0, sliceWidth, texSize.y);
+            sprite.setTextureRect(subRect);
+            sprite.setScale(1.0f, spriteHeightScreen / texSize.y);
+            sprite.setPosition(x * sliceWidth, topSpriteScreen);
+
+            float shade = std::min(1.0f, 256.0f / distToSprite);
+            sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
+
+            sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
+
+            m_renderTexture.resetGLStates();
+            m_renderTexture.draw(sprite, sf::RenderStates(sf::BlendAlpha));
+        }
+    }
+}
+
 void TwoHalfD::Engine::renderWalls()
 {
-    float cameraDirRad = m_cameraPos.direction;
+    float cameraDirRad = m_cameraObject.cameraPos.direction;
     sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
-    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale}; // Match floor renderer!
+    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
 
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
 
@@ -228,18 +367,20 @@ void TwoHalfD::Engine::renderWalls()
         float rayDirY = rayDir.y;
 
         float shortestDist = std::numeric_limits<float>::max();
+        // Test opt removing pointer later
         TwoHalfD::Wall *nearestWall = nullptr;
 
         for (auto &wall : m_level.walls)
         {
-            float x1 = m_cameraPos.pos.x, y1 = m_cameraPos.pos.y;
+            // https://en.wikipedia.org/wiki/Line–line_intersection
+            float x1 = m_cameraObject.cameraPos.pos.x, y1 = m_cameraObject.cameraPos.pos.y;
             float x2 = x1 + 1000.0f * rayDirX, y2 = y1 + 1000.0f * rayDirY;
 
             float x3 = wall.start.x, y3 = wall.start.y;
             float x4 = wall.end.x, y4 = wall.end.y;
 
             float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-            if (std::abs(denom) < 0.0001f)
+            if (std::abs(denom) < 0.00001f)
                 continue;
 
             float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
@@ -275,13 +416,13 @@ void TwoHalfD::Engine::renderWalls()
         float perpWorldDistance = actualDistance * (rayDirX * direction.x + rayDirY * direction.y);
 
         // move the following around by making (pixelsFromCenterY the subject)
-        // float perpWorldDistance = (m_cameraHeight * focalLength) / pixelsFromCenterY;
-        float bottomWall = focalLength * m_cameraHeight / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
-        float topWall = focalLength * (m_cameraHeight - nearestWall->height) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+        // float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;
+        float bottomWall = focalLength * m_cameraObject.cameraHeight / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+        float topWall = focalLength * (m_cameraObject.cameraHeight - nearestWall->height) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
         float wallHeight = bottomWall - topWall;
 
-        float intersectX = m_cameraPos.pos.x + actualDistance * rayDirX;
-        float intersectY = m_cameraPos.pos.y + actualDistance * rayDirY;
+        float intersectX = m_cameraObject.cameraPos.pos.x + actualDistance * rayDirX;
+        float intersectY = m_cameraObject.cameraPos.pos.y + actualDistance * rayDirY;
 
         float wallDirX = nearestWall->end.x - nearestWall->start.x;
         float wallDirY = nearestWall->end.y - nearestWall->start.y;
@@ -334,7 +475,7 @@ void TwoHalfD::Engine::renderFloor()
         loaded = true;
     }
 
-    sf::Vector2f direction{std::cos(m_cameraPos.direction), std::sin(m_cameraPos.direction)};
+    sf::Vector2f direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
     sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
 
     sf::VertexArray floorVertices(sf::Points);
@@ -353,7 +494,7 @@ void TwoHalfD::Engine::renderFloor()
     {
         float pixelsFromCenterY = y - m_engineSettings.resolution.y / 2.0f;
 
-        float perpWorldDistance = (m_cameraHeight * focalLength) / pixelsFromCenterY;
+        float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;
 
         if (perpWorldDistance > 3000.0f)
         {
@@ -370,7 +511,7 @@ void TwoHalfD::Engine::renderFloor()
             rayDir.y /= rayLength;
 
             float realRayDist = perpWorldDistance / (rayDir.x * direction.x + rayDir.y * direction.y);
-            sf::Vector2f floorPos{m_cameraPos.pos.x + rayDir.x * realRayDist, m_cameraPos.pos.y + rayDir.y * realRayDist};
+            sf::Vector2f floorPos{m_cameraObject.cameraPos.pos.x + rayDir.x * realRayDist, m_cameraObject.cameraPos.pos.y + rayDir.y * realRayDist};
 
             sf::Vector2f texPos = floorPos / textureSize;
             sf::Vector2i cell{static_cast<int>(std::floor(texPos.x)), static_cast<int>(std::floor(texPos.y))};

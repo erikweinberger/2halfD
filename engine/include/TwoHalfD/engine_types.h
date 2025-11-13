@@ -105,18 +105,22 @@ struct SpriteEntity
 {
     int id;
     TwoHalfD::Position pos;
+    int radius;
+    int height;
     int textureId;
     float scale;
 };
 
 struct EngineSettings
 {
-    sf::Vector2i windowDim = {1920, 1080};
+    sf::Vector2i windowDim = {960, 540};
     sf::Vector2i resolution = {960, 540};
     float aspectRatio = 16.f / 9.f;
     float fov = std::numbers::pi_v<float> / 3.f;
     float fovScale = std::tan(fov / 2);
     int numRays = 960;
+
+    bool cameraCollision = true;
 
     EngineSettings() = default;
 };
@@ -134,6 +138,18 @@ struct EngineContext
     XYVector prevMousePosition = {0, 0};
     XYVector currentMousePosition = {0, 0};
     XYVector MouseDelta = {0, 0};
+};
+
+struct CameraObject
+{
+    Position cameraPos{500, 500, 0};
+    float cameraHeight{128};
+    float cameraRadius{0};
+};
+
+struct RenderZBuffer
+{
+    std::vector<float> nearestWallRayDist;
 };
 
 struct Event
@@ -257,17 +273,6 @@ enum class EngineState
     fpsState,
     ended,
     paused
-};
-
-struct VerticalSlice
-{
-    const Wall *wall = nullptr;
-
-    int rayIndex = 0;
-    float distance = 0.f;
-    int screenHeight = 0;
-    int screenWidth = 0;
-    const sf::Texture *texture = nullptr;
 };
 
 } // namespace TwoHalfD
