@@ -10,9 +10,12 @@
 #include <SFML/Graphics/Vertex.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <TwoHalfD/engine.h>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <queue>
+#include <thread>
 
 void TwoHalfD::Engine::loadLevel(const Level &level)
 {
@@ -47,7 +50,7 @@ void TwoHalfD::Engine::loadLevel(const Level &level)
     TwoHalfD::SpriteEntity sprite1{1, spritePos, 32, 128, 2, 1};
     m_level.sprites = {sprite1};
 
-    TwoHalfD::Position spritePos2{384, 400, 0};
+    TwoHalfD::Position spritePos2{384, 200, 0};
     TwoHalfD::SpriteEntity sprite2{2, spritePos2, 32, 128, 2, 1};
     m_level.sprites.push_back(sprite2);
 }
@@ -124,12 +127,17 @@ void TwoHalfD::Engine::backgroundFrameUpdates()
     }
 }
 
+bool TwoHalfD::Engine::gameDeltaTimePassed()
+{
+    return m_engineClocks.gameTimeDelta.timeDeltaPassed();
+}
+
+// Getters and setters
 TwoHalfD::XYVector TwoHalfD::Engine::getMouseDeltaFrame()
 {
     return m_engineContext.MouseDelta;
 }
 
-// Getters and setters
 TwoHalfD::WindowDim TwoHalfD::Engine::getWindowDimension()
 {
     return {m_engineSettings.windowDim.x, m_engineSettings.windowDim.y};
@@ -212,6 +220,11 @@ void TwoHalfD::Engine::renderAbove()
 // Render Logic
 void TwoHalfD::Engine::render()
 {
+    if (!m_engineClocks.graphicsTimeDelta.timeDeltaPassed())
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return;
+    }
     // renderAbove();
     m_window.clear(sf::Color::Black);
     m_renderTexture.clear(sf::Color::Transparent);
@@ -274,7 +287,7 @@ void TwoHalfD::Engine::renderObjects()
             float t = numeratorT / denom;
             float u = numeratorU / denom;
 
-            if (u < 0 || u > 1 || t < 0)
+            if (u < 0 || u > 1 || t < 0 || t * 1000 >= m_renderZBuffer.nearestWallRayDist[x])
                 continue;
 
             spriteOrderedDistance.push({t * 1000.0f, object});
@@ -339,8 +352,7 @@ void TwoHalfD::Engine::renderObjects()
 
             sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
 
-            m_renderTexture.resetGLStates();
-            m_renderTexture.draw(sprite, sf::RenderStates(sf::BlendAlpha));
+            m_renderTexture.draw(sprite);
         }
     }
 }
@@ -399,8 +411,14 @@ void TwoHalfD::Engine::renderWalls()
             }
         }
 
+        m_renderZBuffer.nearestWallRayDist[x] = std::numeric_limits<float>::max();
+
         if (nearestWall == nullptr)
             continue;
+
+        float actualDistance = shortestDist * 1000.0f;
+        m_renderZBuffer.nearestWallRayDist[x] = actualDistance;
+        float perpWorldDistance = actualDistance * (rayDirX * direction.x + rayDirY * direction.y);
 
         auto it = m_textures.find(nearestWall->textureId);
         if (it == m_textures.end())
@@ -410,10 +428,6 @@ void TwoHalfD::Engine::renderWalls()
         }
         sf::Texture &tex = it->second;
         sf::Vector2u texSize = tex.getSize();
-
-        float actualDistance = shortestDist * 1000.0f;
-
-        float perpWorldDistance = actualDistance * (rayDirX * direction.x + rayDirY * direction.y);
 
         // move the following around by making (pixelsFromCenterY the subject)
         // float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;

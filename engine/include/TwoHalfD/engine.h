@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "engine_types.h"
+#include "time_delta.h"
 
 namespace TwoHalfD
 {
@@ -24,6 +25,9 @@ class Engine
     EngineContext m_engineContext;
     Level m_level;
     CameraObject m_cameraObject;
+
+    EngineClocks m_engineClocks;
+
     std::array<Event, 512> m_inputArray{};
     int m_currentInput{0};
 
@@ -39,6 +43,7 @@ class Engine
 
     Engine(const EngineSettings &engineSettings)
         : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_engineContext(), m_level(), m_cameraObject(),
+          m_engineClocks(EngineClocks{m_engineSettings.graphicsFpsCap, m_engineSettings.gameFpsCap}),
           m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
           m_window_above(sf::VideoMode(1, 1), "Mini Map"), m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)})
     {
@@ -49,6 +54,8 @@ class Engine
     void loadLevel(const Level &level);
     EngineState getState();
     void setState(TwoHalfD::EngineState newState);
+
+    bool gameDeltaTimePassed();
 
     std::span<const TwoHalfD::Event> getFrameInputs();
     void clearFrameInputs();

@@ -12,8 +12,11 @@ void Game::run()
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
            m_engine.getState() == TwoHalfD::EngineState::paused)
     {
-        handleFrameInputs();
-        updateGameState();
+        if (m_engine.gameDeltaTimePassed())
+        {
+            handleFrameInputs();
+            updateGameState();
+        }
         m_engine.render();
     }
 }

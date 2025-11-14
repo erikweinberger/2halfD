@@ -3,6 +3,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <limits>
 #include <numbers>
 #include <span>
 #include <unordered_map>
@@ -62,11 +63,6 @@ struct Position
 
     Position &operator+=(const Position &other)
     {
-        if (other.direction != 0.f)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-            std::cerr << "Position direction other: " << other.direction << '\n';
-        }
         pos.x += other.pos.x;
         pos.y += other.pos.y;
         direction += other.direction;
@@ -119,6 +115,9 @@ struct EngineSettings
     float fov = std::numbers::pi_v<float> / 3.f;
     float fovScale = std::tan(fov / 2);
     int numRays = 960;
+
+    double graphicsFpsCap = 30.0;
+    double gameFpsCap = 20.0;
 
     bool cameraCollision = true;
 
