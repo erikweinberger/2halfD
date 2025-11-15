@@ -70,6 +70,7 @@ class Engine
     // RENDER FUNCTIONS
     void renderAbove();
     void render();
+    void renderOverlays();
     void renderObjects();
     void renderWalls();
     void renderFloor();

@@ -225,13 +225,13 @@ void TwoHalfD::Engine::render()
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         return;
     }
-    std::cout << "Average FPS: " << m_engineClocks.getAverageGraphicsFps() << '\n';
     // renderAbove();
     m_window.clear(sf::Color::Black);
     m_renderTexture.clear(sf::Color::Transparent);
     renderFloor();
     renderWalls();
     renderObjects();
+    renderOverlays();
 
     m_renderTexture.display();
     sf::Sprite sprite(m_renderTexture.getTexture());
@@ -239,6 +239,29 @@ void TwoHalfD::Engine::render()
                     static_cast<float>(m_engineSettings.windowDim.y) / m_engineSettings.resolution.y);
     m_window.draw(sprite);
     m_window.display();
+}
+
+void TwoHalfD::Engine::renderOverlays()
+{
+    static bool loaded = false;
+    static sf::Font font;
+    if (!loaded)
+    {
+        font.loadFromFile("../assets/fonts/RasterForgeRegular-JpBgm.ttf");
+        loaded = true;
+    }
+
+    sf::Text text;
+    text.setFont(font);
+
+    std::string fpsString = "Fps: " + std::to_string(static_cast<int>(std::round(m_engineClocks.getAverageGraphicsFps())));
+    text.setString(fpsString);
+
+    text.setCharacterSize(24);
+    text.setFillColor(sf::Color::Yellow);
+
+    text.setPosition(m_engineSettings.resolution.x - 120, m_engineSettings.resolution.y - 50);
+    m_renderTexture.draw(text);
 }
 
 void TwoHalfD::Engine::renderObjects()
