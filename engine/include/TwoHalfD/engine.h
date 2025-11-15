@@ -10,8 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine_clocks.h"
 #include "engine_types.h"
-#include "time_delta.h"
 
 namespace TwoHalfD
 {

@@ -129,7 +129,7 @@ void TwoHalfD::Engine::backgroundFrameUpdates()
 
 bool TwoHalfD::Engine::gameDeltaTimePassed()
 {
-    return m_engineClocks.gameTimeDelta.timeDeltaPassed();
+    return m_engineClocks.gameTimeDeltaPassed();
 }
 
 // Getters and setters
@@ -220,11 +220,12 @@ void TwoHalfD::Engine::renderAbove()
 // Render Logic
 void TwoHalfD::Engine::render()
 {
-    if (!m_engineClocks.graphicsTimeDelta.timeDeltaPassed())
+    if (!m_engineClocks.graphicsTimeDeltaPassed())
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         return;
     }
+    std::cout << "Average FPS: " << m_engineClocks.getAverageGraphicsFps() << '\n';
     // renderAbove();
     m_window.clear(sf::Color::Black);
     m_renderTexture.clear(sf::Color::Transparent);

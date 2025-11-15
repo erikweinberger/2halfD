@@ -116,8 +116,8 @@ struct EngineSettings
     float fovScale = std::tan(fov / 2);
     int numRays = 960;
 
-    double graphicsFpsCap = 30.0;
-    double gameFpsCap = 20.0;
+    double graphicsFpsCap = 100.0;
+    double gameFpsCap = 60.0;
 
     bool cameraCollision = true;
 
