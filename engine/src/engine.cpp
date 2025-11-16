@@ -3,6 +3,7 @@
 #include <SFML/Graphics/BlendMode.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/RenderStates.hpp>
 #include <SFML/Graphics/Shader.hpp>
 #include <SFML/Graphics/Sprite.hpp>
@@ -109,7 +110,8 @@ void TwoHalfD::Engine::backgroundFrameUpdates()
     // Calculate current context
     if (m_engineState == TwoHalfD::EngineState::fpsState)
     {
-        XYVector middleScreen = {m_engineSettings.windowDim.x / 2, m_engineSettings.windowDim.y / 2};
+        static XYVector middleScreen = {m_engineSettings.windowDim.x / 2, m_engineSettings.windowDim.y / 2};
+        std::cerr << "Middle of screen is (x, y)" << middleScreen.x << " , " << middleScreen.y << '\n';
         sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
         XYVector mousePosition = {mouseWinPos.x, mouseWinPos.y};
         m_engineContext.MouseDelta = mousePosition - middleScreen;
@@ -501,23 +503,17 @@ void TwoHalfD::Engine::renderFloor()
     static bool loaded = false;
 
     const char *floor_path{"../assets/textures/pattern_24.png"};
-
     if (!loaded)
     {
         if (!floorTileTexture.loadFromFile(floor_path))
         {
-            std::cout << "Error loading floor texture." << std::endl;
+
+            std::cerr << "Error loading floor texture." << std::endl;
             return;
         }
         floorTileImage = floorTileTexture.copyToImage();
         loaded = true;
     }
-
-    sf::Vector2f direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
-    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
-
-    sf::VertexArray floorVertices(sf::Points);
-    floorVertices.resize(m_engineSettings.resolution.x * (m_engineSettings.resolution.y / 2));
 
     float textureSize = floorTileTexture.getSize().x;
     if (floorTileTexture.getSize().x != floorTileTexture.getSize().y)
@@ -526,53 +522,85 @@ void TwoHalfD::Engine::renderFloor()
         exit(1);
     }
 
+    const int numThreads = 4;
+    const int startY = m_engineSettings.resolution.y / 2;
+    const int endY = m_engineSettings.resolution.y;
+    const int rowsPerThread = (endY - startY) / numThreads;
+
+    std::vector<std::thread> threads;
+    std::vector<sf::VertexArray> vertexArrays(numThreads, sf::VertexArray());
+
+    sf::VertexArray floorVertices(sf::Points);
+    floorVertices.resize(m_engineSettings.resolution.x * (m_engineSettings.resolution.y / 2));
+
+    sf::Vector2f direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
+    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
 
-    for (int y = m_engineSettings.resolution.y / 2; y < m_engineSettings.resolution.y; ++y)
+    for (int t = 0; t < numThreads; ++t)
     {
-        float pixelsFromCenterY = y - m_engineSettings.resolution.y / 2.0f;
 
-        float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;
+        int yStart = startY + t * rowsPerThread;
+        int yEnd = (t == numThreads - 1) ? endY : yStart + rowsPerThread;
 
-        if (perpWorldDistance > 3000.0f)
-        {
-            continue;
-        }
+        threads.emplace_back(
+            [&, t, yStart, yEnd]()
+            {
+                vertexArrays[t].setPrimitiveType(sf::Points);
+                vertexArrays[t].resize(m_engineSettings.resolution.x * (yEnd - yStart));
 
-        for (int x = 0; x < m_engineSettings.resolution.x; ++x)
-        {
-            float cameraX = 2.0f * x / static_cast<float>(m_engineSettings.resolution.x) - 1.0f;
-            sf::Vector2f rayDir = direction + plane * cameraX;
+                for (int y = yStart; y < yEnd; ++y)
+                {
+                    float pixelsFromCenterY = y - m_engineSettings.resolution.y / 2.0f;
+                    float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;
 
-            float rayLength = std::sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y);
-            rayDir.x /= rayLength;
-            rayDir.y /= rayLength;
+                    if (perpWorldDistance > 3000.0f)
+                    {
+                        continue;
+                    }
 
-            float realRayDist = perpWorldDistance / (rayDir.x * direction.x + rayDir.y * direction.y);
-            sf::Vector2f floorPos{m_cameraObject.cameraPos.pos.x + rayDir.x * realRayDist, m_cameraObject.cameraPos.pos.y + rayDir.y * realRayDist};
+                    float shade = std::min(1.0f, 256.0f / perpWorldDistance);
 
-            sf::Vector2f texPos = floorPos / textureSize;
-            sf::Vector2i cell{static_cast<int>(std::floor(texPos.x)), static_cast<int>(std::floor(texPos.y))};
+                    float xCenter = 2.0f / static_cast<float>(m_engineSettings.resolution.x);
+                    for (int x = 0; x < m_engineSettings.resolution.x; ++x)
+                    {
+                        float cameraX = xCenter * x - 1.0f;
 
-            sf::Vector2f texCoords = texPos - sf::Vector2f(cell);
-            sf::Vector2i texPixel{static_cast<int>(texCoords.x * textureSize), static_cast<int>(texCoords.y * textureSize)};
+                        sf::Vector2f rayDir = direction + plane * cameraX;
 
-            texPixel.x = texPixel.x % static_cast<int>(textureSize);
-            texPixel.x = texPixel.x % static_cast<int>(textureSize);
-            // texPixel.x = texPixel.x & (static_cast<int>(textureSize) - 1); // Same only if floor size is a power of 2
-            // texPixel.y = texPixel.y & (static_cast<int>(textureSize) - 1);
+                        float realRayDist = perpWorldDistance / (rayDir.x * direction.x + rayDir.y * direction.y);
+                        sf::Vector2f floorPos{m_cameraObject.cameraPos.pos.x + rayDir.x * realRayDist,
+                                              m_cameraObject.cameraPos.pos.y + rayDir.y * realRayDist};
 
-            sf::Color color = floorTileImage.getPixel(static_cast<unsigned int>(texPixel.x), static_cast<unsigned int>(texPixel.y));
+                        sf::Vector2f texPos = floorPos / textureSize;
+                        sf::Vector2i cell{static_cast<int>(std::floor(texPos.x)), static_cast<int>(std::floor(texPos.y))};
 
-            float shade = std::min(1.0f, 256.0f / perpWorldDistance);
-            color.r *= shade;
-            color.g *= shade;
-            color.b *= shade;
+                        sf::Vector2f texCoords = texPos - sf::Vector2f(cell);
+                        sf::Vector2i texPixel{static_cast<int>(texCoords.x * textureSize), static_cast<int>(texCoords.y * textureSize)};
 
-            sf::Vertex pixel(sf::Vector2f(x, y), color);
-            floorVertices[(y - m_engineSettings.resolution.y / 2) * m_engineSettings.resolution.x + x] = pixel;
-        }
+                        texPixel.x = texPixel.x % static_cast<int>(textureSize);
+                        texPixel.y = texPixel.y % static_cast<int>(textureSize);
+
+                        sf::Color color = floorTileImage.getPixel(static_cast<unsigned int>(texPixel.x), static_cast<unsigned int>(texPixel.y));
+
+                        color.r *= shade;
+                        color.g *= shade;
+                        color.b *= shade;
+
+                        sf::Vertex pixel(sf::Vector2f(x, y), color);
+                        vertexArrays[t][(y - yStart) * m_engineSettings.resolution.x + x] = pixel;
+                    }
+                }
+            });
     }
 
-    m_renderTexture.draw(floorVertices);
+    for (auto &thread : threads)
+    {
+        thread.join();
+    }
+
+    for (auto &va : vertexArrays)
+    {
+        m_renderTexture.draw(va);
+    }
 }
