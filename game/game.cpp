@@ -137,7 +137,6 @@ void Game::handleMouseMoveEvent(const TwoHalfD::Event &event)
     newAngle = std::fmod(newAngle, 2 * std::numbers::pi_v<float>);
     if (newAngle < 0)
         newAngle += 2 * std::numbers::pi_v<float>;
-    std::cerr << "Moving mouse new angle: " << newAngle << '\n';
     m_gameState.playerState.playerPos.direction = newAngle;
 }
 
