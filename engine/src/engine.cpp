@@ -10,6 +10,7 @@
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/Vertex.hpp>
 #include <SFML/System/Vector2.hpp>
+#include <SFML/Window/Mouse.hpp>
 #include <TwoHalfD/engine.h>
 #include <chrono>
 #include <cmath>
@@ -86,11 +87,25 @@ std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs()
         }
         case sf::Event::MouseMoved:
         {
-            XYVector mouseDelta = m_engineContext.currentMousePosition - XYVector{event.mouseMove.x, event.mouseMove.y};
+            // Get position relative to window, not global screen
+            XYVector mouseWinPos = {event.mouseMove.x, event.mouseMove.y};
+            auto size = m_window.getSize();
+            static XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
+            std::cerr << "mouseWinPos: " << mouseWinPos << "and middle: " << middleScreen << '\n';
+
+            m_engineContext.MouseDelta = m_engineContext.prevMousePosition - mouseWinPos;
             m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
             m_engineContext.currentMousePosition = {event.mouseMove.x, event.mouseMove.y};
-            m_inputArray[m_currentInput] = TwoHalfD::Event::MouseMoved(event.mouseMove.x, event.mouseMove.y, mouseDelta);
+            if (std::abs(m_engineContext.MouseDelta.x) > 0.8 * middleScreen.x || std::abs(m_engineContext.MouseDelta.y) > 0.8 * middleScreen.y)
+            {
+                m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
+                std::cerr << "Too much change: " << m_engineContext.MouseDelta << '\n';
+                break;
+            }
+
+            m_inputArray[m_currentInput] = TwoHalfD::Event::MouseMoved(event.mouseMove.x, event.mouseMove.y, m_engineContext.MouseDelta);
             ++m_currentInput;
+            break;
         }
         default:
             break;
@@ -105,26 +120,19 @@ void TwoHalfD::Engine::clearFrameInputs()
     m_currentInput = 0;
 }
 
+// In backgroundFrameUpdates:
 void TwoHalfD::Engine::backgroundFrameUpdates()
 {
-    // Calculate current context
     if (m_engineState == TwoHalfD::EngineState::fpsState)
     {
-        static XYVector middleScreen = {m_engineSettings.windowDim.x / 2, m_engineSettings.windowDim.y / 2};
-        std::cerr << "Middle of screen is (x, y)" << middleScreen.x << " , " << middleScreen.y << '\n';
-        sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
-        XYVector mousePosition = {mouseWinPos.x, mouseWinPos.y};
-        m_engineContext.MouseDelta = mousePosition - middleScreen;
-        m_engineContext.currentMousePosition = middleScreen;
-        m_engineContext.prevMousePosition = mousePosition;
-    }
+        auto size = m_window.getSize();
+        static XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
+        sf::Vector2i mousePosition = sf::Mouse::getPosition(m_window);
 
-    // Reset stats for next iteration
-    if (m_engineState == TwoHalfD::EngineState::fpsState)
-    {
-        if (m_window.hasFocus())
+        if (m_window.hasFocus() && (m_engineSettings.windowDim.x - mousePosition.x < 0 || mousePosition.x < 0 ||
+                                    m_engineSettings.windowDim.y - mousePosition.y < 0 || mousePosition.y < 0))
         {
-            sf::Mouse::setPosition({m_engineContext.currentMousePosition.x, m_engineContext.currentMousePosition.y}, m_window);
+            sf::Mouse::setPosition({middleScreen.x, middleScreen.y}, m_window);
         }
     }
 }
@@ -140,7 +148,7 @@ TwoHalfD::XYVector TwoHalfD::Engine::getMouseDeltaFrame()
     return m_engineContext.MouseDelta;
 }
 
-TwoHalfD::WindowDim TwoHalfD::Engine::getWindowDimension()
+TwoHalfD::XYVector TwoHalfD::Engine::getWindowDimension()
 {
     return {m_engineSettings.windowDim.x, m_engineSettings.windowDim.y};
 }
@@ -170,54 +178,54 @@ TwoHalfD::EngineState TwoHalfD::Engine::getState()
     return this->m_engineState;
 }
 
-void TwoHalfD::Engine::renderAbove()
-{
-    m_window_above.clear(sf::Color::Black);
+// void TwoHalfD::Engine::renderAbove()
+// {
+//     m_window_above.clear(sf::Color::Black);
 
-    for (int i = 0; i < 1920; i += 256)
-    {
-        sf::VertexArray lines(sf::LinesStrip, 2);
-        lines[0].position = sf::Vector2f(i, 0);
-        lines[1].position = sf::Vector2f(i, 1080);
-        lines[0].color = sf::Color::Yellow;
-        lines[1].color = sf::Color::Yellow;
-        m_window_above.draw(lines);
-    }
-    for (int i = 0; i < 1080; i += 256)
-    {
-        sf::VertexArray lines(sf::LinesStrip, 2);
-        lines[0].position = sf::Vector2f(0, i);
-        lines[1].position = sf::Vector2f(1920, i);
-        lines[0].color = sf::Color::Yellow;
-        lines[1].color = sf::Color::Yellow;
-        m_window_above.draw(lines);
-    }
+//     for (int i = 0; i < 1920; i += 256)
+//     {
+//         sf::VertexArray lines(sf::LinesStrip, 2);
+//         lines[0].position = sf::Vector2f(i, 0);
+//         lines[1].position = sf::Vector2f(i, 1080);
+//         lines[0].color = sf::Color::Yellow;
+//         lines[1].color = sf::Color::Yellow;
+//         m_window_above.draw(lines);
+//     }
+//     for (int i = 0; i < 1080; i += 256)
+//     {
+//         sf::VertexArray lines(sf::LinesStrip, 2);
+//         lines[0].position = sf::Vector2f(0, i);
+//         lines[1].position = sf::Vector2f(1920, i);
+//         lines[0].color = sf::Color::Yellow;
+//         lines[1].color = sf::Color::Yellow;
+//         m_window_above.draw(lines);
+//     }
 
-    for (auto wall : m_level.walls)
-    {
-        sf::VertexArray lines(sf::LinesStrip, 2);
-        lines[0].position = sf::Vector2f(wall.start.x, wall.start.y);
-        lines[1].position = sf::Vector2f(wall.end.x, wall.end.y);
-        lines[0].color = sf::Color::Red;
-        lines[1].color = sf::Color::Red;
-        m_window_above.draw(lines);
-    }
-    TwoHalfD::Position camP = getCameraPosition();
-    sf::CircleShape circle(10, 10);
-    circle.setFillColor(sf::Color::White);
-    circle.setPosition({100, 100});
-    circle.setPosition(camP.pos.x - 10, camP.pos.y - 10);
-    m_window_above.draw(circle);
+//     for (auto wall : m_level.walls)
+//     {
+//         sf::VertexArray lines(sf::LinesStrip, 2);
+//         lines[0].position = sf::Vector2f(wall.start.x, wall.start.y);
+//         lines[1].position = sf::Vector2f(wall.end.x, wall.end.y);
+//         lines[0].color = sf::Color::Red;
+//         lines[1].color = sf::Color::Red;
+//         m_window_above.draw(lines);
+//     }
+//     TwoHalfD::Position camP = getCameraPosition();
+//     sf::CircleShape circle(10, 10);
+//     circle.setFillColor(sf::Color::White);
+//     circle.setPosition({100, 100});
+//     circle.setPosition(camP.pos.x - 10, camP.pos.y - 10);
+//     m_window_above.draw(circle);
 
-    sf::VertexArray lines(sf::LinesStrip, 2);
-    lines[0].position = sf::Vector2f(camP.pos.x, camP.pos.y);
-    lines[1].position = sf::Vector2f(camP.pos.x + 20 * std::cos(camP.direction), camP.pos.y + 20 * std::sin(camP.direction));
-    lines[0].color = sf::Color::Red;
-    lines[1].color = sf::Color::Red;
-    m_window_above.draw(lines);
+//     sf::VertexArray lines(sf::LinesStrip, 2);
+//     lines[0].position = sf::Vector2f(camP.pos.x, camP.pos.y);
+//     lines[1].position = sf::Vector2f(camP.pos.x + 20 * std::cos(camP.direction), camP.pos.y + 20 * std::sin(camP.direction));
+//     lines[0].color = sf::Color::Red;
+//     lines[1].color = sf::Color::Red;
+//     m_window_above.draw(lines);
 
-    m_window_above.display();
-}
+//     m_window_above.display();
+// }
 
 // Render Logic
 void TwoHalfD::Engine::render()

@@ -6,6 +6,7 @@
 
 int main()
 {
+    std::cerr << "Starting\n";
     TwoHalfD::EngineSettings engineSettings;
     TwoHalfD::Engine engine(engineSettings);
 

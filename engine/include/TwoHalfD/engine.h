@@ -33,7 +33,7 @@ class Engine
 
     // RENDERCOMPONENTS
     sf::RenderWindow m_window;
-    sf::RenderWindow m_window_above;
+    // sf::RenderWindow m_window_above;
     sf::RenderTexture m_renderTexture;
     TwoHalfD::RenderZBuffer m_renderZBuffer{};
     std::unordered_map<int, sf::Texture> m_textures;
@@ -45,7 +45,8 @@ class Engine
         : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_engineContext(), m_level(), m_cameraObject(),
           m_engineClocks(EngineClocks{m_engineSettings.graphicsFpsCap, m_engineSettings.gameFpsCap}),
           m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
-          m_window_above(sf::VideoMode(1, 1), "Mini Map"), m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)})
+          // m_window_above(sf::VideoMode(1, 1), "Mini Map"),
+          m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)})
     {
         m_renderTexture.create(engineSettings.resolution.x, engineSettings.resolution.y);
         m_engineState = EngineState::initlised;
@@ -65,7 +66,7 @@ class Engine
     TwoHalfD::Position getCameraPosition();
     void setCameraPosition(const Position &newPos);
     void updateCameraPosition(const Position &posUpdate);
-    WindowDim getWindowDimension();
+    XYVector getWindowDimension();
 
     // RENDER FUNCTIONS
     void renderAbove();

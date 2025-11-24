@@ -17,10 +17,6 @@ namespace TwoHalfD
 
 using ObjectId = std::uint64_t;
 
-struct WindowDim
-{
-    int x, y;
-};
 struct XYVector
 {
     int x, y;
@@ -35,6 +31,17 @@ struct XYVector
     {
         XYVector result{this->x + other.x, this->y + other.y};
         return result;
+    }
+
+    bool operator==(const XYVector &other) const
+    {
+        return this->x == other.x && this->y == other.y;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const XYVector &v)
+    {
+        os << "(" << v.x << " , " << v.y << ")";
+        return os;
     }
 };
 

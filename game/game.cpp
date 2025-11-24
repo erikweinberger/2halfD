@@ -127,14 +127,17 @@ void Game::handleKeyReleasedEvent(const TwoHalfD::Event &event)
 void Game::handleMouseMoveEvent(const TwoHalfD::Event &event)
 {
     assert(event.type == TwoHalfD::Event::Type::MouseMoved);
-    if (event.mouseMove.x == 960 && event.mouseMove.y == 540)
+    if (event.mouseMove.x == 480 && event.mouseMove.y == 270)
+    {
         return;
+    }
 
-    TwoHalfD::XYVector mouseDelta = event.mouseMove.moveDelta; // m_engine.getMouseDeltaFrame();
+    TwoHalfD::XYVector mouseDelta = event.mouseMove.moveDelta;
     float newAngle = m_gameState.playerState.playerPos.direction - (mouseDelta.x) / 200.f;
     newAngle = std::fmod(newAngle, 2 * std::numbers::pi_v<float>);
     if (newAngle < 0)
         newAngle += 2 * std::numbers::pi_v<float>;
+    std::cerr << "Moving mouse new angle: " << newAngle << '\n';
     m_gameState.playerState.playerPos.direction = newAngle;
 }
 
