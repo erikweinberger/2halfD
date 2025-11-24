@@ -91,7 +91,6 @@ std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs()
             XYVector mouseWinPos = {event.mouseMove.x, event.mouseMove.y};
             auto size = m_window.getSize();
             static XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
-            std::cerr << "mouseWinPos: " << mouseWinPos << "and middle: " << middleScreen << '\n';
 
             m_engineContext.MouseDelta = m_engineContext.prevMousePosition - mouseWinPos;
             m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
@@ -99,7 +98,6 @@ std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs()
             if (std::abs(m_engineContext.MouseDelta.x) > 0.8 * middleScreen.x || std::abs(m_engineContext.MouseDelta.y) > 0.8 * middleScreen.y)
             {
                 m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
-                std::cerr << "Too much change: " << m_engineContext.MouseDelta << '\n';
                 break;
             }
 
