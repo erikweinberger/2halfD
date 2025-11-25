@@ -61,12 +61,18 @@ class Engine
     std::span<const TwoHalfD::Event> getFrameInputs();
     void clearFrameInputs();
     void backgroundFrameUpdates();
-    XYVector getMouseDeltaFrame();
 
+    // Getters and setters
+    XYVector getMouseDeltaFrame();
     TwoHalfD::Position getCameraPosition();
     void setCameraPosition(const Position &newPos);
     void updateCameraPosition(const Position &posUpdate);
     XYVector getWindowDimension();
+
+    std::vector<TwoHalfD::SpriteEntity> &getSpriteEntitiesInRegion();
+    std::vector<TwoHalfD::SpriteEntity> &getAllSpriteEntities();
+    std::vector<TwoHalfD::Wall> &getWallsInRegion();
+    std::vector<TwoHalfD::Wall> &getAllWalls();
 
     // RENDER FUNCTIONS
     void renderAbove();

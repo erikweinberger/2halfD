@@ -176,6 +176,23 @@ TwoHalfD::EngineState TwoHalfD::Engine::getState()
     return this->m_engineState;
 }
 
+std::vector<TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getSpriteEntitiesInRegion()
+{
+    return m_level.sprites;
+}
+std::vector<TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getAllSpriteEntities()
+{
+    return m_level.sprites;
+}
+std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getWallsInRegion()
+{
+    return m_level.walls;
+}
+std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls()
+{
+    return m_level.walls;
+}
+
 // void TwoHalfD::Engine::renderAbove()
 // {
 //     m_window_above.clear(sf::Color::Black);
@@ -298,7 +315,7 @@ void TwoHalfD::Engine::renderObjects()
 
         std::priority_queue<std::pair<float, TwoHalfD::SpriteEntity>, std::vector<std::pair<float, TwoHalfD::SpriteEntity>>, decltype(cmp)>
             spriteOrderedDistance(cmp);
-        for (const auto &object : m_level.sprites)
+        for (const auto &object : getSpriteEntitiesInRegion())
         {
             if (object.textureId == -1)
                 continue;
@@ -414,7 +431,7 @@ void TwoHalfD::Engine::renderWalls()
         // Test opt removing pointer later
         TwoHalfD::Wall *nearestWall = nullptr;
 
-        for (auto &wall : m_level.walls)
+        for (auto &wall : getWallsInRegion())
         {
             // https://en.wikipedia.org/wiki/Line–line_intersection
             float x1 = m_cameraObject.cameraPos.pos.x, y1 = m_cameraObject.cameraPos.pos.y;
