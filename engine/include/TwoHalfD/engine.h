@@ -12,6 +12,7 @@
 
 #include "engine_clocks.h"
 #include "engine_types.h"
+#include "level_maker.h"
 
 namespace TwoHalfD
 {
@@ -23,7 +24,9 @@ class Engine
     EngineSettings m_engineSettings;
     EngineState m_engineState;
     EngineContext m_engineContext;
+
     Level m_level;
+    TwoHalfD::LevelMaker m_levelMaker;
     CameraObject m_cameraObject;
 
     EngineClocks m_engineClocks;
@@ -53,6 +56,7 @@ class Engine
     }
 
     void loadLevel(const Level &level);
+    void loadLevel(const std::string levelFilePath);
     EngineState getState();
     void setState(TwoHalfD::EngineState newState);
 

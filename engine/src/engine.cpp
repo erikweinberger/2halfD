@@ -57,6 +57,13 @@ void TwoHalfD::Engine::loadLevel(const Level &level)
     m_level.sprites.push_back(sprite2);
 }
 
+void TwoHalfD::Engine::loadLevel(std::string levelFilePath)
+{
+    this->m_engineState = EngineState::fpsState;
+    m_window.setMouseCursorVisible(false);
+    m_level = m_levelMaker.parseLevelFile(levelFilePath);
+}
+
 // Game Inputs
 std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs()
 {
@@ -469,13 +476,13 @@ void TwoHalfD::Engine::renderWalls()
         m_renderZBuffer.nearestWallRayDist[x] = actualDistance;
         float perpWorldDistance = actualDistance * (rayDirX * direction.x + rayDirY * direction.y);
 
-        auto it = m_textures.find(nearestWall->textureId);
-        if (it == m_textures.end())
+        auto it = m_level.textures.find(nearestWall->textureId);
+        if (it == m_level.textures.end())
         {
             std::cerr << "No texture found for wall: " << nearestWall->id << " with texture id: " << nearestWall->textureId << std::endl;
             exit(1);
         }
-        sf::Texture &tex = it->second;
+        sf::Texture &tex = it->second.texture;
         sf::Vector2u texSize = tex.getSize();
 
         // move the following around by making (pixelsFromCenterY the subject)

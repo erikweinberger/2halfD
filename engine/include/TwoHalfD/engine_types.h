@@ -94,6 +94,7 @@ struct TextureSignature
 {
     int id;
     std::string filePath;
+    sf::Texture texture;
 };
 
 struct Wall
@@ -135,7 +136,7 @@ struct Level
 {
     std::vector<Wall> walls;
     std::vector<SpriteEntity> sprites;
-    std::vector<TwoHalfD::TextureSignature> textures;
+    std::unordered_map<int, TwoHalfD::TextureSignature> textures;
     float cameraHeightStart;
 };
 
