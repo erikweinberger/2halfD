@@ -32,6 +32,10 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath)
         {
             continue;
         }
+        if (firstWord == "#")
+        {
+            continue;
+        }
 
         switch (std::stoi(firstWord))
         {
@@ -48,6 +52,7 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath)
         }
         case TwoHalfD::EntityTypes::sprite:
         {
+            m_spriteEntities.push_back(_makeSpriteEntity(line));
             break;
         }
         default:
@@ -58,7 +63,7 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath)
     result_level.textures = std::move(m_textures);
     result_level.walls = std::move(m_walls);
     result_level.sprites = std::move(m_spriteEntities);
-    std::cerr << "Loaded all things lenTex: " << result_level.textures.size() << " len of wall: " << result_level.walls.size()
+    std::cerr << "Loaded all things lenTex: " << result_level.textures.size() << "len of wall: " << result_level.walls.size()
               << " len of sprites: " << result_level.sprites.size() << '\n';
 
     return result_level;
@@ -155,4 +160,46 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString)
     }
 
     return TwoHalfD::Wall{m_entityId++, {startX, startY}, {endX, endY}, height, textureId};
+}
+
+TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string spriteString)
+{
+
+    float posX, posY;
+    int radius;
+    int height;
+    int textureId;
+    float scale = 1.0;
+
+    std::string word;
+    std::stringstream ss(spriteString);
+    for (int i = 0; i <= 6 && std::getline(ss, word, ' '); ++i)
+    {
+        switch (i)
+        {
+        case 0:
+            break;
+        case 1:
+            posX = std::stof(word);
+            break;
+        case 2:
+            posY = std::stof(word);
+        case 3:
+            radius = std::stoi(word);
+        case 4:
+            height = std::stoi(word);
+        case 5:
+            textureId = std::stoi(word);
+        case 6:
+            scale = std::stof(word);
+        default:
+            break;
+        }
+    }
+    if (m_textures.find(textureId) == m_textures.end())
+    {
+        std::cerr << "No valid texture for spriteEntity at: (" << posX << " , " << posY << ")\n";
+    }
+
+    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, radius, height, textureId, scale};
 }

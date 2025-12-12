@@ -355,12 +355,12 @@ void TwoHalfD::Engine::renderObjects()
             spriteOrderedDistance.pop();
             const float distToSprite = distSpritePair.first;
             const TwoHalfD::SpriteEntity currSprite = distSpritePair.second;
-            const auto &textureIt = m_textures.find(currSprite.textureId);
-            if (textureIt == m_textures.end())
+            const auto &textureIt = m_level.textures.find(currSprite.textureId);
+            if (textureIt == m_level.textures.end())
             {
                 exit(1);
             }
-            const sf::Texture &tex = textureIt->second;
+            const sf::Texture &tex = textureIt->second.texture;
             const sf::Vector2u texSize = tex.getSize();
 
             float perpWorldDistance = distToSprite * (rayDirX * direction.x + rayDirY * direction.y);

@@ -8,7 +8,7 @@ void Game::run()
 {
     TwoHalfD::Level level;
     level.cameraHeightStart = 128.f;
-    m_engine.loadLevel("../assets/levels/level1.txt");
+    m_engine.loadLevel("../assets/levels/level2.txt");
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
            m_engine.getState() == TwoHalfD::EngineState::paused)
     {

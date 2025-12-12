@@ -27,7 +27,8 @@ class LevelMaker
 
     TwoHalfD::Level parseLevelFile(std::string levelFilePath);
 
-    TwoHalfD::Wall _makeWall(std::string wallString);
     TwoHalfD::TextureSignature _makeTexture(std::string textureString);
+    TwoHalfD::Wall _makeWall(std::string wallString);
+    TwoHalfD::SpriteEntity _makeSpriteEntity(std::string spriteString);
 };
 } // namespace TwoHalfD
