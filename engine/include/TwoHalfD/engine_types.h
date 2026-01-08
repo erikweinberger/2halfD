@@ -12,76 +12,62 @@
 #include <chrono>
 #include <thread>
 
-namespace TwoHalfD
-{
+namespace TwoHalfD {
 
 using ObjectId = std::uint64_t;
 
-struct XYVector
-{
+struct XYVector {
     int x, y;
 
-    XYVector operator-(const XYVector &other)
-    {
+    XYVector operator-(const XYVector &other) {
         XYVector result{this->x - other.x, this->y - other.y};
         return result;
     }
 
-    XYVector operator+(const XYVector &other)
-    {
+    XYVector operator+(const XYVector &other) {
         XYVector result{this->x + other.x, this->y + other.y};
         return result;
     }
 
-    bool operator==(const XYVector &other) const
-    {
+    bool operator==(const XYVector &other) const {
         return this->x == other.x && this->y == other.y;
     }
 
-    friend std::ostream &operator<<(std::ostream &os, const XYVector &v)
-    {
+    friend std::ostream &operator<<(std::ostream &os, const XYVector &v) {
         os << "(" << v.x << " , " << v.y << ")";
         return os;
     }
 };
 
-struct XYVectorf
-{
+struct XYVectorf {
     float x, y;
 
-    XYVectorf operator-(const XYVectorf &other)
-    {
+    XYVectorf operator-(const XYVectorf &other) {
         XYVectorf result{this->x - other.x, this->y - other.y};
         return result;
     }
 
-    XYVectorf operator+(const XYVectorf &other)
-    {
+    XYVectorf operator+(const XYVectorf &other) {
         XYVectorf result{this->x + other.x, this->y + other.y};
         return result;
     }
 
-    bool operator==(const XYVectorf &other) const
-    {
+    bool operator==(const XYVectorf &other) const {
         return this->x == other.x && this->y == other.y;
     }
 
-    friend std::ostream &operator<<(std::ostream &os, const XYVectorf &v)
-    {
+    friend std::ostream &operator<<(std::ostream &os, const XYVectorf &v) {
         os << "(" << v.x << " , " << v.y << ")";
         return os;
     }
 };
 
-struct Position
-{
-    struct xyCord
-    {
+struct Position {
+    struct xyCord {
         float x, y;
     };
 
-    union
-    {
+    union {
         struct xyCord pos;
         sf::Vector2f posf;
     };
@@ -91,26 +77,22 @@ struct Position
 
     Position(sf::Vector2f v, float dir = 0.f) : posf(v), direction(dir) {}
 
-    Position operator+(const Position &other) const
-    {
+    Position operator+(const Position &other) const {
         return Position(pos.x + other.pos.x, pos.y + other.pos.x, direction + other.direction);
     }
 
-    Position &operator+=(const Position &other)
-    {
+    Position &operator+=(const Position &other) {
         pos.x += other.pos.x;
         pos.y += other.pos.y;
         direction += other.direction;
         return *this;
     }
 
-    Position operator-(const Position &other) const
-    {
+    Position operator-(const Position &other) const {
         return Position(pos.x - other.pos.x, pos.y - other.pos.x, direction - other.direction);
     }
 
-    Position &operator-=(const Position &other)
-    {
+    Position &operator-=(const Position &other) {
         pos.x -= other.pos.x;
         pos.y -= other.pos.y;
         direction -= other.direction;
@@ -118,23 +100,20 @@ struct Position
     }
 };
 
-struct TextureSignature
-{
+struct TextureSignature {
     int id;
     std::string filePath;
     sf::Texture texture;
 };
 
-struct Wall
-{
+struct Wall {
     int id;
     sf::Vector2f start, end;
     float height;
     int textureId;
 };
 
-struct SpriteEntity
-{
+struct SpriteEntity {
     int id;
     TwoHalfD::Position pos;
     int radius;
@@ -143,8 +122,7 @@ struct SpriteEntity
     float scale;
 };
 
-struct EngineSettings
-{
+struct EngineSettings {
     sf::Vector2i windowDim = {960, 540};
     sf::Vector2i resolution = {960, 540};
     float aspectRatio = 16.f / 9.f;
@@ -160,37 +138,31 @@ struct EngineSettings
     EngineSettings() = default;
 };
 
-struct Level
-{
+struct Level {
     std::vector<Wall> walls;
     std::vector<SpriteEntity> sprites;
     std::unordered_map<int, TwoHalfD::TextureSignature> textures;
     float cameraHeightStart;
 };
 
-struct EngineContext
-{
+struct EngineContext {
     XYVector prevMousePosition = {0, 0};
     XYVector currentMousePosition = {0, 0};
     XYVector MouseDelta = {0, 0};
 };
 
-struct CameraObject
-{
+struct CameraObject {
     Position cameraPos{500, 500, 0};
     float cameraHeight{128};
     float cameraRadius{64};
 };
 
-struct RenderZBuffer
-{
+struct RenderZBuffer {
     std::vector<float> nearestWallRayDist;
 };
 
-struct Event
-{
-    enum class Type
-    {
+struct Event {
+    enum class Type {
         None,
         KeyPressed,
         KeyReleased,
@@ -201,27 +173,23 @@ struct Event
 
     Type type{Type::None};
 
-    struct KeyEvent
-    {
+    struct KeyEvent {
         int keyCode;
         int x, y;
     };
 
-    struct MouseMoveEvent
-    {
+    struct MouseMoveEvent {
         int x, y;
         XYVector moveDelta;
     };
 
-    struct MouseButtonEvent
-    {
+    struct MouseButtonEvent {
         int button;
         int x, y;
     };
 
     // Union of possible event payloads
-    union
-    {
+    union {
         KeyEvent key;
         MouseMoveEvent mouseMove;
         MouseButtonEvent mouseButton;
@@ -229,40 +197,35 @@ struct Event
 
     Event() : type(Type::None) {}
 
-    static Event KeyPressed(int keyCode, int x = 0, int y = 0)
-    {
+    static Event KeyPressed(int keyCode, int x = 0, int y = 0) {
         Event e;
         e.type = Type::KeyPressed;
         e.key = {keyCode, x, y};
         return e;
     }
 
-    static Event KeyReleased(int keyCode, int x = 0, int y = 0)
-    {
+    static Event KeyReleased(int keyCode, int x = 0, int y = 0) {
         Event e;
         e.type = Type::KeyReleased;
         e.key = {keyCode, x, y};
         return e;
     }
 
-    static Event MouseMoved(int x, int y, XYVector moveDelta)
-    {
+    static Event MouseMoved(int x, int y, XYVector moveDelta) {
         Event e;
         e.type = Type::MouseMoved;
         e.mouseMove = {x, y, moveDelta};
         return e;
     }
 
-    static Event MouseButtonPressed(int button, int x, int y)
-    {
+    static Event MouseButtonPressed(int button, int x, int y) {
         Event e;
         e.type = Type::MouseButtonPressed;
         e.mouseButton = {button, x, y};
         return e;
     }
 
-    static Event MouseButtonReleased(int button, int x, int y)
-    {
+    static Event MouseButtonReleased(int button, int x, int y) {
         Event e;
         e.type = Type::MouseButtonReleased;
         e.mouseButton = {button, x, y};
@@ -270,8 +233,7 @@ struct Event
     }
 };
 
-enum keyCodeEnum
-{
+enum keyCodeEnum {
     a = 0,
     b,
     c,
@@ -300,10 +262,9 @@ enum keyCodeEnum
     z
 };
 
-enum class EngineState
-{
+enum class EngineState {
     None,
-    initlised,
+    initialised,
     running,
     fpsState,
     ended,

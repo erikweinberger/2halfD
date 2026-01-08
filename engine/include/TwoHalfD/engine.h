@@ -52,7 +52,7 @@ class Engine {
           // m_window_above(sf::VideoMode(1, 1), "Mini Map"),
           m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)}) {
         m_renderTexture.create(engineSettings.resolution.x, engineSettings.resolution.y);
-        m_engineState = EngineState::initlised;
+        m_engineState = EngineState::initialised;
     }
 
     void loadLevel(const std::string levelFilePath);
