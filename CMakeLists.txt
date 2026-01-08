@@ -43,6 +43,11 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(two_half PRIVATE /W4 /permissive-)
 endif()
 
+target_compile_definitions(two_half PRIVATE 
+    ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+    ROOT_DIR="${CMAKE_SOURCE_DIR}"
+)
+
 # Optional: treat warnings as errors (uncomment to enable)
 # target_compile_options(two_half PRIVATE -Werror)  # for Clang/GCC
 # target_compile_options(two_half PRIVATE /WX)      # for MSVC

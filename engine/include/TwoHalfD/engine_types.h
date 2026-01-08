@@ -45,6 +45,34 @@ struct XYVector
     }
 };
 
+struct XYVectorf
+{
+    float x, y;
+
+    XYVectorf operator-(const XYVectorf &other)
+    {
+        XYVectorf result{this->x - other.x, this->y - other.y};
+        return result;
+    }
+
+    XYVectorf operator+(const XYVectorf &other)
+    {
+        XYVectorf result{this->x + other.x, this->y + other.y};
+        return result;
+    }
+
+    bool operator==(const XYVectorf &other) const
+    {
+        return this->x == other.x && this->y == other.y;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const XYVectorf &v)
+    {
+        os << "(" << v.x << " , " << v.y << ")";
+        return os;
+    }
+};
+
 struct Position
 {
     struct xyCord
@@ -151,7 +179,7 @@ struct CameraObject
 {
     Position cameraPos{500, 500, 0};
     float cameraHeight{128};
-    float cameraRadius{0};
+    float cameraRadius{64};
 };
 
 struct RenderZBuffer

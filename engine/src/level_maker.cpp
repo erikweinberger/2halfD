@@ -1,57 +1,39 @@
 #include "TwoHalfD/level_maker.h"
-#include "TwoHalfD/engine_types.h"
 
-#include <SFML/Graphics/Texture.hpp>
-#include <SFML/System/Vector2.hpp>
-#include <fstream>
-#include <string>
-#include <utility>
-
-TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath)
-{
-    std::ifstream inputFile(levelFilePath);
+TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) {
+    std::ifstream inputFile(fs::path(ASSETS_DIR) / levelFilePath);
 
     TwoHalfD::Level result_level{};
 
-    if (!inputFile.is_open())
-    {
+    if (!inputFile.is_open()) {
         std::cerr << "Error opening file!" << std::endl;
         exit(1);
     }
 
     std::string line;
-    while (std::getline(inputFile, line))
-    {
+    while (std::getline(inputFile, line)) {
         size_t spacePos = line.find(' ');
         std::string firstWord;
-        if (spacePos != std::string::npos)
-        {
+        if (spacePos != std::string::npos) {
             firstWord = line.substr(0, spacePos);
-        }
-        else
-        {
+        } else {
             continue;
         }
-        if (firstWord == "#")
-        {
+        if (firstWord == "#") {
             continue;
         }
 
-        switch (std::stoi(firstWord))
-        {
-        case TwoHalfD::EntityTypes::texture:
-        {
+        switch (std::stoi(firstWord)) {
+        case TwoHalfD::EntityTypes::texture: {
             TwoHalfD::TextureSignature texture = _makeTexture(line);
             m_textures[texture.id] = texture;
             break;
         }
-        case TwoHalfD::EntityTypes::wall:
-        {
+        case TwoHalfD::EntityTypes::wall: {
             m_walls.push_back(_makeWall(line));
             break;
         }
-        case TwoHalfD::EntityTypes::sprite:
-        {
+        case TwoHalfD::EntityTypes::sprite: {
             m_spriteEntities.push_back(_makeSpriteEntity(line));
             break;
         }
@@ -69,8 +51,7 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath)
     return result_level;
 }
 
-TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textureString)
-{
+TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textureString) {
     std::string word;
     std::stringstream ss(textureString);
     std::string filePath;
@@ -78,10 +59,8 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
     int type;
     int textureId{0};
 
-    for (int i = 0; i <= 3 && std::getline(ss, word, ' '); ++i)
-    {
-        switch (i)
-        {
+    for (int i = 0; i <= 3 && std::getline(ss, word, ' '); ++i) {
+        switch (i) {
         case 0:
             break;
         case 1:
@@ -97,14 +76,12 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
             break;
         }
     }
-    if (!tex.loadFromFile(filePath))
-    {
+    if (!tex.loadFromFile(fs::path(ASSETS_DIR) / filePath)) {
         std::cerr << "Incorrect filepath given: (" << filePath << ") will use default\n";
         tex.loadFromFile(m_defaultTextureFilePath);
     }
 
-    switch (type)
-    {
+    switch (type) {
     case TwoHalfD::EntityTypes::wall:
         tex.setRepeated(true);
     case TwoHalfD::EntityTypes::sprite:
@@ -116,8 +93,7 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
     return TwoHalfD::TextureSignature{textureId, filePath, tex};
 }
 
-TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString)
-{
+TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString) {
     std::string word;
     std::stringstream ss(wallString);
     float startX = 0, startY = 0;
@@ -125,10 +101,8 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString)
     float height = 0;
     int textureId = 0;
 
-    for (int i = 0; i <= 6 && std::getline(ss, word, ' '); ++i)
-    {
-        switch (i)
-        {
+    for (int i = 0; i <= 6 && std::getline(ss, word, ' '); ++i) {
+        switch (i) {
         case 0:
             break;
         case 1:
@@ -154,16 +128,14 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString)
         }
     }
     auto tex = m_textures.find(textureId);
-    if (tex == m_textures.end())
-    {
+    if (tex == m_textures.end()) {
         std::cerr << "Texture not loaded (TextureId: " << textureId << ")\n";
     }
 
     return TwoHalfD::Wall{m_entityId++, {startX, startY}, {endX, endY}, height, textureId};
 }
 
-TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string spriteString)
-{
+TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string spriteString) {
 
     float posX, posY;
     int radius;
@@ -173,10 +145,8 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
 
     std::string word;
     std::stringstream ss(spriteString);
-    for (int i = 0; i <= 6 && std::getline(ss, word, ' '); ++i)
-    {
-        switch (i)
-        {
+    for (int i = 0; i <= 6 && std::getline(ss, word, ' '); ++i) {
+        switch (i) {
         case 0:
             break;
         case 1:
@@ -196,8 +166,7 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
             break;
         }
     }
-    if (m_textures.find(textureId) == m_textures.end())
-    {
+    if (m_textures.find(textureId) == m_textures.end()) {
         std::cerr << "No valid texture for spriteEntity at: (" << posX << " , " << posY << ")\n";
     }
 

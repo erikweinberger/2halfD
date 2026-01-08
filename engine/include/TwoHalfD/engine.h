@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <numbers>
 #include <span>
@@ -14,11 +15,11 @@
 #include "engine_types.h"
 #include "level_maker.h"
 
-namespace TwoHalfD
-{
+namespace TwoHalfD {
 
-class Engine
-{
+namespace fs = std::filesystem;
+
+class Engine {
 
   private:
     EngineSettings m_engineSettings;
@@ -34,7 +35,7 @@ class Engine
     std::array<Event, 512> m_inputArray{};
     int m_currentInput{0};
 
-    // RENDERCOMPONENTS
+    // RENDER COMPONENTS
     sf::RenderWindow m_window;
     // sf::RenderWindow m_window_above;
     sf::RenderTexture m_renderTexture;
@@ -49,13 +50,11 @@ class Engine
           m_engineClocks(EngineClocks{m_engineSettings.graphicsFpsCap, m_engineSettings.gameFpsCap}),
           m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
           // m_window_above(sf::VideoMode(1, 1), "Mini Map"),
-          m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)})
-    {
+          m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)}) {
         m_renderTexture.create(engineSettings.resolution.x, engineSettings.resolution.y);
         m_engineState = EngineState::initlised;
     }
 
-    void loadLevel(const Level &level);
     void loadLevel(const std::string levelFilePath);
     EngineState getState();
     void setState(TwoHalfD::EngineState newState);
@@ -66,7 +65,7 @@ class Engine
     void clearFrameInputs();
     void backgroundFrameUpdates();
 
-    // Getters and setters
+    // GETTERS AND SETTERS
     XYVector getMouseDeltaFrame();
     TwoHalfD::Position getCameraPosition();
     void setCameraPosition(const Position &newPos);
@@ -85,6 +84,11 @@ class Engine
     void renderObjects();
     void renderWalls();
     void renderFloor();
+
+    // PHYSICS FUNCTIONS
+    const std::vector<const TwoHalfD::Wall *> wallCollisionSelf(const CameraObject &cameraObject);
+    const std::vector<const TwoHalfD::Wall *> wallCollisionSelf();
+    const TwoHalfD::Wall &wallCollisionSprite(const SpriteEntity &spriteEntity);
 };
 } // namespace TwoHalfD
 

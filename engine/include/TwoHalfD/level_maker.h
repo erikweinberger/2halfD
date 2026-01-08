@@ -1,26 +1,25 @@
-#include "engine_types.h"
+#include "TwoHalfD/engine_types.h"
+
+#include <SFML/Graphics/Texture.hpp>
+#include <SFML/System/Vector2.hpp>
+#include <filesystem>
+#include <fstream>
 #include <string>
-#include <string_view>
-#include <unordered_map>
+#include <utility>
 
-namespace TwoHalfD
-{
+namespace fs = std::filesystem;
 
-enum EntityTypes
-{
-    texture = 0,
-    wall,
-    sprite
-};
+namespace TwoHalfD {
 
-class LevelMaker
-{
+enum EntityTypes { texture = 0, wall, sprite };
+
+class LevelMaker {
   private:
     int m_entityId;
     std::vector<TwoHalfD::Wall> m_walls;
     std::vector<TwoHalfD::SpriteEntity> m_spriteEntities;
     std::unordered_map<int, TwoHalfD::TextureSignature> m_textures;
-    const std::string m_defaultTextureFilePath = "../assets/textures/pattern_18_debug.png";
+    const std::string m_defaultTextureFilePath = fs::path(ASSETS_DIR) / "textures/pattern_18_debug.png";
 
   public:
     LevelMaker() : m_entityId(0){};

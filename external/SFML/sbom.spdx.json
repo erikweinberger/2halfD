@@ -20,9 +20,7 @@
     "SPDXRef-Compiler",
     "SPDXRef-Bottle-sfml@2"
   ],
-  "files": [
-
-  ],
+  "files": [],
   "packages": [
     {
       "SPDXID": "SPDXRef-Archive-sfml@2-src",
@@ -34,9 +32,7 @@
       "licenseConcluded": "Zlib",
       "downloadLocation": "https://www.sfml-dev.org/files/SFML-2.6.2-sources.zip",
       "copyrightText": "NOASSERTION",
-      "externalRefs": [
-
-      ],
+      "externalRefs": [],
       "checksums": [
         {
           "algorithm": "SHA256",
@@ -168,12 +164,8 @@
       "licenseConcluded": "NOASSERTION",
       "copyrightText": "NOASSERTION",
       "downloadLocation": "NOASSERTION",
-      "checksums": [
-
-      ],
-      "externalRefs": [
-
-      ]
+      "checksums": [],
+      "externalRefs": []
     },
     {
       "SPDXID": "SPDXRef-Bottle-sfml@2",

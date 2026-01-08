@@ -1,5 +1,6 @@
 #include "TwoHalfD/engine_types.h"
-#include "utils/mathUtil.h"
+#include "utils/math_util.h"
+
 #include <SFML/Graphics/BlendMode.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Color.hpp>
@@ -19,81 +20,35 @@
 #include <queue>
 #include <thread>
 
-void TwoHalfD::Engine::loadLevel(const Level &level)
-{
-    this->m_engineState = EngineState::fpsState;
-    this->m_level = level;
-    m_window.setMouseCursorVisible(false);
-
-    m_cameraObject.cameraHeight = level.cameraHeightStart;
-
-    // Add proper loading later
-    // for (auto texture : m_level.textures) {
-
-    //}
-    sf::Texture tex;
-    tex.loadFromFile("../assets/textures/pattern_18.png");
-    tex.setRepeated(true);
-    m_textures[1] = tex;
-
-    sf::Texture tex2;
-    tex2.setRepeated(false);
-    tex2.loadFromFile("../assets/textures/enemy_1.png");
-    tex2.setRepeated(false);
-    tex2.setSmooth(false);
-    m_textures[2] = tex2;
-
-    Wall wall{1, {300, 256}, {1000, 256}, 256, 1};
-    m_level.walls = {wall};
-    Wall wall2{1, {0, 512}, {300, 256}, 256, 1};
-    m_level.walls.push_back(wall2);
-
-    TwoHalfD::Position spritePos{384, 512, 0};
-    TwoHalfD::SpriteEntity sprite1{1, spritePos, 32, 128, 2, 1};
-    m_level.sprites = {sprite1};
-
-    TwoHalfD::Position spritePos2{384, 200, 0};
-    TwoHalfD::SpriteEntity sprite2{2, spritePos2, 32, 128, 2, 1};
-    m_level.sprites.push_back(sprite2);
-}
-
-void TwoHalfD::Engine::loadLevel(std::string levelFilePath)
-{
+void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
     m_window.setMouseCursorVisible(false);
     m_level = m_levelMaker.parseLevelFile(levelFilePath);
 }
 
 // Game Inputs
-std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs()
-{
+std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs() {
     sf::Event event;
-    while (m_window.pollEvent(event))
-    {
-        switch (event.type)
-        {
-        case sf::Event::Closed:
-        {
+    while (m_window.pollEvent(event)) {
+        switch (event.type) {
+        case sf::Event::Closed: {
             m_window.close();
             m_engineState = EngineState::ended;
             break;
         }
-        case sf::Event::KeyPressed:
-        {
+        case sf::Event::KeyPressed: {
             sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
             m_inputArray[m_currentInput] = TwoHalfD::Event::KeyPressed(event.key.code, mouseWinPos.x, mouseWinPos.y);
             ++m_currentInput;
             break;
         }
-        case sf::Event::KeyReleased:
-        {
+        case sf::Event::KeyReleased: {
             sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
             m_inputArray[m_currentInput] = TwoHalfD::Event::KeyReleased(event.key.code, mouseWinPos.x, mouseWinPos.y);
             ++m_currentInput;
             break;
         }
-        case sf::Event::MouseMoved:
-        {
+        case sf::Event::MouseMoved: {
             // Get position relative to window, not global screen
             XYVector mouseWinPos = {event.mouseMove.x, event.mouseMove.y};
             auto size = m_window.getSize();
@@ -102,8 +57,7 @@ std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs()
             m_engineContext.MouseDelta = m_engineContext.prevMousePosition - mouseWinPos;
             m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
             m_engineContext.currentMousePosition = {event.mouseMove.x, event.mouseMove.y};
-            if (std::abs(m_engineContext.MouseDelta.x) > 0.8 * middleScreen.x || std::abs(m_engineContext.MouseDelta.y) > 0.8 * middleScreen.y)
-            {
+            if (std::abs(m_engineContext.MouseDelta.x) > 0.8 * middleScreen.x || std::abs(m_engineContext.MouseDelta.y) > 0.8 * middleScreen.y) {
                 m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
                 break;
             }
@@ -120,83 +74,74 @@ std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs()
     return std::span<const TwoHalfD::Event>(m_inputArray.data(), m_currentInput);
 }
 
-void TwoHalfD::Engine::clearFrameInputs()
-{
+void TwoHalfD::Engine::clearFrameInputs() {
     m_currentInput = 0;
 }
 
 // In backgroundFrameUpdates:
-void TwoHalfD::Engine::backgroundFrameUpdates()
-{
-    if (m_engineState == TwoHalfD::EngineState::fpsState)
-    {
+void TwoHalfD::Engine::backgroundFrameUpdates() {
+    if (m_engineState == TwoHalfD::EngineState::fpsState) {
         auto size = m_window.getSize();
         static XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
         sf::Vector2i mousePosition = sf::Mouse::getPosition(m_window);
 
         if (m_window.hasFocus() && (m_engineSettings.windowDim.x - mousePosition.x < 0 || mousePosition.x < 0 ||
-                                    m_engineSettings.windowDim.y - mousePosition.y < 0 || mousePosition.y < 0))
-        {
+                                    m_engineSettings.windowDim.y - mousePosition.y < 0 || mousePosition.y < 0)) {
             sf::Mouse::setPosition({middleScreen.x, middleScreen.y}, m_window);
         }
     }
 }
 
-bool TwoHalfD::Engine::gameDeltaTimePassed()
-{
+bool TwoHalfD::Engine::gameDeltaTimePassed() {
     return m_engineClocks.gameTimeDeltaPassed();
 }
 
 // Getters and setters
-TwoHalfD::XYVector TwoHalfD::Engine::getMouseDeltaFrame()
-{
+TwoHalfD::XYVector TwoHalfD::Engine::getMouseDeltaFrame() {
     return m_engineContext.MouseDelta;
 }
 
-TwoHalfD::XYVector TwoHalfD::Engine::getWindowDimension()
-{
+TwoHalfD::XYVector TwoHalfD::Engine::getWindowDimension() {
     return {m_engineSettings.windowDim.x, m_engineSettings.windowDim.y};
 }
 
-TwoHalfD::Position TwoHalfD::Engine::getCameraPosition()
-{
+TwoHalfD::Position TwoHalfD::Engine::getCameraPosition() {
     return m_cameraObject.cameraPos;
 }
 
-void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos)
-{
+void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos) {
     m_cameraObject.cameraPos = newPos;
 }
 
-void TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate)
-{
+void TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate) {
+    TwoHalfD::Position prevPos = m_cameraObject.cameraPos;
     m_cameraObject.cameraPos += posUpdate;
+    if (m_engineSettings.cameraCollision) {
+        auto wallReferences = wallCollisionSelf();
+        for (auto wall : wallReferences) {
+            std::cout << "Wall intercept: " << wall->id << '\n';
+        }
+    }
 }
 
-void TwoHalfD::Engine::setState(TwoHalfD::EngineState newState)
-{
+void TwoHalfD::Engine::setState(TwoHalfD::EngineState newState) {
     m_engineState = newState;
 }
 
-TwoHalfD::EngineState TwoHalfD::Engine::getState()
-{
+TwoHalfD::EngineState TwoHalfD::Engine::getState() {
     return this->m_engineState;
 }
 
-std::vector<TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getSpriteEntitiesInRegion()
-{
+std::vector<TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getSpriteEntitiesInRegion() {
     return m_level.sprites;
 }
-std::vector<TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getAllSpriteEntities()
-{
+std::vector<TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getAllSpriteEntities() {
     return m_level.sprites;
 }
-std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getWallsInRegion()
-{
+std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getWallsInRegion() {
     return m_level.walls;
 }
-std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls()
-{
+std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls() {
     return m_level.walls;
 }
 
@@ -250,10 +195,8 @@ std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls()
 // }
 
 // Render Logic
-void TwoHalfD::Engine::render()
-{
-    if (!m_engineClocks.graphicsTimeDeltaPassed())
-    {
+void TwoHalfD::Engine::render() {
+    if (!m_engineClocks.graphicsTimeDeltaPassed()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         return;
     }
@@ -273,31 +216,34 @@ void TwoHalfD::Engine::render()
     m_window.display();
 }
 
-void TwoHalfD::Engine::renderOverlays()
-{
+void TwoHalfD::Engine::renderOverlays() {
     static bool loaded = false;
     static sf::Font font;
-    if (!loaded)
-    {
-        font.loadFromFile("../assets/fonts/RasterForgeRegular-JpBgm.ttf");
+    if (!loaded) {
+        font.loadFromFile(fs::path(ASSETS_DIR) / "fonts" / "RasterForgeRegular-JpBgm.ttf");
         loaded = true;
     }
 
     sf::Text text;
     text.setFont(font);
-
     std::string fpsString = "Fps: " + std::to_string(static_cast<int>(std::round(m_engineClocks.getAverageGraphicsFps())));
     text.setString(fpsString);
-
     text.setCharacterSize(24);
     text.setFillColor(sf::Color::Yellow);
-
     text.setPosition(m_engineSettings.resolution.x - 120, m_engineSettings.resolution.y - 50);
     m_renderTexture.draw(text);
+
+    sf::Text text1;
+    text1.setFont(font);
+    std::string position = "(" + std::to_string(m_cameraObject.cameraPos.posf.x) + ", " + std::to_string(m_cameraObject.cameraPos.posf.y) + ")";
+    text1.setString(position);
+    text1.setCharacterSize(24);
+    text1.setFillColor(sf::Color::Yellow);
+    text1.setPosition(50, m_engineSettings.resolution.y - 50);
+    m_renderTexture.draw(text1);
 }
 
-void TwoHalfD::Engine::renderObjects()
-{
+void TwoHalfD::Engine::renderObjects() {
     float cameraDirRad = m_cameraObject.cameraPos.direction;
     sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
     sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
@@ -306,8 +252,7 @@ void TwoHalfD::Engine::renderObjects()
 
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
 
-    for (int x = 0; x < m_engineSettings.numRays; ++x)
-    {
+    for (int x = 0; x < m_engineSettings.numRays; ++x) {
         float cameraX =
             2.0f * x * (1.0f * m_engineSettings.resolution.x / m_engineSettings.numRays) / static_cast<float>(m_engineSettings.resolution.x) - 1.0f;
         sf::Vector2f rayDir = direction + plane * cameraX;
@@ -322,10 +267,8 @@ void TwoHalfD::Engine::renderObjects()
 
         std::priority_queue<std::pair<float, TwoHalfD::SpriteEntity>, std::vector<std::pair<float, TwoHalfD::SpriteEntity>>, decltype(cmp)>
             spriteOrderedDistance(cmp);
-        for (const auto &object : getSpriteEntitiesInRegion())
-        {
-            if (object.textureId == -1)
-                continue;
+        for (const auto &object : getSpriteEntitiesInRegion()) {
+            if (object.textureId == -1) continue;
             // https://en.wikipedia.org/wiki/Line–line_intersection
             const float x1 = m_cameraObject.cameraPos.pos.x, y1 = m_cameraObject.cameraPos.pos.y;
             const float x2 = x1 + 1000.0f * rayDirX, y2 = y1 + 1000.0f * rayDirY;
@@ -334,8 +277,7 @@ void TwoHalfD::Engine::renderObjects()
             const float x4 = object.pos.posf.x - object.radius * normalizedPlane.x, y4 = object.pos.posf.y - object.radius * normalizedPlane.y;
 
             float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-            if (std::abs(denom) < 0.00001f)
-                continue;
+            if (std::abs(denom) < 0.00001f) continue;
 
             float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
             float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
@@ -343,21 +285,18 @@ void TwoHalfD::Engine::renderObjects()
             float t = numeratorT / denom;
             float u = numeratorU / denom;
 
-            if (u < 0 || u > 1 || t < 0 || t * 1000 >= m_renderZBuffer.nearestWallRayDist[x])
-                continue;
+            if (u < 0 || u > 1 || t < 0 || t * 1000 >= m_renderZBuffer.nearestWallRayDist[x]) continue;
 
             spriteOrderedDistance.push({t * 1000.0f, object});
         }
 
-        while (!spriteOrderedDistance.empty())
-        {
+        while (!spriteOrderedDistance.empty()) {
             const auto distSpritePair = spriteOrderedDistance.top();
             spriteOrderedDistance.pop();
             const float distToSprite = distSpritePair.first;
             const TwoHalfD::SpriteEntity currSprite = distSpritePair.second;
             const auto &textureIt = m_level.textures.find(currSprite.textureId);
-            if (textureIt == m_level.textures.end())
-            {
+            if (textureIt == m_level.textures.end()) {
                 exit(1);
             }
             const sf::Texture &tex = textureIt->second.texture;
@@ -413,16 +352,14 @@ void TwoHalfD::Engine::renderObjects()
     }
 }
 
-void TwoHalfD::Engine::renderWalls()
-{
+void TwoHalfD::Engine::renderWalls() {
     float cameraDirRad = m_cameraObject.cameraPos.direction;
     sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
     sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
 
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
 
-    for (int x = 0; x < m_engineSettings.numRays; ++x)
-    {
+    for (int x = 0; x < m_engineSettings.numRays; ++x) {
         float cameraX =
             2.0f * x * (1.0f * m_engineSettings.resolution.x / m_engineSettings.numRays) / static_cast<float>(m_engineSettings.resolution.x) - 1.0f;
         sf::Vector2f rayDir = direction + plane * cameraX;
@@ -438,8 +375,7 @@ void TwoHalfD::Engine::renderWalls()
         // Test opt removing pointer later
         TwoHalfD::Wall *nearestWall = nullptr;
 
-        for (auto &wall : getWallsInRegion())
-        {
+        for (auto &wall : getWallsInRegion()) {
             // https://en.wikipedia.org/wiki/Line–line_intersection
             float x1 = m_cameraObject.cameraPos.pos.x, y1 = m_cameraObject.cameraPos.pos.y;
             float x2 = x1 + 1000.0f * rayDirX, y2 = y1 + 1000.0f * rayDirY;
@@ -448,8 +384,7 @@ void TwoHalfD::Engine::renderWalls()
             float x4 = wall.end.x, y4 = wall.end.y;
 
             float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-            if (std::abs(denom) < 0.00001f)
-                continue;
+            if (std::abs(denom) < 0.00001f) continue;
 
             float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
             float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
@@ -457,11 +392,9 @@ void TwoHalfD::Engine::renderWalls()
             float t = numeratorT / denom;
             float u = numeratorU / denom;
 
-            if (u < 0 || u > 1 || t < 0)
-                continue;
+            if (u < 0 || u > 1 || t < 0) continue;
 
-            if (t < shortestDist)
-            {
+            if (t < shortestDist) {
                 shortestDist = t;
                 nearestWall = &wall;
             }
@@ -469,16 +402,14 @@ void TwoHalfD::Engine::renderWalls()
 
         m_renderZBuffer.nearestWallRayDist[x] = std::numeric_limits<float>::max();
 
-        if (nearestWall == nullptr)
-            continue;
+        if (nearestWall == nullptr) continue;
 
         float actualDistance = shortestDist * 1000.0f;
         m_renderZBuffer.nearestWallRayDist[x] = actualDistance;
         float perpWorldDistance = actualDistance * (rayDirX * direction.x + rayDirY * direction.y);
 
         auto it = m_level.textures.find(nearestWall->textureId);
-        if (it == m_level.textures.end())
-        {
+        if (it == m_level.textures.end()) {
             std::cerr << "No texture found for wall: " << nearestWall->id << " with texture id: " << nearestWall->textureId << std::endl;
             exit(1);
         }
@@ -507,8 +438,7 @@ void TwoHalfD::Engine::renderWalls()
         float lenToIntercept = toIntersectX * wallDirX + toIntersectY * wallDirY;
 
         float texX = std::fmod(lenToIntercept, static_cast<float>(texSize.x));
-        if (texX < 0)
-            texX += texSize.x;
+        if (texX < 0) texX += texSize.x;
 
         int sliceWidth = m_engineSettings.resolution.x / m_engineSettings.numRays;
 
@@ -526,17 +456,13 @@ void TwoHalfD::Engine::renderWalls()
     }
 }
 
-void TwoHalfD::Engine::renderFloor()
-{
+void TwoHalfD::Engine::renderFloor() {
     static sf::Texture floorTileTexture;
     static sf::Image floorTileImage;
     static bool loaded = false;
 
-    const char *floor_path{"../assets/textures/pattern_24.png"};
-    if (!loaded)
-    {
-        if (!floorTileTexture.loadFromFile(floor_path))
-        {
+    if (!loaded) {
+        if (!floorTileTexture.loadFromFile(fs::path(ASSETS_DIR) / "textures" / "pattern_24.png")) {
 
             std::cerr << "Error loading floor texture." << std::endl;
             return;
@@ -546,8 +472,7 @@ void TwoHalfD::Engine::renderFloor()
     }
 
     float textureSize = floorTileTexture.getSize().x;
-    if (floorTileTexture.getSize().x != floorTileTexture.getSize().y)
-    {
+    if (floorTileTexture.getSize().x != floorTileTexture.getSize().y) {
         std::cout << "ERROR NOT SAME SIZE!!!!" << std::endl;
         exit(1);
     }
@@ -567,70 +492,121 @@ void TwoHalfD::Engine::renderFloor()
     sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
 
-    for (int t = 0; t < numThreads; ++t)
-    {
+    for (int t = 0; t < numThreads; ++t) {
 
         int yStart = startY + t * rowsPerThread;
         int yEnd = (t == numThreads - 1) ? endY : yStart + rowsPerThread;
 
-        threads.emplace_back(
-            [&, t, yStart, yEnd]()
-            {
-                vertexArrays[t].setPrimitiveType(sf::Points);
-                vertexArrays[t].resize(m_engineSettings.resolution.x * (yEnd - yStart));
+        threads.emplace_back([&, t, yStart, yEnd]() {
+            vertexArrays[t].setPrimitiveType(sf::Points);
+            vertexArrays[t].resize(m_engineSettings.resolution.x * (yEnd - yStart));
 
-                for (int y = yStart; y < yEnd; ++y)
-                {
-                    float pixelsFromCenterY = y - m_engineSettings.resolution.y / 2.0f;
-                    float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;
+            for (int y = yStart; y < yEnd; ++y) {
+                float pixelsFromCenterY = y - m_engineSettings.resolution.y / 2.0f;
+                float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;
 
-                    if (perpWorldDistance > 3000.0f)
-                    {
-                        continue;
-                    }
-
-                    float shade = std::min(1.0f, 256.0f / perpWorldDistance);
-
-                    float xCenter = 2.0f / static_cast<float>(m_engineSettings.resolution.x);
-                    for (int x = 0; x < m_engineSettings.resolution.x; ++x)
-                    {
-                        float cameraX = xCenter * x - 1.0f;
-
-                        sf::Vector2f rayDir = direction + plane * cameraX;
-
-                        float realRayDist = perpWorldDistance / (rayDir.x * direction.x + rayDir.y * direction.y);
-                        sf::Vector2f floorPos{m_cameraObject.cameraPos.pos.x + rayDir.x * realRayDist,
-                                              m_cameraObject.cameraPos.pos.y + rayDir.y * realRayDist};
-
-                        sf::Vector2f texPos = floorPos / textureSize;
-                        sf::Vector2i cell{static_cast<int>(std::floor(texPos.x)), static_cast<int>(std::floor(texPos.y))};
-
-                        sf::Vector2f texCoords = texPos - sf::Vector2f(cell);
-                        sf::Vector2i texPixel{static_cast<int>(texCoords.x * textureSize), static_cast<int>(texCoords.y * textureSize)};
-
-                        texPixel.x = texPixel.x % static_cast<int>(textureSize);
-                        texPixel.y = texPixel.y % static_cast<int>(textureSize);
-
-                        sf::Color color = floorTileImage.getPixel(static_cast<unsigned int>(texPixel.x), static_cast<unsigned int>(texPixel.y));
-
-                        color.r *= shade;
-                        color.g *= shade;
-                        color.b *= shade;
-
-                        sf::Vertex pixel(sf::Vector2f(x, y), color);
-                        vertexArrays[t][(y - yStart) * m_engineSettings.resolution.x + x] = pixel;
-                    }
+                if (perpWorldDistance > 3000.0f) {
+                    continue;
                 }
-            });
+
+                float shade = std::min(1.0f, 256.0f / perpWorldDistance);
+
+                float xCenter = 2.0f / static_cast<float>(m_engineSettings.resolution.x);
+                for (int x = 0; x < m_engineSettings.resolution.x; ++x) {
+                    float cameraX = xCenter * x - 1.0f;
+
+                    sf::Vector2f rayDir = direction + plane * cameraX;
+
+                    float realRayDist = perpWorldDistance / (rayDir.x * direction.x + rayDir.y * direction.y);
+                    sf::Vector2f floorPos{m_cameraObject.cameraPos.pos.x + rayDir.x * realRayDist,
+                                          m_cameraObject.cameraPos.pos.y + rayDir.y * realRayDist};
+
+                    sf::Vector2f texPos = floorPos / textureSize;
+                    sf::Vector2i cell{static_cast<int>(std::floor(texPos.x)), static_cast<int>(std::floor(texPos.y))};
+
+                    sf::Vector2f texCoords = texPos - sf::Vector2f(cell);
+                    sf::Vector2i texPixel{static_cast<int>(texCoords.x * textureSize), static_cast<int>(texCoords.y * textureSize)};
+
+                    texPixel.x = texPixel.x % static_cast<int>(textureSize);
+                    texPixel.y = texPixel.y % static_cast<int>(textureSize);
+
+                    sf::Color color = floorTileImage.getPixel(static_cast<unsigned int>(texPixel.x), static_cast<unsigned int>(texPixel.y));
+
+                    color.r *= shade;
+                    color.g *= shade;
+                    color.b *= shade;
+
+                    sf::Vertex pixel(sf::Vector2f(x, y), color);
+                    vertexArrays[t][(y - yStart) * m_engineSettings.resolution.x + x] = pixel;
+                }
+            }
+        });
     }
 
-    for (auto &thread : threads)
-    {
+    for (auto &thread : threads) {
         thread.join();
     }
 
-    for (auto &va : vertexArrays)
-    {
+    for (auto &va : vertexArrays) {
         m_renderTexture.draw(va);
     }
+}
+
+// Physics
+const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf(const CameraObject &cameraObject) {
+
+    auto &walls = getWallsInRegion();
+    std::vector<const TwoHalfD::Wall *> wall_intercepts;
+
+    for (const auto &wall : walls) {
+        TwoHalfD::XYVectorf wallVector{wall.end.x - wall.start.x, wall.end.y - wall.start.y};
+        TwoHalfD::XYVectorf perpWallVector{-wallVector.y, wallVector.x};
+        float perpWallVectorLen = sqrt(perpWallVector.x * perpWallVector.x + perpWallVector.y * perpWallVector.y);
+        TwoHalfD::XYVectorf perpWallVectorN{perpWallVector.x / perpWallVectorLen, perpWallVector.y / perpWallVectorLen};
+
+        float x1 = cameraObject.cameraPos.posf.x, y1 = cameraObject.cameraPos.posf.y;
+        float x2 = x1 + perpWallVectorN.x * cameraObject.cameraRadius, y2 = y1 + perpWallVectorN.y * cameraObject.cameraRadius;
+
+        float x3 = wall.start.x, y3 = wall.start.y;
+        float x4 = wall.end.x, y4 = wall.end.y;
+
+        float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (std::abs(denom) < 0.00001f) continue;
+
+        float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
+        float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
+
+        float t = numeratorT / denom;
+        float u = numeratorU / denom;
+
+        if (u < 0 || u > 1 || t > 1 || t < -1) continue;
+
+        wall_intercepts.push_back(&wall);
+    }
+
+    return wall_intercepts;
+}
+
+const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf() {
+
+    auto &walls = getWallsInRegion();
+    std::vector<const TwoHalfD::Wall *> wall_intercepts;
+
+    const float r = m_cameraObject.cameraRadius;
+    const float cx = m_cameraObject.cameraPos.posf.x, cy = m_cameraObject.cameraPos.posf.y;
+
+    for (const auto &wall : walls) {
+        // std::cout << "Wall is: id, (xs, ys), (xe, ye): " << wall.id << ", (" << wall.start.x << ", " << wall.start.y << "), (" << wall.end.x << ","
+        //           << wall.end.y << ")\n";
+        // std::cout << "(a, b, r): (" << a << ", " << b << ", " << c << ")\n";
+
+        auto interceptPoints = findCircleLineSegmentIntercept(cx, cy, r, {wall.start.x, wall.start.y}, {wall.end.x, wall.end.y});
+
+        if (interceptPoints.size() > 0) {
+            std::cout << "WALL ID IN INTERCEPT: " << wall.id << "\n";
+            wall_intercepts.push_back(&wall);
+        }
+    }
+
+    return wall_intercepts;
 }

@@ -1,9 +1,9 @@
 # Wall textures
-0 1 ../assets/textures/pattern_16.png 1
-0 2 ../assets/textures/pattern_24.png 1
+0 1 textures/pattern_16.png 1
+0 2 textures/pattern_24.png 1
 
 # Sprite Entity textures
-0 3 ../assets/textures/enemy_1.png 2
+0 3 textures/enemy_1.png 2
 
 
 1 0 0 3200 0 256 1
