@@ -135,19 +135,18 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
                 TwoHalfD::XYVectorf n_perpVec{perpVec.normalized()};
 
                 TwoHalfD::XYVectorf oldPerpVec{oldPos - perpP};
-                float oldPerpVecLen = oldPerpVec.length();
                 float perpVecLen = perpVec.length();
 
                 float penetrationDepth;
-                if (perpVecLen < oldPerpVecLen) {
-                    penetrationDepth = m_cameraObject.cameraRadius - perpVecLen;
-                } else {
+                if (dot(oldPerpVec, n_perpVec) < 0 && oldPerpVec.length() > perpVecLen) {
                     penetrationDepth = m_cameraObject.cameraRadius + perpVecLen;
+                } else {
+                    penetrationDepth = m_cameraObject.cameraRadius - perpVecLen;
                 }
                 float moveRatio = std::abs(dot(n_perpVec, n_moveVec));
                 if (std::abs(moveRatio) < 0.01f) continue;
 
-                moveMagnitude = std::max(moveMagnitude, penetrationDepth / moveRatio);
+                moveMagnitude = std::min(std::max(moveMagnitude, penetrationDepth / moveRatio), moveVec.length());
             }
 
             TwoHalfD::Position newPos{m_cameraObject.cameraPos.pos - moveMagnitude * n_moveVec, m_cameraObject.cameraPos.direction};
@@ -638,7 +637,6 @@ const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf() 
         auto interceptPoints = findCircleLineSegmentIntercept(cx, cy, r, {wall.start.x, wall.start.y}, {wall.end.x, wall.end.y});
 
         if (interceptPoints.size() > 0) {
-            std::cout << "WALL ID IN INTERCEPT: " << wall.id << "\n";
             wall_intercepts.push_back(&wall);
         }
     }
