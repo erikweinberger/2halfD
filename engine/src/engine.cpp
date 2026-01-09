@@ -113,15 +113,54 @@ void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos) {
     m_cameraObject.cameraPos = newPos;
 }
 
-void TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate) {
+TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate) {
     TwoHalfD::Position prevPos = m_cameraObject.cameraPos;
     m_cameraObject.cameraPos += posUpdate;
+    TwoHalfD::XYVectorf moveVec{posUpdate.pos.x, posUpdate.pos.y};
+    const float moveVecLen = moveVec.length();
+    TwoHalfD::XYVectorf n_moveVec{moveVec.normalized()};
+
+    float moveMagnitude = 0;
     if (m_engineSettings.cameraCollision) {
+        TwoHalfD::XYVectorf oldPos = prevPos.pos;
         auto wallReferences = wallCollisionSelf();
-        for (auto wall : wallReferences) {
-            std::cout << "Wall intercept: " << wall->id << '\n';
+        if (wallReferences.size() > 0) {
+            for (auto wall : wallReferences) {
+                std::cout << "Wall intercept: " << wall->id << '\n';
+                const TwoHalfD::XYVectorf wallVec = {(wall->end.x - wall->start.x), (wall->end.y - wall->start.y)};
+                TwoHalfD::XYVectorf n_wallVec{wallVec.normalized()};
+
+                const float perpPointDistToStart = TwoHalfD::dot(m_cameraObject.cameraPos.pos - wall->start, n_wallVec);
+                TwoHalfD::XYVectorf perpP{wall->start + n_wallVec * perpPointDistToStart};
+
+                TwoHalfD::XYVectorf perpVec{m_cameraObject.cameraPos.pos - perpP};
+                TwoHalfD::XYVectorf n_perpVec{perpVec.normalized()};
+
+                TwoHalfD::XYVectorf oldPerpVec{oldPos - perpP};
+                float oldPerpVecLen = oldPerpVec.length();
+                float perpVecLen = perpVec.length();
+
+                float penetrationDepth;
+                if (perpVecLen < oldPerpVecLen) {
+                    penetrationDepth = m_cameraObject.cameraRadius - perpVecLen;
+                } else {
+                    penetrationDepth = m_cameraObject.cameraRadius + perpVecLen;
+                }
+                float moveRatio = std::abs(dot(n_perpVec, n_moveVec));
+                if (std::abs(moveRatio) < 0.01f) continue;
+
+                moveMagnitude = std::min(std::max(moveMagnitude, penetrationDepth / moveRatio), moveVecLen);
+                std::cout << "perpVecLen: " << perpVecLen << ", penetrationDepth: " << penetrationDepth << ", moveRatio: " << moveRatio
+                          << ", moveMagnitude: " << moveMagnitude << '\n';
+            }
+
+            TwoHalfD::Position newPos{m_cameraObject.cameraPos.pos - moveMagnitude * n_moveVec, m_cameraObject.cameraPos.direction};
+            setCameraPosition(newPos);
+            return m_cameraObject.cameraPos;
         }
     }
+
+    return m_cameraObject.cameraPos;
 }
 
 void TwoHalfD::Engine::setState(TwoHalfD::EngineState newState) {

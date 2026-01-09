@@ -69,7 +69,7 @@ class Engine {
     XYVector getMouseDeltaFrame();
     TwoHalfD::Position getCameraPosition();
     void setCameraPosition(const Position &newPos);
-    void updateCameraPosition(const Position &posUpdate);
+    TwoHalfD::Position updateCameraPosition(const Position &posUpdate);
     XYVector getWindowDimension();
 
     std::vector<TwoHalfD::SpriteEntity> &getSpriteEntitiesInRegion();

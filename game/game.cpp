@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 void Game::run() {
     TwoHalfD::Level level;
     level.cameraHeightStart = 128.f;
-    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level2.txt";
+    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level1.txt";
     m_engine.loadLevel(levelFile);
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
            m_engine.getState() == TwoHalfD::EngineState::paused) {
@@ -43,7 +43,7 @@ void Game::updateGameState() {
     TwoHalfD::Position moveVector{x, y, 0.f};
     m_gameState.playerState.playerPos += moveVector;
 
-    m_engine.updateCameraPosition(moveVector);
+    m_gameState.playerState.playerPos = m_engine.updateCameraPosition(moveVector);
 }
 
 // Input / Events
@@ -62,6 +62,7 @@ void Game::handleFrameInputs() {
             break;
         case TwoHalfD::Event::Type::MouseMoved:
             handleMouseMoveEvent(input);
+            break;
         default:
             break;
         }
