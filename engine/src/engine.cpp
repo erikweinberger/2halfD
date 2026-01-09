@@ -117,7 +117,6 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
     TwoHalfD::Position prevPos = m_cameraObject.cameraPos;
     m_cameraObject.cameraPos += posUpdate;
     TwoHalfD::XYVectorf moveVec{posUpdate.pos.x, posUpdate.pos.y};
-    const float moveVecLen = moveVec.length();
     TwoHalfD::XYVectorf n_moveVec{moveVec.normalized()};
 
     float moveMagnitude = 0;
