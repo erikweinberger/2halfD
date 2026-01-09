@@ -126,7 +126,6 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
         auto wallReferences = wallCollisionSelf();
         if (wallReferences.size() > 0) {
             for (auto wall : wallReferences) {
-                std::cout << "Wall intercept: " << wall->id << '\n';
                 const TwoHalfD::XYVectorf wallVec = {(wall->end.x - wall->start.x), (wall->end.y - wall->start.y)};
                 TwoHalfD::XYVectorf n_wallVec{wallVec.normalized()};
 
@@ -149,9 +148,7 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
                 float moveRatio = std::abs(dot(n_perpVec, n_moveVec));
                 if (std::abs(moveRatio) < 0.01f) continue;
 
-                moveMagnitude = std::min(std::max(moveMagnitude, penetrationDepth / moveRatio), moveVecLen);
-                std::cout << "perpVecLen: " << perpVecLen << ", penetrationDepth: " << penetrationDepth << ", moveRatio: " << moveRatio
-                          << ", moveMagnitude: " << moveMagnitude << '\n';
+                moveMagnitude = std::max(moveMagnitude, penetrationDepth / moveRatio);
             }
 
             TwoHalfD::Position newPos{m_cameraObject.cameraPos.pos - moveMagnitude * n_moveVec, m_cameraObject.cameraPos.direction};
