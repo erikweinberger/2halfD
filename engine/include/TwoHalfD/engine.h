@@ -94,8 +94,6 @@ class Engine {
     const std::vector<const Wall *> wallCollisionSelf(const CameraObject &cameraObject);
     const std::vector<const Wall *> wallCollisionSelf();
     const Wall &wallCollisionSprite(const SpriteEntity &spriteEntity);
-
-    TwoHalfD::XYVectorf findNavigationPoint(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float sample_distance = 256.0f);
 };
 } // namespace TwoHalfD
 

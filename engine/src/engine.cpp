@@ -657,8 +657,3 @@ const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf() 
 
     return wall_intercepts;
 }
-
-// Movement algos
-TwoHalfD::XYVectorf TwoHalfD::Engine::findNavigationPoint(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float sampleDistance) {
-    return {0, 0};
-}
