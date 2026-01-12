@@ -388,57 +388,27 @@ void TwoHalfD::Engine::renderObjects() {
 
 void TwoHalfD::Engine::renderWalls() {
     float cameraDirRad = m_cameraObject.cameraPos.direction;
-    sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
-    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
+    TwoHalfD::XYVectorf direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
+    TwoHalfD::XYVectorf plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
 
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
+    std::vector<TwoHalfD::Wall> walls = getWallsInRegion();
 
     for (int x = 0; x < m_engineSettings.numRays; ++x) {
         float cameraX =
             2.0f * x * (1.0f * m_engineSettings.resolution.x / m_engineSettings.numRays) / static_cast<float>(m_engineSettings.resolution.x) - 1.0f;
-        sf::Vector2f rayDir = direction + plane * cameraX;
+        TwoHalfD::XYVectorf n_rayDir = (direction + plane * cameraX).normalized();
 
-        float rayLength = std::sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y);
-        rayDir.x /= rayLength;
-        rayDir.y /= rayLength;
+        float rayDirX = n_rayDir.x;
+        float rayDirY = n_rayDir.y;
 
-        float rayDirX = rayDir.x;
-        float rayDirY = rayDir.y;
-
-        float shortestDist = std::numeric_limits<float>::max();
         // Test opt removing pointer later
-        TwoHalfD::Wall *nearestWall = nullptr;
-
-        for (auto &wall : getWallsInRegion()) {
-            // https://en.wikipedia.org/wiki/Line–line_intersection
-            float x1 = m_cameraObject.cameraPos.pos.x, y1 = m_cameraObject.cameraPos.pos.y;
-            float x2 = x1 + 1000.0f * rayDirX, y2 = y1 + 1000.0f * rayDirY;
-
-            float x3 = wall.start.x, y3 = wall.start.y;
-            float x4 = wall.end.x, y4 = wall.end.y;
-
-            float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-            if (std::abs(denom) < 0.00001f) continue;
-
-            float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
-            float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
-
-            float t = numeratorT / denom;
-            float u = numeratorU / denom;
-
-            if (u < 0 || u > 1 || t < 0) continue;
-
-            if (t < shortestDist) {
-                shortestDist = t;
-                nearestWall = &wall;
-            }
-        }
+        auto [nearestWall, actualDistance] = findNearestWall(m_cameraObject.cameraPos.pos, n_rayDir, walls);
 
         m_renderZBuffer.nearestWallRayDist[x] = std::numeric_limits<float>::max();
 
         if (nearestWall == nullptr) continue;
 
-        float actualDistance = shortestDist * 1000.0f;
         m_renderZBuffer.nearestWallRayDist[x] = actualDistance;
         float perpWorldDistance = actualDistance * (rayDirX * direction.x + rayDirY * direction.y);
 
@@ -586,7 +556,51 @@ void TwoHalfD::Engine::renderFloor() {
     }
 }
 
-// Physics
+// <-------------- Physics -------------->
+
+//
+
+std::pair<const TwoHalfD::Wall *, float> TwoHalfD::Engine::findNearestWall(const XYVectorf &cord, const TwoHalfD::XYVectorf &rayDir,
+                                                                           const std::vector<Wall> &walls) {
+    const TwoHalfD::Wall *nearestWall = nullptr;
+    float shortestDist = std::numeric_limits<float>::max();
+
+    for (const auto &wall : walls) {
+        float x1 = cord.x, y1 = cord.y;
+        float x2 = x1 + 1000.0f * rayDir.x, y2 = y1 + 1000.0f * rayDir.y;
+
+        float x3 = wall.start.x, y3 = wall.start.y;
+        float x4 = wall.end.x, y4 = wall.end.y;
+
+        float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (std::abs(denom) < 0.00001f) continue;
+
+        float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
+        float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
+
+        float t = numeratorT / denom;
+        float u = numeratorU / denom;
+
+        if (u < 0 || u > 1 || t < 0) continue;
+
+        if (t < shortestDist) {
+            shortestDist = t;
+            nearestWall = &wall;
+        }
+    }
+    return {nearestWall, nearestWall == nullptr ? std::numeric_limits<float>::max() : shortestDist * 1000};
+}
+
+std::pair<const TwoHalfD::Wall *, float> TwoHalfD::Engine::findNearestWall(const TwoHalfD::Position &ray, const std::vector<Wall> &walls) {
+    XYVectorf dirVector{std::cos(ray.direction), std::sin(ray.direction)};
+    return findNearestWall(ray.pos, dirVector, walls);
+}
+
+std::pair<const TwoHalfD::Wall *, float> TwoHalfD::Engine::findNearestWall(const TwoHalfD::Position &ray) {
+    return findNearestWall(ray, getWallsInRegion());
+}
+
+// Collisions
 const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf(const CameraObject &cameraObject) {
 
     auto &walls = getWallsInRegion();

@@ -86,9 +86,14 @@ class Engine {
     void renderFloor();
 
     // PHYSICS FUNCTIONS
-    const std::vector<const TwoHalfD::Wall *> wallCollisionSelf(const CameraObject &cameraObject);
-    const std::vector<const TwoHalfD::Wall *> wallCollisionSelf();
-    const TwoHalfD::Wall &wallCollisionSprite(const SpriteEntity &spriteEntity);
+
+    std::pair<const Wall *, float> findNearestWall(const XYVectorf &cord, const TwoHalfD::XYVectorf &rayDir, const std::vector<Wall> &walls);
+    std::pair<const Wall *, float> findNearestWall(const Position &ray);
+    std::pair<const Wall *, float> findNearestWall(const Position &ray, const std::vector<Wall> &walls);
+
+    const std::vector<const Wall *> wallCollisionSelf(const CameraObject &cameraObject);
+    const std::vector<const Wall *> wallCollisionSelf();
+    const Wall &wallCollisionSprite(const SpriteEntity &spriteEntity);
 };
 } // namespace TwoHalfD
 
