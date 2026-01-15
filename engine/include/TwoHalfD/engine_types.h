@@ -2,9 +2,11 @@
 #define ENGINE_TYPES
 
 #include <SFML/Graphics.hpp>
+#include <cstddef>
 #include <iostream>
 #include <limits>
 #include <numbers>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -303,6 +305,23 @@ enum class EngineState {
     fpsState,
     ended,
     paused
+};
+
+// BSP
+struct Segment {
+    XYVectorf v1;
+    XYVectorf v2;
+};
+
+struct BSPNode {
+    std::unique_ptr<BSPNode> front;
+    std::unique_ptr<BSPNode> back;
+
+    XYVectorf splitterP0;
+    XYVectorf splitterP1;
+    XYVectorf splitterVec;
+
+    size_t segmentID = -1;
 };
 
 } // namespace TwoHalfD

@@ -31,6 +31,10 @@ inline TwoHalfD::XYVectorf vectorBetweenPoints(const TwoHalfD::XYVectorf &start,
     return {end.x - start.x, end.y - start.y};
 }
 
+inline float crossProduct2d(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {
+    return v.x * u.y - u.x * v.y;
+}
+
 std::vector<point2d> findCircleLineSegmentIntercept(const float cx, const float cy, const float r, const point2d &wallS, const point2d &wallE);
 
 #endif
