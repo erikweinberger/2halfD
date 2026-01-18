@@ -35,6 +35,18 @@ inline float crossProduct2d(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVect
     return v.x * u.y - u.x * v.y;
 }
 
+inline float dotProduct(const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf &b) {
+    return a.x * b.x + a.y * b.y;
+}
+
+inline bool isInfront(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {
+    return v.x * u.y < u.x * v.y;
+}
+
+inline bool isBehind(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {
+    return v.x * u.y > u.x * v.y;
+}
+
 std::vector<point2d> findCircleLineSegmentIntercept(const float cx, const float cy, const float r, const point2d &wallS, const point2d &wallE);
 
 #endif

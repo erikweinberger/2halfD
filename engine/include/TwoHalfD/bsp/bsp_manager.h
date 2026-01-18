@@ -14,6 +14,12 @@ class BSPManager {
     BSPManager(const TwoHalfD::Level &level) : m_level(level) {}
 
     void buildBSPTree();
+    TwoHalfD::Segment &getSegment(int id);
+
+    // Traverse logic
+    std::vector<int> update(TwoHalfD::Position &cameraPos);
+    void traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos);
+    void traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos, const TwoHalfD::XYVectorf &cameraDir);
 
   private:
     const TwoHalfD::Level &m_level;

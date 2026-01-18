@@ -19,6 +19,64 @@ void TwoHalfD::BSPManager::buildBSPTree() {
     return;
 }
 
+TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
+    return m_segments[id];
+}
+
+std::vector<int> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
+    std::vector<int> segmentIds;
+    TwoHalfD::XYVectorf cameraDir{std::cos(cameraPos.direction), std::sin(cameraPos.direction)};
+    traverse(m_root.get(), segmentIds, cameraPos, cameraDir);
+    return segmentIds;
+}
+
+void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos) {
+    if (node == nullptr) return;
+
+    bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
+
+    if (isInfrontOfCamera) {
+        traverse(node->front.get(), segmentIds, cameraPos);
+
+        segmentIds.push_back(node->segmentID);
+
+        traverse(node->back.get(), segmentIds, cameraPos);
+    } else {
+        traverse(node->back.get(), segmentIds, cameraPos);
+
+        segmentIds.push_back(node->segmentID);
+
+        traverse(node->front.get(), segmentIds, cameraPos);
+    }
+}
+
+void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos,
+                                    const TwoHalfD::XYVectorf &cameraDir) {
+    if (node == nullptr) return;
+
+    bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
+
+    if (isInfrontOfCamera) {
+        traverse(node->front.get(), segmentIds, cameraPos, cameraDir);
+
+        XYVectorf toSegment = node->splitterP0 - cameraPos.pos;
+        if (dotProduct(toSegment, cameraDir) > 0) {
+            segmentIds.push_back(node->segmentID);
+        }
+
+        traverse(node->back.get(), segmentIds, cameraPos, cameraDir);
+
+    } else {
+        traverse(node->back.get(), segmentIds, cameraPos, cameraDir);
+
+        traverse(node->front.get(), segmentIds, cameraPos, cameraDir);
+    }
+}
+
+/* =============================================================================================================================
+ * Private functions
+ * =============================================================================================================================
+ */
 void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments) {
     if (inputSegments.size() == 0) {
         return;
