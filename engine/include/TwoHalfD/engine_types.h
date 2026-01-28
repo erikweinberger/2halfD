@@ -188,7 +188,7 @@ struct EngineContext {
 };
 
 struct CameraObject {
-    Position cameraPos{500, 500, 0};
+    Position cameraPos{300, 700, 3 * std::numbers::pi_v<float> / 2};
     float cameraHeight{128};
     float cameraRadius{64};
 };
@@ -311,6 +311,9 @@ enum class EngineState {
 struct Segment {
     XYVectorf v1;
     XYVectorf v2;
+    const Wall *wall;
+    float wallRatioStart{0.f};
+    float wallRatioEnd{1.f};
 };
 
 struct BSPNode {

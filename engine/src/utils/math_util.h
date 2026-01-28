@@ -9,14 +9,18 @@
 
 using point2d = std::array<float, 2>;
 
-static const float PI = 3.1415927;
+static const float PI_f = std::numbers::pi_v<float>;
 
 inline float degreeToRad(float degree) {
-    return degree * PI / 180;
+    return degree * PI_f / 180;
 }
 
 inline float radToDegree(float rad) {
-    return 180.f / PI * rad;
+    return 180.f / PI_f * rad;
+}
+
+inline float lengthOfVector(const TwoHalfD::XYVectorf &v) {
+    return std::sqrt(v.x * v.x + v.y * v.y);
 }
 
 inline float distanceBetweenPoints(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {

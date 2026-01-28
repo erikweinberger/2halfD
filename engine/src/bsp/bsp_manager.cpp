@@ -10,9 +10,9 @@
 void TwoHalfD::BSPManager::buildBSPTree() {
     m_root = std::make_unique<TwoHalfD::BSPNode>();
     std::vector<TwoHalfD::Segment> segments;
-    segments.reserve(m_level.walls.size());
-    for (const auto &wall : m_level.walls) {
-        segments.push_back({{wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}});
+    segments.reserve(m_level->walls.size());
+    for (const auto &wall : m_level->walls) {
+        segments.push_back({{wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}, &wall});
     }
     _buildBSPTree(m_root.get(), segments);
 
@@ -33,9 +33,9 @@ std::vector<int> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
 void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos) {
     if (node == nullptr) return;
 
-    bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
+    float isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
 
-    if (isInfrontOfCamera) {
+    if (isInfrontOfCamera > std::numeric_limits<float>::epsilon()) {
         traverse(node->front.get(), segmentIds, cameraPos);
 
         segmentIds.push_back(node->segmentID);
@@ -57,20 +57,25 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<int> &s
     bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
 
     if (isInfrontOfCamera) {
-        traverse(node->front.get(), segmentIds, cameraPos, cameraDir);
-
-        XYVectorf toSegment = node->splitterP0 - cameraPos.pos;
-        if (dotProduct(toSegment, cameraDir) > 0) {
-            segmentIds.push_back(node->segmentID);
-        }
-
         traverse(node->back.get(), segmentIds, cameraPos, cameraDir);
+
+        segmentIds.push_back(node->segmentID);
+
+        traverse(node->front.get(), segmentIds, cameraPos, cameraDir);
 
     } else {
-        traverse(node->back.get(), segmentIds, cameraPos, cameraDir);
-
         traverse(node->front.get(), segmentIds, cameraPos, cameraDir);
+
+        segmentIds.push_back(node->segmentID);
+
+        traverse(node->back.get(), segmentIds, cameraPos, cameraDir);
     }
+}
+
+// Getters and setters
+
+void TwoHalfD::BSPManager::setLevel(const TwoHalfD::Level *level) {
+    m_level = level;
 }
 
 /* =============================================================================================================================
@@ -128,8 +133,12 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
             if (intersection > 0.0f && intersection < 1.0f) {
                 TwoHalfD::XYVectorf intersectionPoint{inputSegments[i].v1 + intersection * segmentVector};
 
-                TwoHalfD::Segment rSegment{{inputSegments[i].v1}, {intersectionPoint}};
-                TwoHalfD::Segment lSegment{{intersectionPoint}, {inputSegments[i].v2}};
+                const float midPointWallRatio = distanceBetweenPoints(intersectionPoint, inputSegments[i].wall->start) /
+                                                distanceBetweenPoints(inputSegments[i].wall->start, inputSegments[i].wall->end);
+                TwoHalfD::Segment rSegment{
+                    {inputSegments[i].v1}, {intersectionPoint}, inputSegments[i].wall, inputSegments[i].wallRatioStart, midPointWallRatio};
+                TwoHalfD::Segment lSegment{
+                    {intersectionPoint}, {inputSegments[i].v2}, inputSegments[i].wall, midPointWallRatio, inputSegments[i].wallRatioEnd};
 
                 if (numerator > 0) {
                     std::swap(rSegment, lSegment);

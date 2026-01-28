@@ -1,3 +1,4 @@
+#include "TwoHalfD/bsp/bsp_manager.h"
 #include "TwoHalfD/engine_types.h"
 #include "utils/math_util.h"
 
@@ -5,6 +6,7 @@
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/PrimitiveType.hpp>
+#include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/RenderStates.hpp>
 #include <SFML/Graphics/Shader.hpp>
 #include <SFML/Graphics/Sprite.hpp>
@@ -24,6 +26,8 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
     m_window.setMouseCursorVisible(false);
     m_level = m_levelMaker.parseLevelFile(levelFilePath);
+    m_bspManager.setLevel(&m_level);
+    m_bspManager.buildBSPTree();
 }
 
 // Game Inputs
@@ -179,54 +183,50 @@ std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls() {
     return m_level.walls;
 }
 
-// void TwoHalfD::Engine::renderAbove()
-// {
-//     m_window_above.clear(sf::Color::Black);
+void TwoHalfD::Engine::renderAbove() {
+    m_window_above.clear(sf::Color::Black);
 
-//     for (int i = 0; i < 1920; i += 256)
-//     {
-//         sf::VertexArray lines(sf::LinesStrip, 2);
-//         lines[0].position = sf::Vector2f(i, 0);
-//         lines[1].position = sf::Vector2f(i, 1080);
-//         lines[0].color = sf::Color::Yellow;
-//         lines[1].color = sf::Color::Yellow;
-//         m_window_above.draw(lines);
-//     }
-//     for (int i = 0; i < 1080; i += 256)
-//     {
-//         sf::VertexArray lines(sf::LinesStrip, 2);
-//         lines[0].position = sf::Vector2f(0, i);
-//         lines[1].position = sf::Vector2f(1920, i);
-//         lines[0].color = sf::Color::Yellow;
-//         lines[1].color = sf::Color::Yellow;
-//         m_window_above.draw(lines);
-//     }
+    for (int i = 0; i < 1920; i += 256) {
+        sf::VertexArray lines(sf::LinesStrip, 2);
+        lines[0].position = sf::Vector2f(i, 0);
+        lines[1].position = sf::Vector2f(i, 1080);
+        lines[0].color = sf::Color::Yellow;
+        lines[1].color = sf::Color::Yellow;
+        m_window_above.draw(lines);
+    }
+    for (int i = 0; i < 1080; i += 256) {
+        sf::VertexArray lines(sf::LinesStrip, 2);
+        lines[0].position = sf::Vector2f(0, i);
+        lines[1].position = sf::Vector2f(1920, i);
+        lines[0].color = sf::Color::Yellow;
+        lines[1].color = sf::Color::Yellow;
+        m_window_above.draw(lines);
+    }
 
-//     for (auto wall : m_level.walls)
-//     {
-//         sf::VertexArray lines(sf::LinesStrip, 2);
-//         lines[0].position = sf::Vector2f(wall.start.x, wall.start.y);
-//         lines[1].position = sf::Vector2f(wall.end.x, wall.end.y);
-//         lines[0].color = sf::Color::Red;
-//         lines[1].color = sf::Color::Red;
-//         m_window_above.draw(lines);
-//     }
-//     TwoHalfD::Position camP = getCameraPosition();
-//     sf::CircleShape circle(10, 10);
-//     circle.setFillColor(sf::Color::White);
-//     circle.setPosition({100, 100});
-//     circle.setPosition(camP.pos.x - 10, camP.pos.y - 10);
-//     m_window_above.draw(circle);
+    for (auto wall : m_level.walls) {
+        sf::VertexArray lines(sf::LinesStrip, 2);
+        lines[0].position = sf::Vector2f(wall.start.x, wall.start.y);
+        lines[1].position = sf::Vector2f(wall.end.x, wall.end.y);
+        lines[0].color = sf::Color::Red;
+        lines[1].color = sf::Color::Red;
+        m_window_above.draw(lines);
+    }
+    TwoHalfD::Position camP = getCameraPosition();
+    sf::CircleShape circle(10, 10);
+    circle.setFillColor(sf::Color::White);
+    circle.setPosition({100, 100});
+    circle.setPosition(camP.pos.x - 10, camP.pos.y - 10);
+    m_window_above.draw(circle);
 
-//     sf::VertexArray lines(sf::LinesStrip, 2);
-//     lines[0].position = sf::Vector2f(camP.pos.x, camP.pos.y);
-//     lines[1].position = sf::Vector2f(camP.pos.x + 20 * std::cos(camP.direction), camP.pos.y + 20 * std::sin(camP.direction));
-//     lines[0].color = sf::Color::Red;
-//     lines[1].color = sf::Color::Red;
-//     m_window_above.draw(lines);
+    sf::VertexArray lines(sf::LinesStrip, 2);
+    lines[0].position = sf::Vector2f(camP.pos.x, camP.pos.y);
+    lines[1].position = sf::Vector2f(camP.pos.x + 20 * std::cos(camP.direction), camP.pos.y + 20 * std::sin(camP.direction));
+    lines[0].color = sf::Color::Red;
+    lines[1].color = sf::Color::Red;
+    m_window_above.draw(lines);
 
-//     m_window_above.display();
-// }
+    m_window_above.display();
+}
 
 // Render Logic
 void TwoHalfD::Engine::render() {
@@ -238,9 +238,10 @@ void TwoHalfD::Engine::render() {
     m_window.clear(sf::Color::Black);
     m_renderTexture.clear(sf::Color::Transparent);
     renderFloor();
-    renderWalls();
+    renderWalls2();
     renderObjects();
     renderOverlays();
+    // renderAbove();
 
     m_renderTexture.display();
     sf::Sprite sprite(m_renderTexture.getTexture());
@@ -457,6 +458,103 @@ void TwoHalfD::Engine::renderWalls() {
         sprite.setColor(
             sf::Color(static_cast<sf::Uint8>(255 * shade), static_cast<sf::Uint8>(255 * shade), static_cast<sf::Uint8>(255 * shade), 255));
         m_renderTexture.draw(sprite);
+    }
+}
+
+void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
+    const auto wall = segment.wall;
+    float p_focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
+    TwoHalfD::XYVectorf n_direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
+    TwoHalfD::XYVectorf n_plane{-n_direction.y, n_direction.x};
+
+    TwoHalfD::XYVectorf vecCamV1 = segment.v1 - m_cameraObject.cameraPos.pos;
+    TwoHalfD::XYVectorf vecCamV2 = segment.v2 - m_cameraObject.cameraPos.pos;
+    TwoHalfD::XYVectorf n_vecCam1 = vecCamV1.normalized();
+    TwoHalfD::XYVectorf n_vecCam2 = vecCamV2.normalized();
+
+    float perpWorldDistanceStart = std::abs(dotProduct(vecCamV1, n_direction));
+    float perpWorldDistanceEnd = std::abs(dotProduct(vecCamV2, n_direction));
+
+    // Negative means left and positive means right
+    float signedLateralDistV1 = dotProduct(vecCamV1, n_plane);
+    float signedLateralDistV2 = dotProduct(vecCamV2, n_plane);
+
+    if (signedLateralDistV1 >= 0 && signedLateralDistV2 < 0) {
+        std::swap(perpWorldDistanceStart, perpWorldDistanceEnd);
+        std::swap(vecCamV1, vecCamV2);
+        std::swap(signedLateralDistV1, signedLateralDistV2);
+        std::swap(n_vecCam1, n_vecCam2);
+    } else if (std::signbit(signedLateralDistV1) == std::signbit(signedLateralDistV2) && signedLateralDistV1 > signedLateralDistV2) {
+        std::swap(perpWorldDistanceStart, perpWorldDistanceEnd);
+        std::swap(vecCamV1, vecCamV2);
+        std::swap(signedLateralDistV1, signedLateralDistV2);
+        std::swap(n_vecCam1, n_vecCam2);
+    }
+
+    const float &halfYRes = m_engineSettings.resolution.y / 2.f;
+    const float &halfXRes = m_engineSettings.resolution.x / 2.f;
+
+    if (dotProduct(n_direction, n_vecCam1) < 0 && dotProduct(n_direction, n_vecCam2) < 0) return;
+
+    float p_xScreenPosV1 = halfXRes + p_focalLength * signedLateralDistV1 / perpWorldDistanceStart;
+    float p_xScreenPosV2 = halfXRes + p_focalLength * signedLateralDistV2 / perpWorldDistanceEnd;
+
+    if (p_xScreenPosV1 > m_engineSettings.resolution.x || p_xScreenPosV2 < 0) return;
+
+    float p_topWallStart = p_focalLength * (m_cameraObject.cameraHeight - wall->height) / perpWorldDistanceStart + halfYRes;
+    float p_bottomWallStart = p_focalLength * (m_cameraObject.cameraHeight) / perpWorldDistanceStart + halfYRes;
+
+    float p_topWallEnd = p_focalLength * (m_cameraObject.cameraHeight - wall->height) / perpWorldDistanceEnd + halfYRes;
+    float p_bottomWallEnd = p_focalLength * (m_cameraObject.cameraHeight) / perpWorldDistanceEnd + halfYRes;
+
+    auto it = m_level.textures.find(wall->textureId);
+    if (it == m_level.textures.end()) {
+        std::cerr << "No texture found for wall: " << wall->id << " with texture id: " << wall->textureId << std::endl;
+        exit(1);
+    }
+
+    sf::Texture &tex = it->second.texture;
+    sf::Vector2u texSize = tex.getSize();
+
+    const float wallLen = distanceBetweenPoints(wall->start, wall->end);
+    float wallTextureStart = segment.wallRatioStart * wallLen;
+    float wallTextureEnd = segment.wallRatioEnd * wallLen;
+
+    sf::VertexArray quad(sf::Quads, 4);
+
+    quad[0].position = sf::Vector2f(p_xScreenPosV1, p_topWallStart);
+    quad[0].texCoords = sf::Vector2f(wallTextureStart, 0);
+
+    quad[1].position = sf::Vector2f(p_xScreenPosV1, p_bottomWallStart);
+    quad[1].texCoords = sf::Vector2f(wallTextureStart, texSize.y);
+
+    quad[2].position = sf::Vector2f(p_xScreenPosV2, p_bottomWallEnd);
+    quad[2].texCoords = sf::Vector2f(wallTextureEnd, texSize.y);
+
+    quad[3].position = sf::Vector2f(p_xScreenPosV2, p_topWallEnd);
+    quad[3].texCoords = sf::Vector2f(wallTextureEnd, 0);
+
+    sf::RenderStates states;
+    states.texture = &tex;
+    states.shader = &m_perspectiveShader;
+
+    m_perspectiveShader.setUniform("topLeft", quad[0].position);
+    m_perspectiveShader.setUniform("bottomLeft", quad[1].position);
+    m_perspectiveShader.setUniform("bottomRight", quad[2].position);
+    m_perspectiveShader.setUniform("topRight", quad[3].position);
+    m_perspectiveShader.setUniform("texSize", sf::Vector2f(static_cast<float>(texSize.x), static_cast<float>(texSize.y)));
+    m_perspectiveShader.setUniform("wallLen", wallLen);
+    m_perspectiveShader.setUniform("startRatio", segment.wallRatioStart);
+    m_perspectiveShader.setUniform("endRatio", segment.wallRatioEnd);
+
+    m_renderTexture.draw(quad, states);
+}
+
+void TwoHalfD::Engine::renderWalls2() {
+    auto segmentIds = m_bspManager.update(m_cameraObject.cameraPos);
+    for (const auto &segmentId : segmentIds) {
+        auto segment = m_bspManager.getSegment(segmentId);
+        renderSegment(segment);
     }
 }
 
