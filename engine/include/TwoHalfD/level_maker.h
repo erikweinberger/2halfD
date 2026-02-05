@@ -17,7 +17,8 @@ namespace TwoHalfD {
 enum EntityTypes {
     texture = 0,
     wall,
-    sprite
+    sprite,
+    seed
 };
 
 class LevelMaker {

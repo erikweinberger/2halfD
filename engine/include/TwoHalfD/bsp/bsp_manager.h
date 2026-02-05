@@ -9,6 +9,12 @@
 
 namespace TwoHalfD {
 
+struct OptimalCostPartitioning {
+    int splitCount;
+    int numFront;
+    int numBack;
+};
+
 class BSPManager {
   public:
     BSPManager() : m_level(nullptr) {}
@@ -25,16 +31,28 @@ class BSPManager {
     // Getters and setters
     void setLevel(const TwoHalfD::Level *level);
 
+    // BSP optimization
+    int findBestPartitioning();
+
   private:
     const TwoHalfD::Level *m_level;
     std::unique_ptr<TwoHalfD::BSPNode> m_root;
     std::vector<TwoHalfD::Segment> m_segments;
     size_t m_segmentID = 0;
+    float m_splitWeight = 3.f;
+    int m_startSeed = 0;
+    int m_endSeed = 20000;
 
-    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments);
+    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, struct OptimalCostPartitioning &cost,
+                       bool saveSegments = true);
     std::pair<std::vector<TwoHalfD::Segment>, std::vector<TwoHalfD::Segment>> _splitSpace(TwoHalfD::BSPNode *node,
-                                                                                          const std::vector<TwoHalfD::Segment> &inputSegments);
+                                                                                          const std::vector<TwoHalfD::Segment> &inputSegments,
+                                                                                          struct OptimalCostPartitioning &cost,
+                                                                                          bool saveSegments = true);
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
+
+    // BSP optimization
+    float _findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments);
 };
 } // namespace TwoHalfD
 

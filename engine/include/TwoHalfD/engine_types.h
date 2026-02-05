@@ -166,7 +166,7 @@ struct EngineSettings {
     float fovScale = std::tan(fov / 2);
     int numRays = 960;
 
-    double graphicsFpsCap = 100.0;
+    double graphicsFpsCap = 1000.0;
     double gameFpsCap = 60.0;
 
     bool cameraCollision = true;
@@ -179,6 +179,7 @@ struct Level {
     std::vector<SpriteEntity> sprites;
     std::unordered_map<int, TwoHalfD::TextureSignature> textures;
     float cameraHeightStart;
+    int seed = -1;
 };
 
 struct EngineContext {

@@ -3,18 +3,30 @@
 #include "../utils/math_util.h"
 #include "TwoHalfD/engine_types.h"
 #include <cstddef>
+#include <iostream>
 #include <limits>
 #include <memory>
+#include <random>
 #include <vector>
 
 void TwoHalfD::BSPManager::buildBSPTree() {
+    int seed = m_level->seed;
+    std::cout << "Seed for BSP: " << seed << std::endl;
+    if (seed == -1) {
+        seed = findBestPartitioning();
+    }
+
     m_root = std::make_unique<TwoHalfD::BSPNode>();
     std::vector<TwoHalfD::Segment> segments;
     segments.reserve(m_level->walls.size());
     for (const auto &wall : m_level->walls) {
         segments.push_back({{wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}, &wall});
     }
-    _buildBSPTree(m_root.get(), segments);
+    std::mt19937 rng(seed);
+    std::shuffle(segments.begin(), segments.end(), rng);
+    OptimalCostPartitioning cost{0, 0, 0};
+    _buildBSPTree(m_root.get(), segments, cost);
+    std::cout << "BSP Tree built with cost " << (std::abs(cost.numBack - cost.numFront) + (cost.splitCount * m_splitWeight)) << std::endl;
 
     return;
 }
@@ -73,35 +85,103 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<int> &s
 }
 
 // Getters and setters
-
 void TwoHalfD::BSPManager::setLevel(const TwoHalfD::Level *level) {
     m_level = level;
+}
+
+int TwoHalfD::BSPManager::findBestPartitioning() {
+    std::vector<TwoHalfD::Segment> segments;
+    segments.reserve(m_level->walls.size());
+    for (const auto &wall : m_level->walls) {
+        segments.push_back({{wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}, &wall});
+    }
+
+    const unsigned int maxThreads = std::thread::hardware_concurrency();
+    const unsigned int numThreads = std::min(maxThreads, 4u);
+    const int totalSeeds = m_endSeed - m_startSeed;
+    const int seedsPerThread = totalSeeds / numThreads;
+
+    std::vector<std::thread> threads;
+    std::vector<std::pair<int, float>> threadResults(numThreads, {-1, std::numeric_limits<float>::max()});
+
+    for (unsigned int t = 0; t < numThreads; ++t) {
+        int startSeed = m_startSeed + t * seedsPerThread;
+        int endSeed = (t == numThreads - 1) ? m_endSeed : startSeed + seedsPerThread;
+
+        threads.emplace_back([this, &segments, &threadResults, t, startSeed, endSeed]() {
+            int bestSeed = -1;
+            float lowestScore = std::numeric_limits<float>::max();
+
+            for (int seed = startSeed; seed < endSeed; ++seed) {
+                float score = _findIndividualPartitioning(seed, segments);
+                if (score < lowestScore) {
+                    lowestScore = score;
+                    bestSeed = seed;
+                }
+            }
+
+            threadResults[t] = {bestSeed, lowestScore};
+        });
+    }
+
+    // Wait for all threads to complete
+    for (auto &thread : threads) {
+        thread.join();
+    }
+
+    // Find best result across all threads
+    int bestSeed = -1;
+    float lowestScore = std::numeric_limits<float>::max();
+    for (const auto &[seed, score] : threadResults) {
+        if (score < lowestScore) {
+            lowestScore = score;
+            bestSeed = seed;
+        }
+    }
+    std::cout << "BSP Tree built with cost " << lowestScore << std::endl;
+    return bestSeed;
+}
+
+float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments) {
+    std::mt19937 rng(seed);
+    std::shuffle(segments.begin(), segments.end(), rng);
+
+    TwoHalfD::OptimalCostPartitioning cost{0, 0, 0};
+    TwoHalfD::BSPNode rootNode;
+    _buildBSPTree(&rootNode, segments, cost, false);
+
+    float score = std::abs(cost.numBack - cost.numFront) + (cost.splitCount * m_splitWeight);
+    return score; // Don't forget to return!
 }
 
 /* =============================================================================================================================
  * Private functions
  * =============================================================================================================================
  */
-void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments) {
+void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments,
+                                         struct OptimalCostPartitioning &cost, bool saveSegments) {
     if (inputSegments.size() == 0) {
         return;
     }
 
-    auto [frontSegs, backSegs] = _splitSpace(node, inputSegments);
+    auto [frontSegs, backSegs] = _splitSpace(node, inputSegments, cost, saveSegments);
 
     if (backSegs.size() > 0) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
-        _buildBSPTree(node->back.get(), backSegs);
+        cost.numBack += 1;
+        _buildBSPTree(node->back.get(), backSegs, cost, saveSegments);
     }
 
     if (frontSegs.size() > 0) {
         node->front = std::make_unique<TwoHalfD::BSPNode>();
-        _buildBSPTree(node->front.get(), frontSegs);
+        cost.numFront += 1;
+        _buildBSPTree(node->front.get(), frontSegs, cost, saveSegments);
     }
 }
 
 std::pair<std::vector<TwoHalfD::Segment>, std::vector<TwoHalfD::Segment>>
-TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments) {
+TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, struct OptimalCostPartitioning &cost,
+                                  bool saveSegments) {
     auto splitterSeg = inputSegments[0];
     TwoHalfD::XYVectorf v1 = splitterSeg.v1;
     TwoHalfD::XYVectorf v2 = splitterSeg.v2;
@@ -143,7 +223,7 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
                 if (numerator > 0) {
                     std::swap(rSegment, lSegment);
                 }
-
+                cost.splitCount += 1;
                 frontSegs.push_back(rSegment);
                 backSegs.push_back(lSegment);
                 continue;
@@ -157,7 +237,9 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
         }
     }
 
-    _addSegment(std::move(splitterSeg), node);
+    if (saveSegments) {
+        _addSegment(std::move(splitterSeg), node);
+    }
     return {frontSegs, backSegs};
 }
 

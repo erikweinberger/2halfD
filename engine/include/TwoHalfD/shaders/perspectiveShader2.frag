@@ -7,6 +7,8 @@ uniform vec2 topLeft;
 uniform vec2 bottomLeft;
 uniform vec2 bottomRight;
 uniform vec2 topRight;
+uniform float leftDepth;
+uniform float rightDepth;
 
 void main() {
     vec2 objectCord = gl_FragCoord.xy;
@@ -16,25 +18,26 @@ void main() {
         discard;
     }
     
-    // n_xCord: 0 at left edge, 1 at right edge of this segment
     float n_xCord = (objectCord.x - topLeft.x) / width;
     
-    // Map to world position along the wall
-    float worldPos = startRatio + n_xCord * (endRatio - startRatio);
+    float invZ = leftDepth * (1.0 - n_xCord) + rightDepth * n_xCord;
+    float z = 1.0 / invZ;
     
-    // Convert world position to texture coordinate
-    // Multiply by wallLen to get position in world units, then normalize by texture width
+    float worldPos_over_z = (startRatio * leftDepth) * (1.0 - n_xCord) + 
+                            (endRatio * rightDepth) * n_xCord;
+    float worldPos = worldPos_over_z * z;
     float texX = mod(worldPos * wallLen, texSize.x) / texSize.x;
     
-    float yLen = (bottomLeft.y - topLeft.y) * (1.0 - n_xCord) + (bottomRight.y - topRight.y) * n_xCord;
+    float leftHeight = bottomLeft.y - topLeft.y;
+    float rightHeight = bottomRight.y - topRight.y;
     
-    if (abs(yLen) < 0.001) {
-        discard;
-    }
+    float topY = topLeft.y * (1.0 - n_xCord) + topRight.y * n_xCord;
+    float bottomY = bottomLeft.y * (1.0 - n_xCord) + bottomRight.y * n_xCord;
     
-    float n_yCord = ((objectCord.y - topLeft.y) + (yLen - (bottomLeft.y - topLeft.y)) / 2.0) / yLen;
+    float screenT = (objectCord.y - topY) / (bottomY - topY);
+
     
-    vec2 texCord = vec2(texX, n_yCord);
+    vec2 texCord = vec2(texX, screenT);
     vec4 pixel = texture2D(texture, texCord);
     gl_FragColor = pixel;
 }

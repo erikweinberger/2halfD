@@ -37,6 +37,13 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
             m_spriteEntities.push_back(_makeSpriteEntity(line));
             break;
         }
+        case TwoHalfD::EntityTypes::seed: {
+            std::istringstream ss(line);
+            int skip;
+            ss >> skip >> result_level.seed;
+            std::cerr << "Level seed set to: " << result_level.seed << '\n';
+            break;
+        }
         default:
             break;
         }
@@ -132,7 +139,8 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString) {
         std::cerr << "Texture not loaded (TextureId: " << textureId << ")\n";
     }
 
-    return TwoHalfD::Wall{m_entityId++, {startX, startY}, {endX, endY}, height, textureId};
+    auto wall = TwoHalfD::Wall{m_entityId++, {startX, startY}, {endX, endY}, height, textureId};
+    return wall;
 }
 
 TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string spriteString) {

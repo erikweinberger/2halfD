@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 void Game::run() {
     TwoHalfD::Level level;
     level.cameraHeightStart = 128.f;
-    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level3.txt";
+    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level2.txt";
     m_engine.loadLevel(levelFile);
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
            m_engine.getState() == TwoHalfD::EngineState::paused) {
@@ -50,7 +50,6 @@ void Game::updateGameState() {
 void Game::handleFrameInputs() {
     std::span<const TwoHalfD::Event> inputs = m_engine.getFrameInputs();
     for (auto &input : inputs) {
-        // std::cout << "Event type: " << static_cast<int>(input.type) << std::endl;
         switch (input.type) {
         case TwoHalfD::Event::Type::None:
             break;
@@ -72,7 +71,6 @@ void Game::handleFrameInputs() {
 
 void Game::handleKeyPressedEvent(const TwoHalfD::Event &event) {
     assert(event.type == TwoHalfD::Event::Type::KeyPressed);
-    // std::cout << "Key pressed: " << event.key.keyCode << "\n";
     switch (event.key.keyCode) {
     case TwoHalfD::w:
         m_gameState.playerState.moveDir.w = 1;
