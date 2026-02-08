@@ -1,3 +1,6 @@
+#ifndef LEVEL_MAKER_H
+#define LEVEL_MAKER_H
+
 #include "TwoHalfD/engine_types.h"
 
 #include <SFML/Graphics/Texture.hpp>
@@ -11,7 +14,12 @@ namespace fs = std::filesystem;
 
 namespace TwoHalfD {
 
-enum EntityTypes { texture = 0, wall, sprite };
+enum EntityTypes {
+    texture = 0,
+    wall,
+    sprite,
+    seed
+};
 
 class LevelMaker {
   private:
@@ -31,3 +39,5 @@ class LevelMaker {
     TwoHalfD::SpriteEntity _makeSpriteEntity(std::string spriteString);
 };
 } // namespace TwoHalfD
+
+#endif

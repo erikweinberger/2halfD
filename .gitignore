@@ -25,3 +25,6 @@ Makefile
 *.dylib
 .cache/
 
+# File artifacts
+.DS_Store
+

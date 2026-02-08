@@ -2,11 +2,14 @@
 #define ENGINE_TYPES
 
 #include <SFML/Graphics.hpp>
+#include <cstddef>
 #include <iostream>
 #include <limits>
 #include <numbers>
+#include <optional>
 #include <span>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <chrono>
@@ -164,7 +167,7 @@ struct EngineSettings {
     float fovScale = std::tan(fov / 2);
     int numRays = 960;
 
-    double graphicsFpsCap = 100.0;
+    double graphicsFpsCap = 1000.0;
     double gameFpsCap = 60.0;
 
     bool cameraCollision = true;
@@ -177,6 +180,7 @@ struct Level {
     std::vector<SpriteEntity> sprites;
     std::unordered_map<int, TwoHalfD::TextureSignature> textures;
     float cameraHeightStart;
+    int seed = -1;
 };
 
 struct EngineContext {
@@ -186,8 +190,8 @@ struct EngineContext {
 };
 
 struct CameraObject {
-    Position cameraPos{500, 500, 0};
-    float cameraHeight{128};
+    Position cameraPos{300, 700, 3 * std::numbers::pi_v<float> / 2};
+    float cameraHeight{100.f};
     float cameraRadius{64};
 };
 
@@ -303,6 +307,36 @@ enum class EngineState {
     fpsState,
     ended,
     paused
+};
+
+// BSP
+struct Segment {
+    XYVectorf v1;
+    XYVectorf v2;
+    const Wall *wall;
+    float wallRatioStart{0.f};
+    float wallRatioEnd{1.f};
+};
+
+struct BSPNode {
+    std::unique_ptr<BSPNode> front;
+    std::unique_ptr<BSPNode> back;
+
+    std::unordered_set<int> spriteIds;
+
+    XYVectorf splitterP0;
+    XYVectorf splitterP1;
+    XYVectorf splitterVec;
+
+    int segmentID = -1;
+};
+
+struct DrawCommand {
+    enum Type {
+        Segment,
+        Sprite
+    } type;
+    int id;
 };
 
 } // namespace TwoHalfD

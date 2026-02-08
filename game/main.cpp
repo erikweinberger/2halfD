@@ -4,8 +4,7 @@
 
 #include "game.h"
 
-int main()
-{
+int main() {
     std::cerr << "Starting\n";
     TwoHalfD::EngineSettings engineSettings;
     TwoHalfD::Engine engine(engineSettings);
