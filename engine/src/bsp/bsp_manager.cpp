@@ -6,6 +6,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <queue>
 #include <random>
 #include <vector>
 
@@ -26,61 +27,122 @@ void TwoHalfD::BSPManager::buildBSPTree() {
     std::shuffle(segments.begin(), segments.end(), rng);
     OptimalCostPartitioning cost{0, 0, 0};
     _buildBSPTree(m_root.get(), segments, cost);
-    std::cout << "BSP Tree built with cost " << (std::abs(cost.numBack - cost.numFront) + (cost.splitCount * m_splitWeight)) << std::endl;
+
+    insertSprites(m_level->sprites);
 
     return;
+}
+
+void TwoHalfD::BSPManager::insertSprites(const std::vector<SpriteEntity> &sprites) {
+    for (size_t i{}; i < sprites.size(); ++i) {
+        _insertSprite(m_root.get(), sprites[i], i);
+    }
 }
 
 TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
     return m_segments[id];
 }
 
-std::vector<int> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
-    std::vector<int> segmentIds;
+std::vector<TwoHalfD::DrawCommand> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
     TwoHalfD::XYVectorf cameraDir{std::cos(cameraPos.direction), std::sin(cameraPos.direction)};
-    traverse(m_root.get(), segmentIds, cameraPos, cameraDir);
-    return segmentIds;
+    std::vector<TwoHalfD::DrawCommand> commands;
+    traverse(m_root.get(), commands, cameraPos, cameraDir);
+
+    return commands;
 }
 
-void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos) {
+void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos) {
     if (node == nullptr) return;
 
-    float isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
+    bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
 
-    if (isInfrontOfCamera > std::numeric_limits<float>::epsilon()) {
-        traverse(node->front.get(), segmentIds, cameraPos);
+    if (node->front == nullptr && node->back == nullptr) {
 
-        segmentIds.push_back(node->segmentID);
+        auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
+        std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
 
-        traverse(node->back.get(), segmentIds, cameraPos);
+        for (const auto &spriteId : node->spriteIds) {
+            TwoHalfD::XYVectorf spritePos = m_level->sprites[spriteId].pos.pos;
+            float distance = (spritePos - cameraPos.pos).length();
+            spriteOrderedDistance.push({distance, spriteId});
+        }
+
+        if (!isInfrontOfCamera) {
+            while (!spriteOrderedDistance.empty()) {
+                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                spriteOrderedDistance.pop();
+            }
+            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
+        } else {
+            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
+            while (!spriteOrderedDistance.empty()) {
+                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                spriteOrderedDistance.pop();
+            }
+        }
+        return;
+    }
+
+    if (isInfrontOfCamera) {
+        traverse(node->back.get(), commands, cameraPos);
+
+        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
+        traverse(node->front.get(), commands, cameraPos);
+
     } else {
-        traverse(node->back.get(), segmentIds, cameraPos);
+        traverse(node->front.get(), commands, cameraPos);
 
-        segmentIds.push_back(node->segmentID);
+        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
 
-        traverse(node->front.get(), segmentIds, cameraPos);
+        traverse(node->back.get(), commands, cameraPos);
     }
 }
 
-void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos,
+void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos,
                                     const TwoHalfD::XYVectorf &cameraDir) {
     if (node == nullptr) return;
 
     bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
 
+    if (node->front == nullptr && node->back == nullptr) {
+
+        auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
+        std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
+
+        for (const auto &spriteId : node->spriteIds) {
+            TwoHalfD::XYVectorf spritePos = m_level->sprites[spriteId].pos.pos;
+            float distance = (spritePos - cameraPos.pos).length();
+            spriteOrderedDistance.push({distance, spriteId});
+        }
+
+        if (!isInfrontOfCamera) {
+            while (!spriteOrderedDistance.empty()) {
+                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                spriteOrderedDistance.pop();
+            }
+            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
+        } else {
+            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
+            while (!spriteOrderedDistance.empty()) {
+                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                spriteOrderedDistance.pop();
+            }
+        }
+        return;
+    }
+
     if (isInfrontOfCamera) {
-        traverse(node->back.get(), segmentIds, cameraPos, cameraDir);
+        traverse(node->back.get(), commands, cameraPos, cameraDir);
 
-        segmentIds.push_back(node->segmentID);
-
-        traverse(node->front.get(), segmentIds, cameraPos, cameraDir);
+        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
+        traverse(node->front.get(), commands, cameraPos, cameraDir);
 
     } else {
-        traverse(node->front.get(), segmentIds, cameraPos, cameraDir);
+        traverse(node->front.get(), commands, cameraPos, cameraDir);
 
-        segmentIds.push_back(node->segmentID);
+        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
 
-        traverse(node->back.get(), segmentIds, cameraPos, cameraDir);
+        traverse(node->back.get(), commands, cameraPos, cameraDir);
     }
 }
 
@@ -124,12 +186,10 @@ int TwoHalfD::BSPManager::findBestPartitioning() {
         });
     }
 
-    // Wait for all threads to complete
     for (auto &thread : threads) {
         thread.join();
     }
 
-    // Find best result across all threads
     int bestSeed = -1;
     float lowestScore = std::numeric_limits<float>::max();
     for (const auto &[seed, score] : threadResults) {
@@ -151,7 +211,7 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
     _buildBSPTree(&rootNode, segments, cost, false);
 
     float score = std::abs(cost.numBack - cost.numFront) + (cost.splitCount * m_splitWeight);
-    return score; // Don't forget to return!
+    return score;
 }
 
 /* =============================================================================================================================
@@ -241,6 +301,24 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
         _addSegment(std::move(splitterSeg), node);
     }
     return {frontSegs, backSegs};
+}
+
+void TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, const SpriteEntity &sprite, int spriteId) {
+    if (node == nullptr) return;
+
+    // If this is a leaf node, add the sprite here
+    if (node->front == nullptr && node->back == nullptr) {
+        node->spriteIds.insert(spriteId);
+        return;
+    }
+
+    float isInfrontOfSplit = isInfront(sprite.pos.pos - node->splitterP0, node->splitterVec);
+
+    if (isInfrontOfSplit > std::numeric_limits<float>::epsilon()) {
+        _insertSprite(node->front.get(), sprite, spriteId);
+    } else {
+        _insertSprite(node->back.get(), sprite, spriteId);
+    }
 }
 
 void TwoHalfD::BSPManager::_addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node) {

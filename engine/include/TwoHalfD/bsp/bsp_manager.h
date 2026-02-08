@@ -21,15 +21,17 @@ class BSPManager {
     BSPManager(const TwoHalfD::Level *level) : m_level(level) {}
 
     void buildBSPTree();
-    TwoHalfD::Segment &getSegment(int id);
+    void insertSprites(const std::vector<SpriteEntity> &sprites);
 
     // Traverse logic
-    std::vector<int> update(TwoHalfD::Position &cameraPos);
-    void traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos);
-    void traverse(TwoHalfD::BSPNode *node, std::vector<int> &segmentIds, const TwoHalfD::Position &cameraPos, const TwoHalfD::XYVectorf &cameraDir);
+    std::vector<TwoHalfD::DrawCommand> update(TwoHalfD::Position &cameraPos);
+    void traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos);
+    void traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos,
+                  const TwoHalfD::XYVectorf &cameraDir);
 
     // Getters and setters
     void setLevel(const TwoHalfD::Level *level);
+    TwoHalfD::Segment &getSegment(int id);
 
     // BSP optimization
     int findBestPartitioning();
@@ -50,6 +52,7 @@ class BSPManager {
                                                                                           struct OptimalCostPartitioning &cost,
                                                                                           bool saveSegments = true);
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
+    void _insertSprite(TwoHalfD::BSPNode *node, const TwoHalfD::SpriteEntity &sprite, int spriteId);
 
     // BSP optimization
     float _findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments);

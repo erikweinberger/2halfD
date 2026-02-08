@@ -82,7 +82,6 @@ void TwoHalfD::Engine::clearFrameInputs() {
     m_currentInput = 0;
 }
 
-// In backgroundFrameUpdates:
 void TwoHalfD::Engine::backgroundFrameUpdates() {
     if (m_engineState == TwoHalfD::EngineState::fpsState) {
         auto size = m_window.getSize();
@@ -235,9 +234,9 @@ void TwoHalfD::Engine::render() {
         return;
     }
     m_renderTexture.clear(sf::Color::Transparent);
-    renderFloor();
+    // renderFloor();
     renderWalls();
-    renderObjects();
+    // renderObjects();
     renderOverlays();
     // // renderAbove();
 
@@ -275,115 +274,6 @@ void TwoHalfD::Engine::renderOverlays() {
     text1.setFillColor(sf::Color::Yellow);
     text1.setPosition(50, m_engineSettings.resolution.y - 50);
     m_renderTexture.draw(text1);
-}
-
-void TwoHalfD::Engine::renderObjects() {
-    float cameraDirRad = m_cameraObject.cameraPos.direction;
-    sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
-    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
-    const float planeLen = std::sqrt(plane.x * plane.x + plane.y * plane.y);
-    const sf::Vector2f normalizedPlane = {plane.x / planeLen, plane.y / planeLen};
-
-    float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
-
-    for (int x = 0; x < m_engineSettings.numRays; ++x) {
-        float cameraX =
-            2.0f * x * (1.0f * m_engineSettings.resolution.x / m_engineSettings.numRays) / static_cast<float>(m_engineSettings.resolution.x) - 1.0f;
-        sf::Vector2f rayDir = direction + plane * cameraX;
-        float rayLength = std::sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y);
-        rayDir.x /= rayLength;
-        rayDir.y /= rayLength;
-
-        float rayDirX = rayDir.x;
-        float rayDirY = rayDir.y;
-
-        auto cmp = [](const auto &a, const auto &b) { return a.first < b.first; };
-
-        std::priority_queue<std::pair<float, TwoHalfD::SpriteEntity>, std::vector<std::pair<float, TwoHalfD::SpriteEntity>>, decltype(cmp)>
-            spriteOrderedDistance(cmp);
-        for (const auto &object : getSpriteEntitiesInRegion()) {
-            if (object.textureId == -1) continue;
-            // https://en.wikipedia.org/wiki/Line–line_intersection
-            const float x1 = m_cameraObject.cameraPos.pos.x, y1 = m_cameraObject.cameraPos.pos.y;
-            const float x2 = x1 + 1000.0f * rayDirX, y2 = y1 + 1000.0f * rayDirY;
-
-            const float x3 = object.pos.posf.x + object.radius * normalizedPlane.x, y3 = object.pos.posf.y + object.radius * normalizedPlane.y;
-            const float x4 = object.pos.posf.x - object.radius * normalizedPlane.x, y4 = object.pos.posf.y - object.radius * normalizedPlane.y;
-
-            float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-            if (std::abs(denom) < 0.00001f) continue;
-
-            float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
-            float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
-
-            float t = numeratorT / denom;
-            float u = numeratorU / denom;
-
-            if (u < 0 || u > 1 || t < 0 || t * 1000 >= m_renderZBuffer.nearestWallRayDist[x]) continue;
-
-            spriteOrderedDistance.push({t * 1000.0f, object});
-        }
-
-        while (!spriteOrderedDistance.empty()) {
-            const auto distSpritePair = spriteOrderedDistance.top();
-            spriteOrderedDistance.pop();
-            const float distToSprite = distSpritePair.first;
-            const TwoHalfD::SpriteEntity currSprite = distSpritePair.second;
-            const auto &textureIt = m_level.textures.find(currSprite.textureId);
-            if (textureIt == m_level.textures.end()) {
-                exit(1);
-            }
-            const sf::Texture &tex = textureIt->second.texture;
-            const sf::Vector2u texSize = tex.getSize();
-
-            float perpWorldDistance = distToSprite * (rayDirX * direction.x + rayDirY * direction.y);
-
-            const float bottomOfSpriteScreen = focalLength * m_cameraObject.cameraHeight / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
-            const float topSpriteScreen =
-                focalLength * (m_cameraObject.cameraHeight - currSprite.height) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
-
-            const float spriteHeightScreen = bottomOfSpriteScreen - topSpriteScreen;
-
-            const sf::Vector2f spriteStartPos = {currSprite.pos.posf.x - currSprite.radius * normalizedPlane.x,
-                                                 currSprite.pos.posf.y - currSprite.radius * normalizedPlane.y};
-            const sf::Vector2f spriteEndPos = {currSprite.pos.posf.x + currSprite.radius * normalizedPlane.x,
-                                               currSprite.pos.posf.y + currSprite.radius * normalizedPlane.y};
-
-            const float intersectX = m_cameraObject.cameraPos.pos.x + distToSprite * rayDirX;
-            const float intersectY = m_cameraObject.cameraPos.pos.y + distToSprite * rayDirY;
-
-            float spriteDirX = spriteEndPos.x - spriteStartPos.x;
-            float spriteDirY = spriteEndPos.y - spriteStartPos.y;
-            const float wallLen = std::sqrtf(spriteDirX * spriteDirX + spriteDirY * spriteDirY);
-
-            spriteDirX /= wallLen;
-            spriteDirY /= wallLen;
-
-            const float toIntersectX = intersectX - spriteStartPos.x;
-            const float toIntersectY = intersectY - spriteStartPos.y;
-
-            float lenToIntercept = toIntersectX * spriteDirX + toIntersectY * spriteDirY;
-            float texX = (lenToIntercept / (2.0f * currSprite.radius)) * texSize.x;
-
-            texX = std::max(0.0f, std::min(texX, static_cast<float>(texSize.x - 1)));
-
-            int sliceWidth = m_engineSettings.resolution.x / m_engineSettings.numRays;
-
-            sf::Sprite sprite;
-            sprite.setTexture(tex);
-            sf::IntRect subRect(static_cast<int>(texX), 0, sliceWidth, texSize.y);
-            sprite.setTextureRect(subRect);
-            sprite.setScale(1.0f, spriteHeightScreen / texSize.y);
-            sprite.setPosition(x * sliceWidth, topSpriteScreen);
-
-            float shade = std::min(1.0f, 256.0f / distToSprite);
-            sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
-
-            sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
-
-            m_renderTexture.draw(sprite);
-        }
-    }
 }
 
 void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
@@ -494,11 +384,67 @@ void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
     m_renderTexture.draw(quad, states);
 }
 
+void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) {
+    auto it = m_level.textures.find(spriteEntity.textureId);
+    if (it == m_level.textures.end()) {
+        std::cerr << "No texture found for sprite: " << spriteEntity.id << " with texture id: " << spriteEntity.textureId << std::endl;
+        exit(1);
+    }
+
+    const sf::Texture &tex = it->second.texture;
+    const sf::Vector2u texSize = tex.getSize();
+
+    sf::Sprite sprite;
+    sprite.setTexture(tex);
+    sprite.setOrigin(texSize.x / 2.0f, texSize.y / 2.0f);
+
+    float cameraDirRad = m_cameraObject.cameraPos.direction;
+    sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
+    sf::Vector2f n_plane{-direction.y, direction.x};
+    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
+
+    float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
+
+    const sf::Vector2f spritePos = {spriteEntity.pos.posf.x, spriteEntity.pos.posf.y};
+    const sf::Vector2f toSpriteVec = spritePos - sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y);
+
+    float perpWorldDistance = dotProduct(toSpriteVec, direction);
+
+    if (perpWorldDistance <= 0) {
+        return;
+    }
+
+    const float bottomOfSpriteScreen = focalLength * m_cameraObject.cameraHeight / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+    const float topSpriteScreen =
+        focalLength * (m_cameraObject.cameraHeight - spriteEntity.height) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+
+    const float spriteHeightScreen = bottomOfSpriteScreen - topSpriteScreen;
+
+    const float spriteScreenX = (m_engineSettings.resolution.x / 2.0f) + focalLength * dotProduct(toSpriteVec, n_plane) / perpWorldDistance;
+
+    sprite.setPosition(spriteScreenX, topSpriteScreen + spriteHeightScreen / 2.0f);
+    sprite.setScale(spriteHeightScreen / texSize.y, spriteHeightScreen / texSize.y);
+    float shade = std::min(1.0f, 256.0f * 1000.f / perpWorldDistance);
+    sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
+    sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
+    m_renderTexture.draw(sprite);
+}
+
 void TwoHalfD::Engine::renderWalls() {
-    auto segmentIds = m_bspManager.update(m_cameraObject.cameraPos);
-    for (const auto &segmentId : segmentIds) {
-        auto segment = m_bspManager.getSegment(segmentId);
-        renderSegment(segment);
+    auto drawnCommands = m_bspManager.update(m_cameraObject.cameraPos);
+    for (const auto &command : drawnCommands) {
+        switch (command.type) {
+        case TwoHalfD::DrawCommand::Type::Segment: {
+            renderSegment(m_bspManager.getSegment(command.id));
+            break;
+        }
+        case TwoHalfD::DrawCommand::Type::Sprite: {
+            renderSprite(m_level.sprites[command.id]);
+            break;
+        }
+        default:
+            break;
+        }
     }
 }
 
@@ -599,9 +545,6 @@ void TwoHalfD::Engine::renderFloor() {
 }
 
 // <-------------- Physics -------------->
-
-//
-
 std::pair<const TwoHalfD::Wall *, float> TwoHalfD::Engine::findNearestWall(const XYVectorf &cord, const TwoHalfD::XYVectorf &rayDir,
                                                                            const std::vector<Wall> &walls) {
     const TwoHalfD::Wall *nearestWall = nullptr;

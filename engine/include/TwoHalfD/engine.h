@@ -107,6 +107,7 @@ class Engine {
     void renderWalls();
     void renderSegment(TwoHalfD::Segment segment);
     void renderFloor();
+    void renderSprite(const TwoHalfD::SpriteEntity &spriteEntity);
 
     // PHYSICS FUNCTIONS
 

@@ -44,7 +44,7 @@ inline float dotProduct(const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf 
 }
 
 inline bool isInfront(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {
-    return v.x * u.y < u.x * v.y;
+    return v.x * u.y <= u.x * v.y;
 }
 
 inline bool isBehind(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {

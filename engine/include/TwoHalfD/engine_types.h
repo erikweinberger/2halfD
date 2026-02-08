@@ -9,6 +9,7 @@
 #include <optional>
 #include <span>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <chrono>
@@ -190,7 +191,7 @@ struct EngineContext {
 
 struct CameraObject {
     Position cameraPos{300, 700, 3 * std::numbers::pi_v<float> / 2};
-    float cameraHeight{128};
+    float cameraHeight{100.f};
     float cameraRadius{64};
 };
 
@@ -321,11 +322,21 @@ struct BSPNode {
     std::unique_ptr<BSPNode> front;
     std::unique_ptr<BSPNode> back;
 
+    std::unordered_set<int> spriteIds;
+
     XYVectorf splitterP0;
     XYVectorf splitterP1;
     XYVectorf splitterVec;
 
-    size_t segmentID = -1;
+    int segmentID = -1;
+};
+
+struct DrawCommand {
+    enum Type {
+        Segment,
+        Sprite
+    } type;
+    int id;
 };
 
 } // namespace TwoHalfD
