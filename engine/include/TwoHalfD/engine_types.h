@@ -330,6 +330,7 @@ struct BSPNode {
     std::unique_ptr<BSPNode> back;
 
     std::unordered_set<int> spriteIds;
+    std::vector<FloorPolygon> floorPolygons;
 
     XYVectorf splitterP0;
     XYVectorf splitterP1;

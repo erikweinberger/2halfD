@@ -25,8 +25,26 @@ void TwoHalfD::BSPManager::buildBSPTree() {
     }
     std::mt19937 rng(seed);
     std::shuffle(segments.begin(), segments.end(), rng);
+
+    float minX = std::numeric_limits<float>::max();
+    float minY = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float maxY = std::numeric_limits<float>::lowest();
+
+    for (const auto &seg : segments) {
+        minX = std::min({minX, seg.v1.x, seg.v2.x});
+        minY = std::min({minY, seg.v1.y, seg.v2.y});
+        maxX = std::max({maxX, seg.v1.x, seg.v2.x});
+        maxY = std::max({maxY, seg.v1.y, seg.v2.y});
+    }
+    minX -= 100;
+    minY -= 100;
+    maxX += 100;
+    maxY += 100;
+    std::vector<TwoHalfD::XYVectorf> currentBoundaryPoints = {{minX, minY}, {maxX, minY}, {maxX, maxY}, {minX, maxY}};
+
     OptimalCostPartitioning cost{0, 0, 0};
-    _buildBSPTree(m_root.get(), segments, cost);
+    _buildBSPTree(m_root.get(), segments, currentBoundaryPoints, cost);
 
     insertSprites(m_level->sprites);
 
@@ -219,7 +237,8 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
  * =============================================================================================================================
  */
 void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments,
-                                         struct OptimalCostPartitioning &cost, bool saveSegments) {
+                                         std::vector<TwoHalfD::XYVectorf> &currentBoundaryPoints, struct OptimalCostPartitioning &cost,
+                                         bool saveSegments) {
     if (inputSegments.size() == 0) {
         return;
     }
@@ -229,13 +248,13 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
     if (backSegs.size() > 0) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
         cost.numBack += 1;
-        _buildBSPTree(node->back.get(), backSegs, cost, saveSegments);
+        _buildBSPTree(node->back.get(), backSegs, currentBoundaryPoints, cost, saveSegments);
     }
 
     if (frontSegs.size() > 0) {
         node->front = std::make_unique<TwoHalfD::BSPNode>();
         cost.numFront += 1;
-        _buildBSPTree(node->front.get(), frontSegs, cost, saveSegments);
+        _buildBSPTree(node->front.get(), frontSegs, currentBoundaryPoints, cost, saveSegments);
     }
 }
 
@@ -326,4 +345,20 @@ void TwoHalfD::BSPManager::_addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BS
     node->segmentID = m_segmentID;
 
     ++m_segmentID;
+}
+
+void TwoHalfD::BSPManager::_insertFloorPolygons(TwoHalfD::BSPNode *node) {
+    // Not implemented yet
+    if (node == nullptr) return;
+
+    if (node->front == nullptr && node->back == nullptr) {
+        // Create floor polygon for this leaf node
+        // This would involve tracing the walls that define the boundaries of this leaf and creating a polygon from them
+        // For simplicity, we will skip the actual implementation of this part for now
+        for (const auto &floorSegment : m_level.floorSegments) {
+            // Check if floorSegment intersects with the leaf node's area and if so, create a FloorPolygon and add it to the node
+            // This would require some geometric calculations to determine the intersection and the resulting polygon
+        }
+        return;
+    }
 }
