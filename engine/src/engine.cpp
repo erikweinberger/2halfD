@@ -234,7 +234,7 @@ void TwoHalfD::Engine::render() {
         return;
     }
     m_renderTexture.clear(sf::Color::Transparent);
-    // renderFloor();
+    renderFloor();
     renderWalls();
     // renderObjects();
     renderOverlays();
@@ -380,6 +380,7 @@ void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
     m_perspectiveShader.setUniform("endRatio", wallRatioEnd);
     m_perspectiveShader.setUniform("leftDepth", 1.0f / singedPerpWorldDistanceStart);
     m_perspectiveShader.setUniform("rightDepth", 1.0f / singedPerpWorldDistanceEnd);
+    m_perspectiveShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
 
     m_renderTexture.draw(quad, states);
 }
@@ -446,6 +447,54 @@ void TwoHalfD::Engine::renderWalls() {
             break;
         }
     }
+}
+
+void TwoHalfD::Engine::renderFloor2() {
+    static sf::Texture floorTileTexture;
+    static sf::Image floorTileImage;
+    static bool loaded = false;
+
+    if (!loaded) {
+        if (!floorTileTexture.loadFromFile(fs::path(ASSETS_DIR) / "textures" / "pattern_24.png")) {
+
+            std::cerr << "Error loading floor texture." << std::endl;
+            return;
+        }
+        floorTileImage = floorTileTexture.copyToImage();
+        loaded = true;
+    }
+
+    float textureSize = floorTileTexture.getSize().x;
+    if (floorTileTexture.getSize().x != floorTileTexture.getSize().y) {
+        std::cout << "ERROR NOT SAME SIZE!!!!" << std::endl;
+        exit(1);
+    }
+
+    sf::RenderStates floorStates;
+    floorStates.texture = &floorTileTexture;
+    floorStates.shader = &m_floorShader;
+
+    sf::Vector2f direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
+    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
+    float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
+
+    m_floorShader.setUniform("cameraPos", m_cameraObject.cameraPos.posf);
+    m_floorShader.setUniform("cameraDir", direction);
+    m_floorShader.setUniform("cameraPlane", plane);
+    m_floorShader.setUniform("cameraHeight", m_cameraObject.cameraHeight);
+    m_floorShader.setUniform("focalLength", focalLength);
+    m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
+    m_floorShader.setUniform("floorTexture", sf::Shader::CurrentTexture);
+    m_floorShader.setUniform("textureSize", textureSize); // or whatever your texture size is
+
+    // Draw a fullscreen quad
+    sf::VertexArray quad(sf::Quads, 4);
+    quad[0] = sf::Vertex(sf::Vector2f(0, 0));
+    quad[1] = sf::Vertex(sf::Vector2f(m_engineSettings.resolution.x, 0));
+    quad[2] = sf::Vertex(sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y));
+    quad[3] = sf::Vertex(sf::Vector2f(0, m_engineSettings.resolution.y));
+
+    m_renderTexture.draw(quad, floorStates);
 }
 
 void TwoHalfD::Engine::renderFloor() {

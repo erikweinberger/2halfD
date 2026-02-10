@@ -310,6 +310,13 @@ enum class EngineState {
 };
 
 // BSP
+struct FloorPolygon {
+    std::vector<XYVectorf> vertices;
+    int textureId;
+    XYVectorf textureStartingPoint;
+    float height;
+};
+
 struct Segment {
     XYVectorf v1;
     XYVectorf v2;

@@ -45,6 +45,7 @@ class Engine {
     std::unordered_map<int, sf::Texture> m_textures;
     TwoHalfD::BSPManager m_bspManager;
     sf::Shader m_perspectiveShader;
+    sf::Shader m_floorShader;
 
     std::chrono::steady_clock::time_point m_lastFrameTime;
     std::chrono::steady_clock::time_point m_fpsUpdateTime;
@@ -73,6 +74,12 @@ class Engine {
         std::string shadersPath = static_cast<std::string>(ROOT_DIR) + "/engine/include/TwoHalfD/" + "shaders/perspectiveShader2.frag";
         if (!m_perspectiveShader.loadFromFile(shadersPath, sf::Shader::Fragment)) {
             std::cerr << "Failed to load shader!" << std::endl;
+            std::exit(1);
+        }
+        // Load floor shader
+        std::string floorShaderPath = static_cast<std::string>(ROOT_DIR) + "/engine/include/TwoHalfD/" + "shaders/floorShader.frag";
+        if (!m_floorShader.loadFromFile(floorShaderPath, sf::Shader::Fragment)) {
+            std::cerr << "Failed to load floor shader!" << std::endl;
             std::exit(1);
         }
     }
@@ -107,6 +114,7 @@ class Engine {
     void renderWalls();
     void renderSegment(TwoHalfD::Segment segment);
     void renderFloor();
+    void renderFloor2();
     void renderSprite(const TwoHalfD::SpriteEntity &spriteEntity);
 
     // PHYSICS FUNCTIONS
