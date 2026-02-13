@@ -380,6 +380,7 @@ void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
     m_perspectiveShader.setUniform("endRatio", wallRatioEnd);
     m_perspectiveShader.setUniform("leftDepth", 1.0f / singedPerpWorldDistanceStart);
     m_perspectiveShader.setUniform("rightDepth", 1.0f / singedPerpWorldDistanceEnd);
+    m_perspectiveShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
 
     m_renderTexture.draw(quad, states);
 }
