@@ -234,7 +234,7 @@ void TwoHalfD::Engine::render() {
         return;
     }
     m_renderTexture.clear(sf::Color::Transparent);
-    // renderFloor();
+    renderFloor();
     renderWalls();
     // renderObjects();
     renderOverlays();
