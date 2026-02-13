@@ -9,16 +9,18 @@ uniform vec2 bottomRight;
 uniform vec2 topRight;
 uniform float leftDepth;
 uniform float rightDepth;
+uniform vec2 resolution;
 
 void main() {
-    vec2 objectCord = gl_FragCoord.xy;
+    vec2 pixelCord = gl_FragCoord.xy;
+    pixelCord.y = resolution.y - pixelCord.y;
     float width = topRight.x - topLeft.x;
     
     if (abs(width) < 0.001) {
         discard;
     }
     
-    float n_xCord = (objectCord.x - topLeft.x) / width;
+    float n_xCord = (pixelCord.x - topLeft.x) / width;
     
     float invZ = leftDepth * (1.0 - n_xCord) + rightDepth * n_xCord;
     float z = 1.0 / invZ;
@@ -28,16 +30,12 @@ void main() {
     float worldPos = worldPos_over_z * z;
     float texX = mod(worldPos * wallLen, texSize.x) / texSize.x;
     
-    float leftHeight = bottomLeft.y - topLeft.y;
-    float rightHeight = bottomRight.y - topRight.y;
-    
     float topY = topLeft.y * (1.0 - n_xCord) + topRight.y * n_xCord;
     float bottomY = bottomLeft.y * (1.0 - n_xCord) + bottomRight.y * n_xCord;
     
-    float screenT = (objectCord.y - topY) / (bottomY - topY);
-
+    float texY = (pixelCord.y - topY) / (bottomY - topY);
     
-    vec2 texCord = vec2(texX, screenT);
+    vec2 texCord = vec2(texX, texY);
     vec4 pixel = texture2D(texture, texCord);
     gl_FragColor = pixel;
 }
