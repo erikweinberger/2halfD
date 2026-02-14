@@ -170,6 +170,8 @@ struct EngineSettings {
     double graphicsFpsCap = 1000.0;
     double gameFpsCap = 60.0;
 
+    float shaderScale = 256.f;
+
     bool cameraCollision = true;
 
     EngineSettings() = default;

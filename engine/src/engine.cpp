@@ -375,11 +375,8 @@ void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
     sf::VertexArray quad(sf::Quads, 4);
 
     quad[0].position = sf::Vector2f(p_xScreenPosV1, p_topWallStart);
-
     quad[1].position = sf::Vector2f(p_xScreenPosV1, p_bottomWallStart);
-
     quad[2].position = sf::Vector2f(p_xScreenPosV2, p_bottomWallEnd);
-
     quad[3].position = sf::Vector2f(p_xScreenPosV2, p_topWallEnd);
 
     sf::RenderStates states;
@@ -398,7 +395,7 @@ void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
     m_perspectiveShader.setUniform("leftDepth", 1.0f / singedPerpWorldDistanceStart);
     m_perspectiveShader.setUniform("rightDepth", 1.0f / singedPerpWorldDistanceEnd);
     m_perspectiveShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
-    m_perspectiveShader.setUniform("worldCameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
+    m_perspectiveShader.setUniform("shaderScale", m_engineSettings.shaderScale);
 
     m_renderTexture.draw(quad, states);
 }
@@ -443,7 +440,7 @@ void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) 
 
     sprite.setPosition(spriteScreenX, topSpriteScreen + spriteHeightScreen / 2.0f);
     sprite.setScale(spriteHeightScreen / texSize.y, spriteHeightScreen / texSize.y);
-    float shade = std::min(1.0f, 256.0f * 1000.f / perpWorldDistance);
+    float shade = std::min(1.0f, m_engineSettings.shaderScale / perpWorldDistance);
     sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
     m_renderTexture.draw(sprite);
@@ -478,7 +475,7 @@ void TwoHalfD::Engine::renderFloor() {
     m_floorShader.setUniform("focalLength", (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale);
     m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
     m_floorShader.setUniform("distanceCutoff", 3000.0f);
-    m_floorShader.setUniform("shaderScale", 256.0f);
+    m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
 
     m_renderTexture.draw(quad, states);
 }
