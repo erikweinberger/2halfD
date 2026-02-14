@@ -10,7 +10,7 @@ uniform vec2 topRight;
 uniform float leftDepth;
 uniform float rightDepth;
 uniform vec2 resolution;
-uniform vec2 worldCameraPos;
+uniform float shaderScale;
 
 void main() {
     vec2 pixelCord = gl_FragCoord.xy;
@@ -39,8 +39,9 @@ void main() {
     vec2 texCord = vec2(texX, texY);
     vec4 pixel = texture2D(texture, texCord);
 
-    // float shade = min(1., 256. / perpWorldDistance);
-    // pixel.rgb *= shade;
+    float distanceFromCamera = z;
+    float shade = min(1.0, shaderScale / distanceFromCamera);
+    pixel.rgb *= shade;
 
     gl_FragColor = pixel;
 }
