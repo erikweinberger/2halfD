@@ -235,8 +235,7 @@ void TwoHalfD::Engine::render() {
     }
     m_renderTexture.clear(sf::Color::Transparent);
     renderFloor();
-    renderWalls();
-    // renderObjects();
+    renderBSP();
     renderOverlays();
     // // renderAbove();
 
@@ -274,6 +273,24 @@ void TwoHalfD::Engine::renderOverlays() {
     text1.setFillColor(sf::Color::Yellow);
     text1.setPosition(50, m_engineSettings.resolution.y - 50);
     m_renderTexture.draw(text1);
+}
+
+void TwoHalfD::Engine::renderBSP() {
+    auto drawnCommands = m_bspManager.update(m_cameraObject.cameraPos);
+    for (const auto &command : drawnCommands) {
+        switch (command.type) {
+        case TwoHalfD::DrawCommand::Type::Segment: {
+            renderSegment(m_bspManager.getSegment(command.id));
+            break;
+        }
+        case TwoHalfD::DrawCommand::Type::Sprite: {
+            renderSprite(m_level.sprites[command.id]);
+            break;
+        }
+        default:
+            break;
+        }
+    }
 }
 
 void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
@@ -381,6 +398,7 @@ void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
     m_perspectiveShader.setUniform("leftDepth", 1.0f / singedPerpWorldDistanceStart);
     m_perspectiveShader.setUniform("rightDepth", 1.0f / singedPerpWorldDistanceEnd);
     m_perspectiveShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
+    m_perspectiveShader.setUniform("worldCameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
 
     m_renderTexture.draw(quad, states);
 }
@@ -431,118 +449,38 @@ void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) 
     m_renderTexture.draw(sprite);
 }
 
-void TwoHalfD::Engine::renderWalls() {
-    auto drawnCommands = m_bspManager.update(m_cameraObject.cameraPos);
-    for (const auto &command : drawnCommands) {
-        switch (command.type) {
-        case TwoHalfD::DrawCommand::Type::Segment: {
-            renderSegment(m_bspManager.getSegment(command.id));
-            break;
-        }
-        case TwoHalfD::DrawCommand::Type::Sprite: {
-            renderSprite(m_level.sprites[command.id]);
-            break;
-        }
-        default:
-            break;
-        }
-    }
-}
-
 void TwoHalfD::Engine::renderFloor() {
     static sf::Texture floorTileTexture;
-    static sf::Image floorTileImage;
-    static bool loaded = false;
 
-    if (!loaded) {
-        if (!floorTileTexture.loadFromFile(fs::path(ASSETS_DIR) / "textures" / "pattern_24.png")) {
-
-            std::cerr << "Error loading floor texture." << std::endl;
-            return;
-        }
-        floorTileImage = floorTileTexture.copyToImage();
-        loaded = true;
+    if (!floorTileTexture.loadFromFile(fs::path(ASSETS_DIR) / "textures" / "pattern_24.png")) {
+        std::cerr << "Error loading floor texture." << std::endl;
+        return;
     }
 
-    float textureSize = floorTileTexture.getSize().x;
-    if (floorTileTexture.getSize().x != floorTileTexture.getSize().y) {
-        std::cout << "ERROR NOT SAME SIZE!!!!" << std::endl;
-        exit(1);
-    }
+    sf::VertexArray quad(sf::Quads, 4);
+    quad[0].position = sf::Vector2f(0, m_engineSettings.resolution.y / 2.0f);
+    quad[1].position = sf::Vector2f(0, m_engineSettings.resolution.y);
+    quad[2].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y);
+    quad[3].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y / 2.0f);
 
-    const int numThreads = 4;
-    const int startY = m_engineSettings.resolution.y / 2;
-    const int endY = m_engineSettings.resolution.y;
-    const int rowsPerThread = (endY - startY) / numThreads;
+    sf::RenderStates states;
+    states.texture = &floorTileTexture;
 
-    std::vector<std::thread> threads;
-    std::vector<sf::VertexArray> vertexArrays(numThreads, sf::VertexArray());
+    states.shader = &m_floorShader;
 
-    sf::VertexArray floorVertices(sf::Points);
-    floorVertices.resize(m_engineSettings.resolution.x * (m_engineSettings.resolution.y / 2));
+    m_floorShader.setUniform("textureStartCord", sf::Vector2f(0, 0));
+    m_floorShader.setUniform("texture", floorTileTexture);
+    m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
+    m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
+    m_floorShader.setUniform("cameraHeight", m_cameraObject.cameraHeight);
+    m_floorShader.setUniform("n_plane", sf::Vector2f(-std::sin(m_cameraObject.cameraPos.direction), std::cos(m_cameraObject.cameraPos.direction)));
+    m_floorShader.setUniform("direction", sf::Vector2f(std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)));
+    m_floorShader.setUniform("focalLength", (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale);
+    m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
+    m_floorShader.setUniform("distanceCutoff", 3000.0f);
+    m_floorShader.setUniform("shaderScale", 256.0f);
 
-    sf::Vector2f direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
-    sf::Vector2f plane{-direction.y * m_engineSettings.fovScale, direction.x * m_engineSettings.fovScale};
-    float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
-
-    for (int t = 0; t < numThreads; ++t) {
-
-        int yStart = startY + t * rowsPerThread;
-        int yEnd = (t == numThreads - 1) ? endY : yStart + rowsPerThread;
-
-        threads.emplace_back([&, t, yStart, yEnd]() {
-            vertexArrays[t].setPrimitiveType(sf::Points);
-            vertexArrays[t].resize(m_engineSettings.resolution.x * (yEnd - yStart));
-
-            for (int y = yStart; y < yEnd; ++y) {
-                float pixelsFromCenterY = y - m_engineSettings.resolution.y / 2.0f;
-                float perpWorldDistance = (m_cameraObject.cameraHeight * focalLength) / pixelsFromCenterY;
-
-                if (perpWorldDistance > 3000.0f) {
-                    continue;
-                }
-
-                float shade = std::min(1.0f, 256.0f / perpWorldDistance);
-
-                float xCenter = 2.0f / static_cast<float>(m_engineSettings.resolution.x);
-                for (int x = 0; x < m_engineSettings.resolution.x; ++x) {
-                    float cameraX = xCenter * x - 1.0f;
-
-                    sf::Vector2f rayDir = direction + plane * cameraX;
-
-                    float realRayDist = perpWorldDistance / (rayDir.x * direction.x + rayDir.y * direction.y);
-                    sf::Vector2f floorPos{m_cameraObject.cameraPos.pos.x + rayDir.x * realRayDist,
-                                          m_cameraObject.cameraPos.pos.y + rayDir.y * realRayDist};
-
-                    sf::Vector2f texPos = floorPos / textureSize;
-                    sf::Vector2i cell{static_cast<int>(std::floor(texPos.x)), static_cast<int>(std::floor(texPos.y))};
-
-                    sf::Vector2f texCoords = texPos - sf::Vector2f(cell);
-                    sf::Vector2i texPixel{static_cast<int>(texCoords.x * textureSize), static_cast<int>(texCoords.y * textureSize)};
-
-                    texPixel.x = texPixel.x % static_cast<int>(textureSize);
-                    texPixel.y = texPixel.y % static_cast<int>(textureSize);
-
-                    sf::Color color = floorTileImage.getPixel(static_cast<unsigned int>(texPixel.x), static_cast<unsigned int>(texPixel.y));
-
-                    color.r *= shade;
-                    color.g *= shade;
-                    color.b *= shade;
-
-                    sf::Vertex pixel(sf::Vector2f(x, y), color);
-                    vertexArrays[t][(y - yStart) * m_engineSettings.resolution.x + x] = pixel;
-                }
-            }
-        });
-    }
-
-    for (auto &thread : threads) {
-        thread.join();
-    }
-
-    for (auto &va : vertexArrays) {
-        m_renderTexture.draw(va);
-    }
+    m_renderTexture.draw(quad, states);
 }
 
 // <-------------- Physics -------------->

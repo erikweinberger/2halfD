@@ -45,6 +45,7 @@ class Engine {
     std::unordered_map<int, sf::Texture> m_textures;
     TwoHalfD::BSPManager m_bspManager;
     sf::Shader m_perspectiveShader;
+    sf::Shader m_floorShader;
 
     std::chrono::steady_clock::time_point m_lastFrameTime;
     std::chrono::steady_clock::time_point m_fpsUpdateTime;
@@ -70,9 +71,15 @@ class Engine {
             std::cerr << "Shaders not available!" << std::endl;
         }
         // Load shader (you can also loadFromMemory)
-        std::string shadersPath = static_cast<std::string>(ROOT_DIR) + "/engine/include/TwoHalfD/" + "shaders/perspectiveShader2.frag";
+        std::string shadersPath = static_cast<std::string>(ROOT_DIR) + "/engine/include/TwoHalfD/" + "shaders/perspectiveshader.frag";
         if (!m_perspectiveShader.loadFromFile(shadersPath, sf::Shader::Fragment)) {
             std::cerr << "Failed to load shader!" << std::endl;
+            std::exit(1);
+        }
+
+        std::string floorShader = static_cast<std::string>(ROOT_DIR) + "/engine/include/TwoHalfD/" + "shaders/floorShader.frag";
+        if (!m_floorShader.loadFromFile(floorShader, sf::Shader::Fragment)) {
+            std::cerr << "Failed to load floor shader!" << std::endl;
             std::exit(1);
         }
     }
@@ -103,8 +110,7 @@ class Engine {
     // void renderAbove();
     void render();
     void renderOverlays();
-    void renderObjects();
-    void renderWalls();
+    void renderBSP();
     void renderSegment(TwoHalfD::Segment segment);
     void renderFloor();
     void renderSprite(const TwoHalfD::SpriteEntity &spriteEntity);
