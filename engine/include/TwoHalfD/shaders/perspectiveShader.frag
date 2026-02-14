@@ -1,35 +1,46 @@
+uniform float wallLen;
+uniform float startRatio;
+uniform float endRatio;
 uniform sampler2D texture;
+uniform vec2 texSize;
 uniform vec2 topLeft;
 uniform vec2 bottomLeft;
 uniform vec2 bottomRight;
 uniform vec2 topRight;
-
+uniform float leftDepth;
+uniform float rightDepth;
+uniform vec2 resolution;
+uniform vec2 worldCameraPos;
 
 void main() {
-    vec2 objectCord = gl_FragCoord.xy;  // Fixed: FragCoord not FragCord
-
+    vec2 pixelCord = gl_FragCoord.xy;
+    pixelCord.y = resolution.y - pixelCord.y;
     float width = topRight.x - topLeft.x;
-
+    
     if (abs(width) < 0.001) {
-        discard;  // Don't draw this pixel
-        return;
-    }
-    
-    float n_xCord = (objectCord.x - topLeft.x) / width;
-
-    float yLen = (bottomLeft.y - topLeft.y) * (1.0 - n_xCord) + (bottomRight.y - topRight.y) * n_xCord;
-    if (abs(yLen) < 0.001) {
         discard;
-        return;
     }
-
-
-    float n_yCord = ((objectCord.y - topLeft.y) + (yLen - (bottomLeft.y - topLeft.y)) / 2.) / yLen;
     
-    vec2 texCord = vec2(n_xCord, n_yCord);
+    float n_xCord = (pixelCord.x - topLeft.x) / width;
     
+    float invZ = leftDepth * (1.0 - n_xCord) + rightDepth * n_xCord;
+    float z = 1.0 / invZ;
+    
+    float worldPos_over_z = (startRatio * leftDepth) * (1.0 - n_xCord) + 
+                            (endRatio * rightDepth) * n_xCord;
+    float worldPos = worldPos_over_z * z;
+    float texX = mod(worldPos * wallLen, texSize.x) / texSize.x;
+    
+    float topY = topLeft.y * (1.0 - n_xCord) + topRight.y * n_xCord;
+    float bottomY = bottomLeft.y * (1.0 - n_xCord) + bottomRight.y * n_xCord;
+    
+    float texY = (pixelCord.y - topY) / (bottomY - topY);
+    
+    vec2 texCord = vec2(texX, texY);
     vec4 pixel = texture2D(texture, texCord);
 
-    
+    // float shade = min(1., 256. / perpWorldDistance);
+    // pixel.rgb *= shade;
+
     gl_FragColor = pixel;
 }
