@@ -1,4 +1,5 @@
 #include "TwoHalfD/level_maker.h"
+#include "TwoHalfD/engine_types.h"
 
 TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) {
     std::ifstream inputFile(fs::path(ASSETS_DIR) / levelFilePath);
@@ -19,7 +20,7 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
         } else {
             continue;
         }
-        if (firstWord == "#") {
+        if (firstWord == "#" || firstWord.empty() || firstWord[0] == '#') {
             continue;
         }
 
@@ -42,6 +43,12 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
             int skip;
             ss >> skip >> result_level.seed;
             std::cerr << "Level seed set to: " << result_level.seed << '\n';
+            break;
+        }
+        case TwoHalfD::EntityTypes::floorDefault: {
+            auto defaultFloor = _makeDefaultFloor(line);
+            result_level.defaultFloorTextureId = defaultFloor.first;
+            result_level.defaultFloorStart = defaultFloor.second;
             break;
         }
         default:
@@ -179,4 +186,33 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
     }
 
     return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, radius, height, textureId, scale};
+}
+
+std::pair<int, TwoHalfD::XYVectorf> TwoHalfD::LevelMaker::_makeDefaultFloor(std::string floorString) {
+    std::string word;
+    std::stringstream ss(floorString);
+    int defaultFloorTextureId;
+    float floorStartX = 0, floorStartY = 0;
+    std::vector<XYVectorf> vertices;
+
+    for (int i = 0; std::getline(ss, word, ' '); ++i) {
+        switch (i) {
+        case 0:
+            break;
+        case 1:
+            defaultFloorTextureId = std::stoi(word);
+            break;
+        case 2:
+            floorStartX = std::stof(word);
+            break;
+        case 3:
+            floorStartY = std::stof(word);
+            break;
+        default:
+            vertices.push_back({std::stof(word), std::stof(word)});
+            break;
+        }
+    }
+
+    return {defaultFloorTextureId, {floorStartX, floorStartY}};
 }

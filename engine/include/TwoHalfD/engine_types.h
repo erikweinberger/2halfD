@@ -159,6 +159,13 @@ struct SpriteEntity {
     float scale;
 };
 
+struct floorSection {
+    int id;
+    XYVectorf floorStart;
+    std::vector<XYVectorf> vertices;
+    int textureId;
+};
+
 struct EngineSettings {
     sf::Vector2i windowDim = {960, 540};
     sf::Vector2i resolution = {960, 540};
@@ -181,8 +188,13 @@ struct Level {
     std::vector<Wall> walls;
     std::vector<SpriteEntity> sprites;
     std::unordered_map<int, TwoHalfD::TextureSignature> textures;
+    std::vector<floorSection> floorSections;
+
     float cameraHeightStart;
-    int seed = -1;
+    int seed = -1; // BSP seed, -1 means auto find best seed
+
+    int defaultFloorTextureId = -1;
+    XYVectorf defaultFloorStart;
 };
 
 struct EngineContext {

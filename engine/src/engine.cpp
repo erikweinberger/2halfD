@@ -447,37 +447,44 @@ void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) 
 }
 
 void TwoHalfD::Engine::renderFloor() {
-    static sf::Texture floorTileTexture;
+    std::cout << "Rendering floor with default texture id: " << m_level.defaultFloorTextureId << " and start: " << m_level.defaultFloorStart
+              << std::endl;
+    if (m_level.defaultFloorTextureId != -1) {
+        std::cerr << "No default floor texture id specified in level file." << std::endl;
+        auto it = m_level.textures.find(m_level.defaultFloorTextureId);
+        if (it == m_level.textures.end()) {
+            std::cerr << "No texture found for default floor with texture id: " << m_level.defaultFloorTextureId << std::endl;
+            exit(1);
+        }
+        static sf::Texture floorTileTexture = it->second.texture;
 
-    if (!floorTileTexture.loadFromFile(fs::path(ASSETS_DIR) / "textures" / "pattern_24.png")) {
-        std::cerr << "Error loading floor texture." << std::endl;
-        return;
+        sf::VertexArray quad(sf::Quads, 4);
+        quad[0].position = sf::Vector2f(0, m_engineSettings.resolution.y / 2.0f);
+        quad[1].position = sf::Vector2f(0, m_engineSettings.resolution.y);
+        quad[2].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y);
+        quad[3].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y / 2.0f);
+
+        sf::RenderStates states;
+        states.texture = &floorTileTexture;
+
+        states.shader = &m_floorShader;
+
+        m_floorShader.setUniform("textureStartCord", sf::Vector2f(m_level.defaultFloorStart.x, m_level.defaultFloorStart.y));
+        m_floorShader.setUniform("texture", floorTileTexture);
+        m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
+        m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
+        m_floorShader.setUniform("cameraHeight", m_cameraObject.cameraHeight);
+        m_floorShader.setUniform("n_plane",
+                                 sf::Vector2f(-std::sin(m_cameraObject.cameraPos.direction), std::cos(m_cameraObject.cameraPos.direction)));
+        m_floorShader.setUniform("direction",
+                                 sf::Vector2f(std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)));
+        m_floorShader.setUniform("focalLength", (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale);
+        m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
+        m_floorShader.setUniform("distanceCutoff", 3000.0f);
+        m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
+
+        m_renderTexture.draw(quad, states);
     }
-
-    sf::VertexArray quad(sf::Quads, 4);
-    quad[0].position = sf::Vector2f(0, m_engineSettings.resolution.y / 2.0f);
-    quad[1].position = sf::Vector2f(0, m_engineSettings.resolution.y);
-    quad[2].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y);
-    quad[3].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y / 2.0f);
-
-    sf::RenderStates states;
-    states.texture = &floorTileTexture;
-
-    states.shader = &m_floorShader;
-
-    m_floorShader.setUniform("textureStartCord", sf::Vector2f(0, 0));
-    m_floorShader.setUniform("texture", floorTileTexture);
-    m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
-    m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
-    m_floorShader.setUniform("cameraHeight", m_cameraObject.cameraHeight);
-    m_floorShader.setUniform("n_plane", sf::Vector2f(-std::sin(m_cameraObject.cameraPos.direction), std::cos(m_cameraObject.cameraPos.direction)));
-    m_floorShader.setUniform("direction", sf::Vector2f(std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)));
-    m_floorShader.setUniform("focalLength", (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale);
-    m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
-    m_floorShader.setUniform("distanceCutoff", 3000.0f);
-    m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
-
-    m_renderTexture.draw(quad, states);
 }
 
 // <-------------- Physics -------------->
