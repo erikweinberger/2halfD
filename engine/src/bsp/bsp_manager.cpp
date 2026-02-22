@@ -8,6 +8,7 @@
 #include <memory>
 #include <queue>
 #include <random>
+#include <unordered_map>
 #include <vector>
 
 void TwoHalfD::BSPManager::buildBSPTree() {
@@ -29,6 +30,7 @@ void TwoHalfD::BSPManager::buildBSPTree() {
     _buildBSPTree(m_root.get(), segments, cost);
 
     insertSprites(m_level->sprites);
+    insertFloorSections(m_level->floorSections);
 
     return;
 }
@@ -39,19 +41,29 @@ void TwoHalfD::BSPManager::insertSprites(const std::vector<SpriteEntity> &sprite
     }
 }
 
+void TwoHalfD::BSPManager::insertFloorSections(const std::unordered_map<int, FloorSection> &floorSections) {
+    for (const auto &floorSection : floorSections) {
+        for (size_t j{}; j < floorSection.second.vertices.size(); ++j) {
+            _insertFloorSection(m_root.get(), floorSection.second, j);
+        }
+    }
+}
+
 TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
     return m_segments[id];
 }
 
-std::vector<TwoHalfD::DrawCommand> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
+std::pair<std::vector<TwoHalfD::DrawCommand>, std::unordered_set<int>> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
     TwoHalfD::XYVectorf cameraDir{std::cos(cameraPos.direction), std::sin(cameraPos.direction)};
     std::vector<TwoHalfD::DrawCommand> commands;
-    traverse(m_root.get(), commands, cameraPos, cameraDir);
+    std::unordered_set<int> floorSectionIds;
+    traverse(m_root.get(), commands, floorSectionIds, cameraPos, cameraDir);
 
-    return commands;
+    return {commands, floorSectionIds};
 }
 
-void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos) {
+void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, std::unordered_set<int> &floorSectionIds,
+                                    const TwoHalfD::Position &cameraPos) {
     if (node == nullptr) return;
 
     bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
@@ -84,22 +96,22 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
     }
 
     if (isInfrontOfCamera) {
-        traverse(node->back.get(), commands, cameraPos);
+        traverse(node->back.get(), commands, floorSectionIds, cameraPos);
 
         commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
-        traverse(node->front.get(), commands, cameraPos);
+        traverse(node->front.get(), commands, floorSectionIds, cameraPos);
 
     } else {
-        traverse(node->front.get(), commands, cameraPos);
+        traverse(node->front.get(), commands, floorSectionIds, cameraPos);
 
         commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
 
-        traverse(node->back.get(), commands, cameraPos);
+        traverse(node->back.get(), commands, floorSectionIds, cameraPos);
     }
 }
 
-void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos,
-                                    const TwoHalfD::XYVectorf &cameraDir) {
+void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, std::unordered_set<int> &floorSectionIds,
+                                    const TwoHalfD::Position &cameraPos, const TwoHalfD::XYVectorf &cameraDir) {
     if (node == nullptr) return;
 
     bool isInfrontOfCamera = isInfront(cameraPos.pos - node->splitterP0, node->splitterVec);
@@ -128,21 +140,24 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
                 spriteOrderedDistance.pop();
             }
         }
+        for (const auto &floorSectionId : node->floorSectionIds) {
+            floorSectionIds.insert(floorSectionId);
+        }
         return;
     }
 
     if (isInfrontOfCamera) {
-        traverse(node->back.get(), commands, cameraPos, cameraDir);
+        traverse(node->back.get(), commands, floorSectionIds, cameraPos, cameraDir);
 
         commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
-        traverse(node->front.get(), commands, cameraPos, cameraDir);
+        traverse(node->front.get(), commands, floorSectionIds, cameraPos, cameraDir);
 
     } else {
-        traverse(node->front.get(), commands, cameraPos, cameraDir);
+        traverse(node->front.get(), commands, floorSectionIds, cameraPos, cameraDir);
 
         commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
 
-        traverse(node->back.get(), commands, cameraPos, cameraDir);
+        traverse(node->back.get(), commands, floorSectionIds, cameraPos, cameraDir);
     }
 }
 
@@ -318,6 +333,24 @@ void TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, const SpriteEn
         _insertSprite(node->front.get(), sprite, spriteId);
     } else {
         _insertSprite(node->back.get(), sprite, spriteId);
+    }
+}
+
+void TwoHalfD::BSPManager::_insertFloorSection(TwoHalfD::BSPNode *node, const FloorSection &floorSection, int vertexId) {
+    if (node == nullptr) return;
+
+    // If this is a leaf node, add the floor section here
+    if (node->front == nullptr && node->back == nullptr) {
+        node->floorSectionIds.insert(floorSection.id);
+        return;
+    }
+
+    float isInfrontOfSplit = isInfront(floorSection.vertices[vertexId] - node->splitterP0, node->splitterVec);
+
+    if (isInfrontOfSplit > std::numeric_limits<float>::epsilon()) {
+        _insertFloorSection(node->front.get(), floorSection, vertexId);
+    } else {
+        _insertFloorSection(node->back.get(), floorSection, vertexId);
     }
 }
 

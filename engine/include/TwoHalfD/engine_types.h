@@ -159,9 +159,9 @@ struct SpriteEntity {
     float scale;
 };
 
-struct floorSection {
+struct FloorSection {
     int id;
-    XYVectorf floorStart;
+    XYVectorf floorTextureStart;
     std::vector<XYVectorf> vertices;
     int textureId;
 };
@@ -188,7 +188,7 @@ struct Level {
     std::vector<Wall> walls;
     std::vector<SpriteEntity> sprites;
     std::unordered_map<int, TwoHalfD::TextureSignature> textures;
-    std::vector<floorSection> floorSections;
+    std::unordered_map<int, FloorSection> floorSections;
 
     float cameraHeightStart;
     int seed = -1; // BSP seed, -1 means auto find best seed
@@ -337,6 +337,7 @@ struct BSPNode {
     std::unique_ptr<BSPNode> back;
 
     std::unordered_set<int> spriteIds;
+    std::unordered_set<int> floorSectionIds;
 
     XYVectorf splitterP0;
     XYVectorf splitterP1;
