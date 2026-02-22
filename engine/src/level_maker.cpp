@@ -1,4 +1,5 @@
 #include "TwoHalfD/level_maker.h"
+#include "TwoHalfD/engine_types.h"
 
 TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) {
     std::ifstream inputFile(fs::path(ASSETS_DIR) / levelFilePath);
@@ -19,7 +20,7 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
         } else {
             continue;
         }
-        if (firstWord == "#") {
+        if (firstWord == "#" || firstWord.empty() || firstWord[0] == '#') {
             continue;
         }
 
@@ -42,6 +43,19 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
             int skip;
             ss >> skip >> result_level.seed;
             std::cerr << "Level seed set to: " << result_level.seed << '\n';
+            break;
+        }
+        case TwoHalfD::EntityTypes::floorDefault: {
+            auto defaultFloor = _makeDefaultFloor(line);
+            result_level.defaultFloorTextureId = defaultFloor.first;
+            result_level.defaultFloorStart = defaultFloor.second;
+            std::cout << "Default floor texture id: " << result_level.defaultFloorTextureId << " default floor start: ("
+                      << result_level.defaultFloorStart.x << " , " << result_level.defaultFloorStart.y << ")\n";
+            break;
+        }
+        case TwoHalfD::EntityTypes::floorSection: {
+            TwoHalfD::FloorSection floorSection = _makeFloorSection(line);
+            result_level.floorSections[floorSection.id] = floorSection;
             break;
         }
         default:
@@ -179,4 +193,69 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
     }
 
     return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, radius, height, textureId, scale};
+}
+
+std::pair<int, TwoHalfD::XYVectorf> TwoHalfD::LevelMaker::_makeDefaultFloor(std::string floorString) {
+    std::string word;
+    std::stringstream ss(floorString);
+    int defaultFloorTextureId;
+    float floorStartX = 0, floorStartY = 0;
+    std::vector<XYVectorf> vertices;
+
+    for (int i = 0; std::getline(ss, word, ' '); ++i) {
+        switch (i) {
+        case 0:
+            break;
+        case 1:
+            defaultFloorTextureId = std::stoi(word);
+            break;
+        case 2:
+            floorStartX = std::stof(word);
+            break;
+        case 3:
+            floorStartY = std::stof(word);
+            break;
+        default:
+            vertices.push_back({std::stof(word), std::stof(word)});
+            break;
+        }
+    }
+
+    return {defaultFloorTextureId, {floorStartX, floorStartY}};
+}
+
+TwoHalfD::FloorSection TwoHalfD::LevelMaker::_makeFloorSection(std::string floorSectionString) {
+    std::string word;
+    std::stringstream ss(floorSectionString);
+    float floorStartX{}, floorStartY{};
+    std::vector<XYVectorf> vertices;
+    int textureId;
+
+    for (int i = 0; std::getline(ss, word, ' '); ++i) {
+        switch (i) {
+        case 0:
+            break;
+        case 1:
+            textureId = std::stoi(word);
+            break;
+        case 2:
+            floorStartX = std::stof(word);
+            break;
+        case 3:
+            floorStartY = std::stof(word);
+            break;
+        default: {
+            std::string word2;
+            std::getline(ss, word2, ' ');
+            ++i;
+            vertices.push_back({std::stof(word), std::stof(word2)});
+            break;
+        }
+        }
+    }
+    if (vertices.size() < 3 || vertices.size() > 10) {
+        std::cerr << "Floor section with id:  has less than 3 and more then 10 vertices and will not be rendered.\n";
+    }
+
+    return TwoHalfD::FloorSection{m_entityId++, {floorStartX, floorStartY}, vertices, textureId};
 }

@@ -5,6 +5,7 @@
 #include <SFML/Graphics/BlendMode.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/ConvexShape.hpp>
 #include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/RenderStates.hpp>
@@ -12,6 +13,7 @@
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/Vertex.hpp>
+#include <SFML/Graphics/VertexArray.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Window/Mouse.hpp>
 #include <TwoHalfD/engine.h>
@@ -56,7 +58,7 @@ std::span<const TwoHalfD::Event> TwoHalfD::Engine::getFrameInputs() {
             // Get position relative to window, not global screen
             XYVector mouseWinPos = {event.mouseMove.x, event.mouseMove.y};
             auto size = m_window.getSize();
-            static XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
+            const XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
 
             m_engineContext.MouseDelta = m_engineContext.prevMousePosition - mouseWinPos;
             m_engineContext.prevMousePosition = m_engineContext.currentMousePosition;
@@ -85,7 +87,7 @@ void TwoHalfD::Engine::clearFrameInputs() {
 void TwoHalfD::Engine::backgroundFrameUpdates() {
     if (m_engineState == TwoHalfD::EngineState::fpsState) {
         auto size = m_window.getSize();
-        static XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
+        const XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
         sf::Vector2i mousePosition = sf::Mouse::getPosition(m_window);
 
         if (m_window.hasFocus() && (m_engineSettings.windowDim.x - mousePosition.x < 0 || mousePosition.x < 0 ||
@@ -234,7 +236,7 @@ void TwoHalfD::Engine::render() {
         return;
     }
     m_renderTexture.clear(sf::Color::Transparent);
-    renderFloor();
+    // renderFloor();
     renderBSP();
     renderOverlays();
     // // renderAbove();
@@ -276,7 +278,11 @@ void TwoHalfD::Engine::renderOverlays() {
 }
 
 void TwoHalfD::Engine::renderBSP() {
-    auto drawnCommands = m_bspManager.update(m_cameraObject.cameraPos);
+    auto bspTraversal = m_bspManager.update(m_cameraObject.cameraPos);
+    auto &drawnCommands = bspTraversal.first;
+    auto floorSectionIds = bspTraversal.second;
+    renderFloor(floorSectionIds);
+
     for (const auto &command : drawnCommands) {
         switch (command.type) {
         case TwoHalfD::DrawCommand::Type::Segment: {
@@ -446,38 +452,114 @@ void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) 
     m_renderTexture.draw(sprite);
 }
 
-void TwoHalfD::Engine::renderFloor() {
-    static sf::Texture floorTileTexture;
+void TwoHalfD::Engine::renderFloor(const std::unordered_set<int> &floorSectionIds) {
 
-    if (!floorTileTexture.loadFromFile(fs::path(ASSETS_DIR) / "textures" / "pattern_24.png")) {
-        std::cerr << "Error loading floor texture." << std::endl;
-        return;
+    float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
+    XYVectorf n_direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
+    XYVectorf n_plane{-n_direction.y, n_direction.x};
+    if (m_level.defaultFloorTextureId != -1) {
+        // std::cerr << "No default floor texture id specified in level file." << std::endl;
+        auto it = m_level.textures.find(m_level.defaultFloorTextureId);
+        if (it == m_level.textures.end()) {
+            std::cerr << "No texture found for default floor with texture id: " << m_level.defaultFloorTextureId << std::endl;
+            exit(1);
+        }
+        const sf::Texture &floorTileTexture = it->second.texture;
+
+        sf::VertexArray quad(sf::Quads, 4);
+        quad[0].position = sf::Vector2f(0, m_engineSettings.resolution.y / 2.0f);
+        quad[1].position = sf::Vector2f(0, m_engineSettings.resolution.y);
+        quad[2].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y);
+        quad[3].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y / 2.0f);
+
+        sf::RenderStates states;
+        states.texture = &floorTileTexture;
+
+        states.shader = &m_floorShader;
+
+        m_floorShader.setUniform("useSectionMask", false);
+
+        m_floorShader.setUniform("textureStartCord", sf::Vector2f(m_level.defaultFloorStart.x, m_level.defaultFloorStart.y));
+        m_floorShader.setUniform("texture", floorTileTexture);
+        m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
+        m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
+        m_floorShader.setUniform("cameraHeight", m_cameraObject.cameraHeight);
+        m_floorShader.setUniform("n_plane", sf::Vector2f(n_plane.x, n_plane.y));
+        m_floorShader.setUniform("direction", sf::Vector2f(n_direction.x, n_direction.y));
+        m_floorShader.setUniform("focalLength", focalLength);
+        m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
+        m_floorShader.setUniform("distanceCutoff", 3000.0f);
+        m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
+
+        m_renderTexture.draw(quad, states);
     }
+    const float NEAR_CLIP = 100.0f;
+    for (const auto floorSectionId : floorSectionIds) {
+        auto it = m_level.floorSections.find(floorSectionId);
+        if (it == m_level.floorSections.end()) {
+            std::cerr << "No floor section found for id: " << floorSectionId << std::endl;
+            continue;
+        }
+        const TwoHalfD::FloorSection &floorSection = it->second;
 
-    sf::VertexArray quad(sf::Quads, 4);
-    quad[0].position = sf::Vector2f(0, m_engineSettings.resolution.y / 2.0f);
-    quad[1].position = sf::Vector2f(0, m_engineSettings.resolution.y);
-    quad[2].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y);
-    quad[3].position = sf::Vector2f(m_engineSettings.resolution.x, m_engineSettings.resolution.y / 2.0f);
+        auto texIt = m_level.textures.find(floorSection.textureId);
+        if (texIt == m_level.textures.end()) {
+            std::cerr << "No texture found for floor section with texture id: " << floorSection.textureId << std::endl;
+            continue;
+        }
+        const sf::Texture &floorTileTexture = texIt->second.texture;
 
-    sf::RenderStates states;
-    states.texture = &floorTileTexture;
+        std::vector<XYVectorf> vertices{};
+        size_t n = floorSection.vertices.size();
+        vertices.reserve(n);
+        for (size_t i{}; i < n; ++i) {
+            const XYVectorf &curr = floorSection.vertices[i];
+            const XYVectorf &next = floorSection.vertices[(i + 1) % n];
 
-    states.shader = &m_floorShader;
+            float dotCurr = dotProduct(curr - m_cameraObject.cameraPos.posf, n_direction);
+            float dotNext = dotProduct(next - m_cameraObject.cameraPos.posf, n_direction);
 
-    m_floorShader.setUniform("textureStartCord", sf::Vector2f(0, 0));
-    m_floorShader.setUniform("texture", floorTileTexture);
-    m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
-    m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
-    m_floorShader.setUniform("cameraHeight", m_cameraObject.cameraHeight);
-    m_floorShader.setUniform("n_plane", sf::Vector2f(-std::sin(m_cameraObject.cameraPos.direction), std::cos(m_cameraObject.cameraPos.direction)));
-    m_floorShader.setUniform("direction", sf::Vector2f(std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)));
-    m_floorShader.setUniform("focalLength", (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale);
-    m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
-    m_floorShader.setUniform("distanceCutoff", 3000.0f);
-    m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
+            bool currInFront = dotCurr > NEAR_CLIP;
+            bool nextInFront = dotNext > NEAR_CLIP;
 
-    m_renderTexture.draw(quad, states);
+            if (currInFront) vertices.push_back(curr);
+
+            if (currInFront != nextInFront) {
+                float t = (NEAR_CLIP - dotCurr) / (dotNext - dotCurr);
+                XYVectorf intersectionPoint = curr + t * (next - curr);
+                vertices.push_back(intersectionPoint);
+            }
+        }
+
+        sf::VertexArray floorShape(sf::PrimitiveType::TriangleFan, vertices.size());
+        for (size_t i = 0; i < vertices.size(); ++i) {
+            XYVectorf cameraVertexVec = vertices[i] - m_cameraObject.cameraPos.posf;
+            float perpWorldDistance = dotProduct(cameraVertexVec, n_direction);
+            float lateralDist = dotProduct(cameraVertexVec, n_plane);
+            float p_xScreenPos = (m_engineSettings.resolution.x / 2.0f) + focalLength * lateralDist / perpWorldDistance;
+            float p_yScreenPos = (m_engineSettings.resolution.y / 2.0f) + focalLength * (m_cameraObject.cameraHeight) / perpWorldDistance;
+            floorShape[i].position = sf::Vector2f(p_xScreenPos, p_yScreenPos);
+        }
+
+        sf::RenderStates states;
+        states.texture = &floorTileTexture;
+
+        states.shader = &m_floorShader;
+
+        m_floorShader.setUniform("textureStartCord", sf::Vector2f(floorSection.floorTextureStart.x, floorSection.floorTextureStart.y));
+        m_floorShader.setUniform("texture", floorTileTexture);
+        m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
+        m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
+        m_floorShader.setUniform("cameraHeight", m_cameraObject.cameraHeight);
+        m_floorShader.setUniform("n_plane", sf::Vector2f(n_plane.x, n_plane.y));
+        m_floorShader.setUniform("direction", sf::Vector2f(n_direction.x, n_direction.y));
+        m_floorShader.setUniform("focalLength", focalLength);
+        m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
+        m_floorShader.setUniform("distanceCutoff", 3000.0f);
+        m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
+
+        m_renderTexture.draw(floorShape, states);
+    }
 }
 
 // <-------------- Physics -------------->
@@ -565,7 +647,8 @@ const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf() 
     const float cx = m_cameraObject.cameraPos.posf.x, cy = m_cameraObject.cameraPos.posf.y;
 
     for (const auto &wall : walls) {
-        // std::cout << "Wall is: id, (xs, ys), (xe, ye): " << wall.id << ", (" << wall.start.x << ", " << wall.start.y << "), (" << wall.end.x << ","
+        // std::cout << "Wall is: id, (xs, ys), (xe, ye): " << wall.id << ", (" << wall.start.x << ", " << wall.start.y << "), (" << wall.end.x <<
+        // ","
         //           << wall.end.y << ")\n";
         // std::cout << "(a, b, r): (" << a << ", " << b << ", " << c << ")\n";
 

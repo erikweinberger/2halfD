@@ -10,6 +10,8 @@ uniform vec2 resolution;
 uniform float distanceCutoff;
 uniform float shaderScale;
 
+bool pointInsidePolygon(vec2 p);
+
 void main() {
     vec2 pixelCord = gl_FragCoord.xy;
     pixelCord.y = resolution.y - pixelCord.y;
@@ -20,10 +22,10 @@ void main() {
 
     float perpWorldDistance = (cameraHeight * focalLength) / pixelsFromCenterY;
 
-    if (perpWorldDistance < 0. && (perpWorldDistance < 0.001 || perpWorldDistance > distanceCutoff)) {
+    if ((perpWorldDistance < 0.001 || perpWorldDistance > distanceCutoff)) {
         discard;
+        return;
     }
-
     
     float planeDist = perpWorldDistance * pixelsFromCenterX / focalLength;
     vec2 planeScaled = n_plane * planeDist;
@@ -38,6 +40,7 @@ void main() {
 
     float shade = min(1., shaderScale / perpWorldDistance);
     pixel.rgb *= shade;
+
 
     gl_FragColor = pixel;
     

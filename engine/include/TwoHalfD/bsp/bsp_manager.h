@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <memory>
 #include <queue>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace TwoHalfD {
@@ -22,12 +24,14 @@ class BSPManager {
 
     void buildBSPTree();
     void insertSprites(const std::vector<SpriteEntity> &sprites);
+    void insertFloorSections(const std::unordered_map<int, FloorSection> &floorSections);
 
     // Traverse logic
-    std::vector<TwoHalfD::DrawCommand> update(TwoHalfD::Position &cameraPos);
-    void traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos);
-    void traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, const TwoHalfD::Position &cameraPos,
-                  const TwoHalfD::XYVectorf &cameraDir);
+    std::pair<std::vector<TwoHalfD::DrawCommand>, std::unordered_set<int>> update(TwoHalfD::Position &cameraPos);
+    void traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, std::unordered_set<int> &floorSectionIds,
+                  const TwoHalfD::Position &cameraPos);
+    void traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, std::unordered_set<int> &floorSectionIds,
+                  const TwoHalfD::Position &cameraPos, const TwoHalfD::XYVectorf &cameraDir);
 
     // Getters and setters
     void setLevel(const TwoHalfD::Level *level);
@@ -53,6 +57,7 @@ class BSPManager {
                                                                                           bool saveSegments = true);
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
     void _insertSprite(TwoHalfD::BSPNode *node, const TwoHalfD::SpriteEntity &sprite, int spriteId);
+    void _insertFloorSection(TwoHalfD::BSPNode *node, const FloorSection &floorSection, int vertexId);
 
     // BSP optimization
     float _findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments);
