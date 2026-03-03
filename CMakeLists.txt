@@ -1,6 +1,6 @@
+
 cmake_minimum_required(VERSION 3.31.6)
 
-# Project name
 project(two_half)
 
 # Allows debug run with: cmake -DCMAKE_BUILD_TYPE=Debug ..
@@ -11,11 +11,10 @@ endif()
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_EXTENSIONS OFF) # Stick to standard C++
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find SFML components
-set(SFML_DIR "${CMAKE_SOURCE_DIR}/external/SFML/lib/cmake/SFML")
-find_package(SFML 2 COMPONENTS graphics window system audio REQUIRED CONFIG)
+# Add SFML from source
+add_subdirectory(external/SFML)
 
 # Add source files from engine/ and game/
 file(GLOB_RECURSE ENGINE_SOURCES engine/src/*.cpp)
@@ -24,16 +23,14 @@ file(GLOB_RECURSE GAME_SOURCES game/*.cpp)
 # Create the executable
 add_executable(two_half ${ENGINE_SOURCES} ${GAME_SOURCES})
 
-# Include directories
-# - engine/include gives us <TwoHalfD/engine.h>
-# - game allows you to include your own headers easily
+
 target_include_directories(two_half
     PRIVATE
         game
         ${CMAKE_SOURCE_DIR}/engine/include
 )
 
-# Link SFML libraries
+# Link SFML libraries (built from source)
 target_link_libraries(two_half PRIVATE sfml-graphics sfml-window sfml-system sfml-audio)
 
 # Enable compiler warnings
