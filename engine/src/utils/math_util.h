@@ -53,4 +53,7 @@ inline bool isBehind(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u)
 
 std::vector<point2d> findCircleLineSegmentIntercept(const float cx, const float cy, const float r, const point2d &wallS, const point2d &wallE);
 
+TwoHalfD::XYVectorf computeLineIntersection(const TwoHalfD::XYVectorf &p1, const TwoHalfD::XYVectorf &p2, const TwoHalfD::XYVectorf &p3,
+                                            const TwoHalfD::XYVectorf &p4);
+
 #endif

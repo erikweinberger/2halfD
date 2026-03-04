@@ -60,7 +60,7 @@ class Engine {
           m_engineClocks(EngineClocks{m_engineSettings.graphicsFpsCap, m_engineSettings.gameFpsCap}),
           m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
           // m_window_above(sf::VideoMode(800, 800), "Mini Map"),
-          m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(m_engineSettings.numRays, 0)}) {
+          m_renderZBuffer(TwoHalfD::RenderZBuffer{std::vector<float>(0, 0)}) {
 
         m_window.setVerticalSyncEnabled(false);
         m_window.setFramerateLimit(0);
@@ -114,6 +114,7 @@ class Engine {
     void renderSegment(TwoHalfD::Segment segment);
     void renderFloor(const std::unordered_set<int> &floorSectionIds);
     void renderSprite(const TwoHalfD::SpriteEntity &spriteEntity);
+    void renderFloorSection(const TwoHalfD::FloorSection &floorSection);
 
     // PHYSICS FUNCTIONS
 

@@ -11,6 +11,8 @@ uniform float leftDepth;
 uniform float rightDepth;
 uniform vec2 resolution;
 uniform float shaderScale;
+uniform float wallHeightFloorHeighDiff;
+uniform float wallHeight;
 
 void main() {
     vec2 pixelCord = gl_FragCoord.xy;
@@ -35,6 +37,11 @@ void main() {
     float bottomY = bottomLeft.y * (1.0 - n_xCord) + bottomRight.y * n_xCord;
     
     float texY = (pixelCord.y - topY) / (bottomY - topY);
+
+    if ((1. - texY) * wallHeight < wallHeightFloorHeighDiff) {
+        discard;
+        return;
+    }
     
     vec2 texCord = vec2(texX, texY);
     vec4 pixel = texture2D(texture, texCord);

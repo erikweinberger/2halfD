@@ -17,6 +17,8 @@ struct OptimalCostPartitioning {
     int numBack;
 };
 
+using Polygon = std::vector<TwoHalfD::XYVectorf>;
+
 class BSPManager {
   public:
     BSPManager() : m_level(nullptr) {}
@@ -57,10 +59,13 @@ class BSPManager {
                                                                                           bool saveSegments = true);
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
     void _insertSprite(TwoHalfD::BSPNode *node, const TwoHalfD::SpriteEntity &sprite, int spriteId);
-    void _insertFloorSection(TwoHalfD::BSPNode *node, const FloorSection &floorSection, int vertexId);
+    void _insertFloorSection(TwoHalfD::BSPNode *node, const FloorSection &floorSection, XYVectorf point);
 
     // BSP optimization
     float _findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments);
+
+    // Find bounding box of a set of segments
+    std::pair<Polygon, Polygon> _splitConvexShape(const Polygon &vertices, const TwoHalfD::Segment &splitter);
 };
 } // namespace TwoHalfD
 

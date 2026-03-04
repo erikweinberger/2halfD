@@ -1,4 +1,5 @@
 #include "math_util.h"
+#include "TwoHalfD/engine_types.h"
 
 std::vector<point2d> findCircleLineSegmentIntercept(const float cx, const float cy, const float r, const point2d &wallS, const point2d &wallE) {
     const float xDir = wallS[0] - wallE[0];
@@ -47,4 +48,25 @@ std::vector<point2d> findCircleLineSegmentIntercept(const float cx, const float 
         }
     }
     return result;
+}
+
+TwoHalfD::XYVectorf computeLineIntersection(const TwoHalfD::XYVectorf &p1, const TwoHalfD::XYVectorf &p2, const TwoHalfD::XYVectorf &p3,
+                                            const TwoHalfD::XYVectorf &p4) {
+    float A1 = p2.y - p1.y;
+    float B1 = p1.x - p2.x;
+    float C1 = A1 * p1.x + B1 * p1.y;
+
+    float A2 = p4.y - p3.y;
+    float B2 = p3.x - p4.x;
+    float C2 = A2 * p3.x + B2 * p3.y;
+
+    float determinant = A1 * B2 - A2 * B1;
+
+    if (std::abs(determinant) < 1e-5f) {
+        return {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()};
+    } else {
+        float x = (B2 * C1 - B1 * C2) / determinant;
+        float y = (A1 * C2 - A2 * C1) / determinant;
+        return {x, y};
+    }
 }

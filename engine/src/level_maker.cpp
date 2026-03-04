@@ -111,7 +111,7 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
         break;
     }
 
-    return TwoHalfD::TextureSignature{textureId, filePath, tex};
+    return TwoHalfD::TextureSignature{tex, filePath, textureId};
 }
 
 TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString) {
@@ -153,8 +153,7 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString) {
         std::cerr << "Texture not loaded (TextureId: " << textureId << ")\n";
     }
 
-    auto wall = TwoHalfD::Wall{m_entityId++, {startX, startY}, {endX, endY}, height, textureId};
-    return wall;
+    return TwoHalfD::Wall{{startX, startY}, {endX, endY}, m_entityId++, textureId, height};
 }
 
 TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string spriteString) {
@@ -228,6 +227,7 @@ TwoHalfD::FloorSection TwoHalfD::LevelMaker::_makeFloorSection(std::string floor
     std::string word;
     std::stringstream ss(floorSectionString);
     float floorStartX{}, floorStartY{};
+    float height;
     std::vector<XYVectorf> vertices;
     int textureId;
 
@@ -244,6 +244,9 @@ TwoHalfD::FloorSection TwoHalfD::LevelMaker::_makeFloorSection(std::string floor
         case 3:
             floorStartY = std::stof(word);
             break;
+        case 4:
+            height = std::stof(word);
+            break;
         default: {
             std::string word2;
             std::getline(ss, word2, ' ');
@@ -257,5 +260,5 @@ TwoHalfD::FloorSection TwoHalfD::LevelMaker::_makeFloorSection(std::string floor
         std::cerr << "Floor section with id:  has less than 3 and more then 10 vertices and will not be rendered.\n";
     }
 
-    return TwoHalfD::FloorSection{m_entityId++, {floorStartX, floorStartY}, vertices, textureId};
+    return TwoHalfD::FloorSection{vertices, {floorStartX, floorStartY}, m_entityId++, textureId, height};
 }
