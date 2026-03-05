@@ -96,6 +96,8 @@ struct XYVectorf {
     }
 };
 
+using Polygon = std::vector<TwoHalfD::XYVectorf>;
+
 inline float dot(const XYVectorf &a, const XYVectorf &b) {
     return a.x * b.x + a.y * b.y;
 }
@@ -350,6 +352,7 @@ struct BSPNode {
     std::unique_ptr<BSPNode> back;
 
     std::unordered_set<int> spriteIds;
+    Polygon bounds;
     int floorSectionId = -1;
 
     XYVectorf splitterP0;

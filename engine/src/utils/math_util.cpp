@@ -61,6 +61,7 @@ TwoHalfD::XYVectorf computeLineIntersection(const TwoHalfD::XYVectorf &p1, const
     float C2 = A2 * p3.x + B2 * p3.y;
 
     float determinant = A1 * B2 - A2 * B1;
+    std::cout << "Computing line intersection, determinant: " << determinant << std::endl;
 
     if (std::abs(determinant) < 1e-5f) {
         return {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()};

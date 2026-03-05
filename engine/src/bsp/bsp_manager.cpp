@@ -12,7 +12,7 @@
 #include <vector>
 
 void TwoHalfD::BSPManager::buildBSPTree() {
-    int seed = m_level->seed;
+    int seed = 1; // m_level->seed;
     std::cout << "Seed for BSP: " << seed << std::endl;
     if (seed == -1) {
         seed = findBestPartitioning();
@@ -39,10 +39,12 @@ void TwoHalfD::BSPManager::buildBSPTree() {
         }
     }
 
+    TwoHalfD::Polygon initialBounds = _getInitialBounds(segments);
+
     std::mt19937 rng(seed);
     std::shuffle(segments.begin(), segments.end(), rng);
     OptimalCostPartitioning cost{0, 0, 0};
-    _buildBSPTree(m_root.get(), segments, cost);
+    _buildBSPTree(m_root.get(), segments, initialBounds, cost);
 
     insertSprites(m_level->sprites);
     insertFloorSections(m_level->floorSections);
@@ -269,7 +271,8 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
 
     TwoHalfD::OptimalCostPartitioning cost{0, 0, 0};
     TwoHalfD::BSPNode rootNode;
-    _buildBSPTree(&rootNode, segments, cost, false);
+    TwoHalfD::Polygon initialBounds = _getInitialBounds(segments);
+    _buildBSPTree(&rootNode, segments, initialBounds, cost, false);
 
     float score = std::abs(cost.numBack - cost.numFront) + (cost.splitCount * m_splitWeight);
     return score;
@@ -279,24 +282,41 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
  * Private functions
  * =============================================================================================================================
  */
-void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments,
+void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds,
                                          struct OptimalCostPartitioning &cost, bool saveSegments) {
     if (inputSegments.size() == 0) {
         return;
     }
 
+    auto [frontBounds, backBounds] = _splitConvexShape(bounds, inputSegments[0]);
     auto [frontSegs, backSegs] = _splitSpace(node, inputSegments, cost, saveSegments);
 
     if (backSegs.size() > 0) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
         cost.numBack += 1;
-        _buildBSPTree(node->back.get(), backSegs, cost, saveSegments);
+        _buildBSPTree(node->back.get(), backSegs, backBounds, cost, saveSegments);
+    } else if (saveSegments) {
+        node->back = std::make_unique<TwoHalfD::BSPNode>();
+        node->back->bounds = backBounds;
+        std::cout << "Bounds vertex: ";
+        for (const auto &vertex : backBounds) {
+            std::cout << vertex.x << ", " << vertex.y << " | ";
+        }
+        std::cout << std::endl;
     }
 
     if (frontSegs.size() > 0) {
         node->front = std::make_unique<TwoHalfD::BSPNode>();
         cost.numFront += 1;
-        _buildBSPTree(node->front.get(), frontSegs, cost, saveSegments);
+        _buildBSPTree(node->front.get(), frontSegs, frontBounds, cost, saveSegments);
+    } else if (saveSegments) {
+        node->front = std::make_unique<TwoHalfD::BSPNode>();
+        node->front->bounds = frontBounds;
+        std::cout << "Bounds vertex: ";
+        for (const auto &vertex : frontBounds) {
+            std::cout << vertex.x << ", " << vertex.y << " | ";
+        }
+        std::cout << std::endl;
     }
 }
 
@@ -320,8 +340,8 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
         float numerator = crossProduct2d(inputSegments[i].v1 - v1, splitterVec);
         float denominator = crossProduct2d(splitterVec, segmentVector);
 
-        bool denominatorIsZero = std::abs(denominator) < std::numeric_limits<float>::epsilon();
-        bool numeratorIsZero = std::abs(numerator) < std::numeric_limits<float>::epsilon();
+        bool denominatorIsZero = std::abs(denominator) < BSP_EPSILON;
+        bool numeratorIsZero = std::abs(numerator) < BSP_EPSILON;
 
         if (denominatorIsZero && numeratorIsZero) {
             frontSegs.push_back(inputSegments[i]);
@@ -419,21 +439,18 @@ std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> TwoHalfD::BSPManager::_splitConv
     for (size_t i{}; i < vertices.size(); ++i) {
         const auto &currVert = vertices[i];
         const auto &nextVert = vertices[(i + 1) % vertices.size()];
+        bool sideCurr = isInfront(currVert - splitter.v1, splitter.v2 - splitter.v1);
+        bool sideNext = isInfront(nextVert - splitter.v1, splitter.v2 - splitter.v1);
 
-        float sideCurr = isInfront(currVert - splitter.v1, splitter.v2 - splitter.v1);
-        float sideNext = isInfront(nextVert - splitter.v1, splitter.v2 - splitter.v1);
+        // Add current vertex to appropriate side(s)
+        if (sideCurr) frontVertices.push_back(currVert);
+        if (!sideCurr) backVertices.push_back(currVert);
 
-        if (sideCurr >= 0) {
-            frontVertices.push_back(currVert);
-        }
-        if (sideCurr <= 0) {
-            backVertices.push_back(currVert);
-        }
-
-        if ((sideCurr > 0 && sideNext < 0) || (sideCurr < 0 && sideNext > 0)) {
-            XYVectorf intersectionPoint = computeLineIntersection(currVert, nextVert, splitter.v1, splitter.v2);
-            frontVertices.push_back(intersectionPoint);
-            backVertices.push_back(intersectionPoint);
+        // If edge crosses, insert intersection point BEFORE next iteration
+        if ((sideCurr && !sideNext) || (!sideCurr && sideNext)) {
+            XYVectorf ip = computeLineIntersection(currVert, nextVert, splitter.v1, splitter.v2);
+            frontVertices.push_back(ip); // intersection goes in here, next vert will follow naturally
+            backVertices.push_back(ip);
         }
     }
 
@@ -445,4 +462,32 @@ void TwoHalfD::BSPManager::_addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BS
     node->segmentID = m_segmentID;
 
     ++m_segmentID;
+}
+
+TwoHalfD::Polygon TwoHalfD::BSPManager::_getInitialBounds(const std::vector<TwoHalfD::Segment> &segments) {
+    float minX = std::numeric_limits<float>::max();
+    float minY = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float maxY = std::numeric_limits<float>::lowest();
+
+    for (const auto &segment : segments) {
+        minX = std::min({minX, segment.v1.x, segment.v2.x});
+        minY = std::min({minY, segment.v1.y, segment.v2.y});
+        maxX = std::max({maxX, segment.v1.x, segment.v2.x});
+        maxY = std::max({maxY, segment.v1.y, segment.v2.y});
+    }
+
+    TwoHalfD::Polygon initialBounds = {
+        {minX - 100.f, minY - 100.f}, // bottom-left
+        {maxX + 100.f, minY - 100.f}, // bottom-right
+        {maxX + 100.f, maxY + 100.f}, // top-right
+        {minX - 100.f, maxY + 100.f}, // top-left
+    };
+
+    std::cout << "Initial bounds:\n";
+    for (const auto &vertex : initialBounds) {
+        std::cout << vertex.x << ", " << vertex.y << " |";
+    }
+    std::cout << std::endl;
+    return initialBounds;
 }
