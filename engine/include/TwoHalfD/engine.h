@@ -112,9 +112,9 @@ class Engine {
     void renderOverlays();
     void renderBSP();
     void renderSegment(TwoHalfD::Segment segment);
-    void renderFloor(const std::unordered_set<int> &floorSectionIds);
+    void renderFloor();
     void renderSprite(const TwoHalfD::SpriteEntity &spriteEntity);
-    void renderFloorSection(const TwoHalfD::FloorSection &floorSection);
+    void renderFloorSection(const TwoHalfD::FloorSection *floorSection);
 
     // PHYSICS FUNCTIONS
 

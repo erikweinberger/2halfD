@@ -1,5 +1,6 @@
 #include "TwoHalfD/level_maker.h"
 #include "TwoHalfD/engine_types.h"
+#include "TwoHalfD/utils/math_util.h"
 
 TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) {
     std::ifstream inputFile(fs::path(ASSETS_DIR) / levelFilePath);
@@ -260,5 +261,7 @@ TwoHalfD::FloorSection TwoHalfD::LevelMaker::_makeFloorSection(std::string floor
         std::cerr << "Floor section with id:  has less than 3 and more then 10 vertices and will not be rendered.\n";
     }
 
-    return TwoHalfD::FloorSection{vertices, {floorStartX, floorStartY}, m_entityId++, textureId, height};
+    bool isCCW = isCounterClockwise(vertices);
+
+    return TwoHalfD::FloorSection{vertices, {floorStartX, floorStartY}, m_entityId++, textureId, height, isCCW};
 }

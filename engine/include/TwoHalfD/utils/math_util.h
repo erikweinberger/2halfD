@@ -44,7 +44,7 @@ inline float dotProduct(const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf 
 }
 
 inline bool isInfront(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {
-    return v.x * u.y <= u.x * v.y;
+    return v.x * u.y < u.x * v.y;
 }
 
 inline bool isBehind(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u) {
@@ -55,5 +55,7 @@ std::vector<point2d> findCircleLineSegmentIntercept(const float cx, const float 
 
 TwoHalfD::XYVectorf computeLineIntersection(const TwoHalfD::XYVectorf &p1, const TwoHalfD::XYVectorf &p2, const TwoHalfD::XYVectorf &p3,
                                             const TwoHalfD::XYVectorf &p4);
+
+bool isCounterClockwise(const TwoHalfD::Polygon &polygon);
 
 #endif

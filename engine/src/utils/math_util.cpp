@@ -1,4 +1,4 @@
-#include "math_util.h"
+#include "TwoHalfD/utils/math_util.h"
 #include "TwoHalfD/engine_types.h"
 
 std::vector<point2d> findCircleLineSegmentIntercept(const float cx, const float cy, const float r, const point2d &wallS, const point2d &wallE) {
@@ -70,4 +70,15 @@ TwoHalfD::XYVectorf computeLineIntersection(const TwoHalfD::XYVectorf &p1, const
         float y = (A1 * C2 - A2 * C1) / determinant;
         return {x, y};
     }
+}
+
+bool isCounterClockwise(const std::vector<TwoHalfD::XYVectorf> &vertices) {
+    float area = 0.0f;
+    for (size_t i = 0; i < vertices.size(); i++) {
+        const auto &v1 = vertices[i];
+        const auto &v2 = vertices[(i + 1) % vertices.size()]; // Wrap around to the first vertex
+        area += (v2.x - v1.x) * (v2.y + v1.y);
+    }
+
+    return area > 0;
 }

@@ -163,11 +163,12 @@ struct SpriteEntity {
 };
 
 struct FloorSection {
-    std::vector<XYVectorf> vertices;
+    Polygon vertices;
     XYVectorf floorTextureStart;
     int id;
     int textureId;
     float height;
+    bool isCCW;
 };
 
 struct EngineSettings {
@@ -199,7 +200,7 @@ struct Level {
 
     int defaultFloorTextureId = -1;
     XYVectorf defaultFloorStart;
-    float defaultFloorHeight = 10.f;
+    float defaultFloorHeight = 0.f;
 };
 
 struct EngineContext {
@@ -353,7 +354,7 @@ struct BSPNode {
 
     std::unordered_set<int> spriteIds;
     Polygon bounds;
-    int floorSectionId = -1;
+    std::unique_ptr<FloorSection> floorSection = nullptr;
 
     XYVectorf splitterP0;
     XYVectorf splitterP1;
@@ -363,12 +364,37 @@ struct BSPNode {
 };
 
 struct DrawCommand {
-    enum Type {
+    enum class Type {
         Segment,
         Sprite,
         FloorSection
     } type;
-    int id;
+
+    union {
+        int id;                        // For Segment or Sprite
+        FloorSection *floorSectionPtr; // For FloorSection
+    };
+
+    static DrawCommand makeSegment(int segId) {
+        DrawCommand cmd;
+        cmd.type = Type::Segment;
+        cmd.id = segId;
+        return cmd;
+    }
+
+    static DrawCommand makeSprite(int spriteId) {
+        DrawCommand cmd;
+        cmd.type = Type::Sprite;
+        cmd.id = spriteId;
+        return cmd;
+    }
+
+    static DrawCommand makeFloorSection(FloorSection *ptr) {
+        DrawCommand cmd;
+        cmd.type = Type::FloorSection;
+        cmd.floorSectionPtr = ptr;
+        return cmd;
+    }
 };
 
 } // namespace TwoHalfD

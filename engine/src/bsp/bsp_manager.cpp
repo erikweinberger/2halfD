@@ -1,7 +1,7 @@
-
 #include "TwoHalfD/bsp/bsp_manager.h"
-#include "../utils/math_util.h"
 #include "TwoHalfD/engine_types.h"
+#include "TwoHalfD/utils/math_util.h"
+#include <SFML/Window/Cursor.hpp>
 #include <cstddef>
 #include <iostream>
 #include <limits>
@@ -44,10 +44,10 @@ void TwoHalfD::BSPManager::buildBSPTree() {
     std::mt19937 rng(seed);
     std::shuffle(segments.begin(), segments.end(), rng);
     OptimalCostPartitioning cost{0, 0, 0};
-    _buildBSPTree(m_root.get(), segments, initialBounds, cost);
+    _buildBSPTree(m_root.get(), segments, initialBounds, -1, cost);
 
     insertSprites(m_level->sprites);
-    insertFloorSections(m_level->floorSections);
+    // insertFloorSections(m_level->floorSections);
 
     return;
 }
@@ -114,14 +114,14 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
         if (!isInfrontOfCamera) {
             while (!spriteOrderedDistance.empty()) {
-                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
                 spriteOrderedDistance.pop();
             }
-            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
+            commands.push_back(DrawCommand::makeSegment(static_cast<int>(node->segmentID)));
         } else {
-            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
+            commands.push_back(DrawCommand::makeSegment(static_cast<int>(node->segmentID)));
             while (!spriteOrderedDistance.empty()) {
-                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
                 spriteOrderedDistance.pop();
             }
         }
@@ -131,13 +131,13 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
     if (isInfrontOfCamera) {
         traverse(node->back.get(), commands, floorSectionIds, cameraPos);
 
-        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
+        commands.push_back(DrawCommand::makeSegment(node->segmentID));
         traverse(node->front.get(), commands, floorSectionIds, cameraPos);
 
     } else {
         traverse(node->front.get(), commands, floorSectionIds, cameraPos);
 
-        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
+        commands.push_back(DrawCommand::makeSegment(node->segmentID));
 
         traverse(node->back.get(), commands, floorSectionIds, cameraPos);
     }
@@ -151,10 +151,8 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
     if (node->front == nullptr && node->back == nullptr) {
         // std::cout << "At leaf node: " << node->floorSectionId << '\n';
-        if (node->floorSectionId != -1) {
-            std::cout << "Found floorSection: " << node->floorSectionId << '\n';
-            commands.push_back({TwoHalfD::DrawCommand::FloorSection, node->floorSectionId});
-            floorSectionIds.insert(node->floorSectionId);
+        if (node->floorSection != nullptr) {
+            commands.push_back(DrawCommand::makeFloorSection(node->floorSection.get()));
         }
 
         auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
@@ -168,14 +166,12 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
         if (!isInfrontOfCamera) {
             while (!spriteOrderedDistance.empty()) {
-                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
                 spriteOrderedDistance.pop();
             }
-            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
         } else {
-            commands.push_back({TwoHalfD::DrawCommand::Type::Segment, static_cast<int>(node->segmentID)});
             while (!spriteOrderedDistance.empty()) {
-                commands.push_back({TwoHalfD::DrawCommand::Type::Sprite, spriteOrderedDistance.top().second});
+                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
                 spriteOrderedDistance.pop();
             }
         }
@@ -185,14 +181,14 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
     if (isInfrontOfCamera) {
         traverse(node->back.get(), commands, floorSectionIds, cameraPos, cameraDir);
 
-        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
+        commands.push_back(DrawCommand::makeSegment(node->segmentID));
 
         traverse(node->front.get(), commands, floorSectionIds, cameraPos, cameraDir);
 
     } else {
         traverse(node->front.get(), commands, floorSectionIds, cameraPos, cameraDir);
 
-        commands.push_back({TwoHalfD::DrawCommand::Type::Segment, node->segmentID});
+        commands.push_back(DrawCommand::makeSegment(node->segmentID));
 
         traverse(node->back.get(), commands, floorSectionIds, cameraPos, cameraDir);
     }
@@ -272,7 +268,7 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
     TwoHalfD::OptimalCostPartitioning cost{0, 0, 0};
     TwoHalfD::BSPNode rootNode;
     TwoHalfD::Polygon initialBounds = _getInitialBounds(segments);
-    _buildBSPTree(&rootNode, segments, initialBounds, cost, false);
+    _buildBSPTree(&rootNode, segments, initialBounds, -1, cost, false);
 
     float score = std::abs(cost.numBack - cost.numFront) + (cost.splitCount * m_splitWeight);
     return score;
@@ -283,21 +279,69 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
  * =============================================================================================================================
  */
 void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds,
-                                         struct OptimalCostPartitioning &cost, bool saveSegments) {
+                                         int floorSectionId, struct OptimalCostPartitioning &cost, bool saveSegments) {
     if (inputSegments.size() == 0) {
         return;
     }
+    const auto &splitterSeg = inputSegments[0];
+    auto [frontBounds, backBounds] = _splitConvexShape(bounds, splitterSeg);
+    int frontSectionFloorId = floorSectionId;
+    int backSectionFloorId = floorSectionId;
+    if (splitterSeg.isFloorBoundary() && splitterSeg.floorSection->isCCW) {
+        backSectionFloorId = splitterSeg.floorSection->id;
+        frontSectionFloorId = -1;
+    } else if (splitterSeg.isFloorBoundary() && !splitterSeg.floorSection->isCCW) {
+        frontSectionFloorId = splitterSeg.floorSection->id;
+        backSectionFloorId = -1;
+    }
+    if (splitterSeg.isWall() && floorSectionId != -1) {
+        auto &floorPoly = m_level->floorSections.find(floorSectionId)->second.vertices;
 
-    auto [frontBounds, backBounds] = _splitConvexShape(bounds, inputSegments[0]);
+        bool anyFront = false;
+        bool anyBack = false;
+
+        for (const auto &vertex : floorPoly) {
+            bool side = isInfront(vertex - splitterSeg.v1, splitterSeg.v2 - splitterSeg.v1);
+            if (side) anyFront = true;
+            else anyBack = true;
+        }
+
+        if (anyFront && anyBack) {
+            // Wall cuts through floor section - both sides keep the floor id
+            frontSectionFloorId = floorSectionId;
+            backSectionFloorId = floorSectionId;
+        } else if (anyFront) {
+            // Floor section entirely on front side
+            frontSectionFloorId = floorSectionId;
+            backSectionFloorId = -1;
+        } else {
+            // Floor section entirely on back side
+            frontSectionFloorId = -1;
+            backSectionFloorId = floorSectionId;
+        }
+    }
     auto [frontSegs, backSegs] = _splitSpace(node, inputSegments, cost, saveSegments);
 
     if (backSegs.size() > 0) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
         cost.numBack += 1;
-        _buildBSPTree(node->back.get(), backSegs, backBounds, cost, saveSegments);
+        _buildBSPTree(node->back.get(), backSegs, backBounds, backSectionFloorId, cost, saveSegments);
     } else if (saveSegments) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
         node->back->bounds = backBounds;
+        auto floorSectionIt = m_level->floorSections.find(backSectionFloorId);
+        if (floorSectionIt != m_level->floorSections.end() && backSectionFloorId != -1) {
+            auto floorSection = TwoHalfD::FloorSection{backBounds,
+                                                       floorSectionIt->second.floorTextureStart,
+                                                       floorSectionId,
+                                                       floorSectionIt->second.textureId,
+                                                       floorSectionIt->second.height,
+                                                       floorSectionIt->second.isCCW};
+            node->back->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
+        } else if (floorSectionId != -1) {
+            std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
+        }
+
         std::cout << "Bounds vertex: ";
         for (const auto &vertex : backBounds) {
             std::cout << vertex.x << ", " << vertex.y << " | ";
@@ -308,10 +352,23 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
     if (frontSegs.size() > 0) {
         node->front = std::make_unique<TwoHalfD::BSPNode>();
         cost.numFront += 1;
-        _buildBSPTree(node->front.get(), frontSegs, frontBounds, cost, saveSegments);
+        _buildBSPTree(node->front.get(), frontSegs, frontBounds, frontSectionFloorId, cost, saveSegments);
     } else if (saveSegments) {
         node->front = std::make_unique<TwoHalfD::BSPNode>();
         node->front->bounds = frontBounds;
+
+        auto floorSectionIt = m_level->floorSections.find(frontSectionFloorId);
+        if (floorSectionIt != m_level->floorSections.end() && frontSectionFloorId != -1) {
+            auto floorSection = TwoHalfD::FloorSection{frontBounds,
+                                                       floorSectionIt->second.floorTextureStart,
+                                                       floorSectionId,
+                                                       floorSectionIt->second.textureId,
+                                                       floorSectionIt->second.height,
+                                                       floorSectionIt->second.isCCW};
+            node->front->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
+        } else if (floorSectionId != -1) {
+            std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
+        }
         std::cout << "Bounds vertex: ";
         for (const auto &vertex : frontBounds) {
             std::cout << vertex.x << ", " << vertex.y << " | ";
@@ -370,8 +427,8 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
                     backSegs.push_back(lSegment);
                     continue;
                 } else if (inputSegments[i].isFloorBoundary()) {
-                    TwoHalfD::Segment rSegment{{inputSegments[i].v1}, {intersectionPoint}, inputSegments[i].wall, nullptr, 0.f, 1.f};
-                    TwoHalfD::Segment lSegment{{intersectionPoint}, {inputSegments[i].v2}, inputSegments[i].wall, nullptr, 0.f, 1.f};
+                    TwoHalfD::Segment rSegment{{inputSegments[i].v1}, {intersectionPoint}, nullptr, inputSegments[i].floorSection, 0.f, 1.f};
+                    TwoHalfD::Segment lSegment{{intersectionPoint}, {inputSegments[i].v2}, nullptr, inputSegments[i].floorSection, 0.f, 1.f};
                     if (numerator > 0) {
                         std::swap(rSegment, lSegment);
                     }
@@ -418,7 +475,7 @@ void TwoHalfD::BSPManager::_insertFloorSection(BSPNode *node, const FloorSection
 
     if (node->front == nullptr && node->back == nullptr) {
         std::cout << "Inserting floorSection.id " << floorSection.id << '\n';
-        node->floorSectionId = floorSection.id;
+        // node->floorSectionId = floorSection.id;
         return;
     }
 

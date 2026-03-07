@@ -1,6 +1,6 @@
 #include "TwoHalfD/bsp/bsp_manager.h"
 #include "TwoHalfD/engine_types.h"
-#include "utils/math_util.h"
+#include "TwoHalfD/utils/math_util.h"
 
 #include <SFML/Graphics/BlendMode.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
@@ -282,7 +282,7 @@ void TwoHalfD::Engine::renderBSP() {
     auto &drawnCommands = bspTraversal.first;
     auto floorSectionIds = bspTraversal.second;
 
-    renderFloor(floorSectionIds);
+    renderFloor();
     for (const auto &command : drawnCommands) {
         switch (command.type) {
         case TwoHalfD::DrawCommand::Type::Segment: {
@@ -294,7 +294,8 @@ void TwoHalfD::Engine::renderBSP() {
             break;
         }
         case TwoHalfD::DrawCommand::Type::FloorSection: {
-            renderFloorSection(m_level.floorSections[command.id]);
+            renderFloorSection(command.floorSectionPtr);
+            break;
         }
         default:
             break;
@@ -459,26 +460,26 @@ void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) 
     m_renderTexture.draw(sprite);
 }
 
-void TwoHalfD::Engine::renderFloorSection(const TwoHalfD::FloorSection &floorSection) {
+void TwoHalfD::Engine::renderFloorSection(const TwoHalfD::FloorSection *floorSection) {
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
     XYVectorf n_direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};
     XYVectorf n_plane{-n_direction.y, n_direction.x};
     const float NEAR_CLIP = 100.0f;
 
-    auto texIt = m_level.textures.find(floorSection.textureId);
+    auto texIt = m_level.textures.find(floorSection->textureId);
     if (texIt == m_level.textures.end()) {
-        std::cerr << "No texture found for floor section with texture id: " << floorSection.textureId << std::endl;
+        std::cerr << "No texture found for floor section with texture id: " << floorSection->textureId << std::endl;
         return;
     }
     const sf::Texture &floorTileTexture = texIt->second.texture;
 
     std::vector<XYVectorf> vertices{};
-    size_t n = floorSection.vertices.size();
+    size_t n = floorSection->vertices.size();
     vertices.reserve(n);
 
     for (size_t i{}; i < n; ++i) {
-        const XYVectorf &curr = floorSection.vertices[i];
-        const XYVectorf &next = floorSection.vertices[(i + 1) % n];
+        const XYVectorf &curr = floorSection->vertices[i];
+        const XYVectorf &next = floorSection->vertices[(i + 1) % n];
 
         float dotCurr = dotProduct(curr - m_cameraObject.cameraPos.posf, n_direction);
         float dotNext = dotProduct(next - m_cameraObject.cameraPos.posf, n_direction);
@@ -502,7 +503,7 @@ void TwoHalfD::Engine::renderFloorSection(const TwoHalfD::FloorSection &floorSec
         float lateralDist = dotProduct(cameraVertexVec, n_plane);
         float p_xScreenPos = (m_engineSettings.resolution.x / 2.0f) + focalLength * lateralDist / perpWorldDistance;
         float p_yScreenPos =
-            (m_engineSettings.resolution.y / 2.0f) + focalLength * (m_cameraObject.cameraHeight - floorSection.height) / perpWorldDistance;
+            (m_engineSettings.resolution.y / 2.0f) + focalLength * (m_cameraObject.cameraHeight - floorSection->height) / perpWorldDistance;
         floorShape[i].position = sf::Vector2f(p_xScreenPos, p_yScreenPos);
     }
 
@@ -511,26 +512,26 @@ void TwoHalfD::Engine::renderFloorSection(const TwoHalfD::FloorSection &floorSec
 
     states.shader = &m_floorShader;
 
-    std::cout << "Rendering floor section with: relCameraHeight: " << m_cameraObject.cameraHeight - floorSection.height
-              << "and id: " << floorSection.id << '\n';
+    std::cout << "Rendering floor section with: relCameraHeight: " << m_cameraObject.cameraHeight - floorSection->height
+              << "and id: " << floorSection->id << '\n';
 
-    m_floorShader.setUniform("textureStartCord", sf::Vector2f(floorSection.floorTextureStart.x, floorSection.floorTextureStart.y));
+    m_floorShader.setUniform("textureStartCord", sf::Vector2f(floorSection->floorTextureStart.x, floorSection->floorTextureStart.y));
     m_floorShader.setUniform("texture", floorTileTexture);
     m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
     m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
     m_floorShader.setUniform("n_plane", sf::Vector2f(n_plane.x, n_plane.y));
-    m_floorShader.setUniform("relativeCameraHeight", m_cameraObject.cameraHeight - floorSection.height);
+    m_floorShader.setUniform("relativeCameraHeight", m_cameraObject.cameraHeight - floorSection->height);
     m_floorShader.setUniform("direction", sf::Vector2f(n_direction.x, n_direction.y));
     m_floorShader.setUniform("focalLength", focalLength);
     m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
     m_floorShader.setUniform("distanceCutoff", 3000.0f);
     m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
 
-    std::cout << "Drawing floor shape with id: " << floorSection.id << '\n';
+    std::cout << "Drawing floor shape with id: " << floorSection->id << '\n';
     m_renderTexture.draw(floorShape, states);
 }
 
-void TwoHalfD::Engine::renderFloor(const std::unordered_set<int> &floorSectionIds) {
+void TwoHalfD::Engine::renderFloor() {
 
     float focalLength = (m_engineSettings.resolution.x / 2.0f) / m_engineSettings.fovScale;
     XYVectorf n_direction{std::cos(m_cameraObject.cameraPos.direction), std::sin(m_cameraObject.cameraPos.direction)};

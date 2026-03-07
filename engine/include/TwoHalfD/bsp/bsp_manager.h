@@ -51,7 +51,7 @@ class BSPManager {
     int m_startSeed = 0;
     int m_endSeed = 20000;
 
-    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds,
+    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds, int floorSectionId,
                        struct OptimalCostPartitioning &cost, bool saveSegments = true);
     std::pair<std::vector<TwoHalfD::Segment>, std::vector<TwoHalfD::Segment>> _splitSpace(TwoHalfD::BSPNode *node,
                                                                                           const std::vector<TwoHalfD::Segment> &inputSegments,
