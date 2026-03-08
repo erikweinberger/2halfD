@@ -160,6 +160,7 @@ struct SpriteEntity {
     int height;
     int textureId;
     float scale;
+    float heightStart = 0.f;
 };
 
 struct FloorSection {

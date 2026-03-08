@@ -47,37 +47,15 @@ void TwoHalfD::BSPManager::buildBSPTree() {
     _buildBSPTree(m_root.get(), segments, initialBounds, -1, cost);
 
     insertSprites(m_level->sprites);
-    // insertFloorSections(m_level->floorSections);
 
     return;
 }
 
-void TwoHalfD::BSPManager::insertSprites(const std::vector<SpriteEntity> &sprites) {
+void TwoHalfD::BSPManager::insertSprites(std::vector<SpriteEntity> &sprites) {
     for (size_t i{}; i < sprites.size(); ++i) {
         _insertSprite(m_root.get(), sprites[i], i);
     }
 }
-
-void TwoHalfD::BSPManager::insertFloorSections(const std::unordered_map<int, FloorSection> &floorSections) {
-    std::cout << "FloorSections len " << floorSections.size() << '\n';
-    for (const auto &[id, floorSection] : floorSections) {
-        // compute centroid
-        XYVectorf centroid{0, 0};
-        for (const auto &v : floorSection.vertices)
-            centroid = centroid + v;
-        centroid = centroid * (1.0f / floorSection.vertices.size());
-
-        _insertFloorSection(m_root.get(), floorSection, centroid);
-    }
-}
-
-// void TwoHalfD::BSPManager::insertFloorSections(const std::unordered_map<int, FloorSection> &floorSections) {
-//     for (const auto &floorSection : floorSections) {
-//         for (size_t j{}; j < floorSection.second.vertices.size(); ++j) {
-//             _insertFloorSection(m_root.get(), floorSection.second, j);
-//         }
-//     }
-// }
 
 TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
     return m_segments[id];
@@ -195,7 +173,7 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 }
 
 // Getters and setters
-void TwoHalfD::BSPManager::setLevel(const TwoHalfD::Level *level) {
+void TwoHalfD::BSPManager::setLevel(TwoHalfD::Level *level) {
     m_level = level;
 }
 
@@ -452,11 +430,18 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
     return {frontSegs, backSegs};
 }
 
-void TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, const SpriteEntity &sprite, int spriteId) {
+void TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, SpriteEntity &sprite, int spriteId) {
     if (node == nullptr) return;
 
     // If this is a leaf node, add the sprite here
     if (node->front == nullptr && node->back == nullptr) {
+        float spriteHeight = 0.f;
+        if (node->floorSection != nullptr) {
+            spriteHeight = node->floorSection->height;
+        } else if (m_level->defaultFloorTextureId != -1) {
+            spriteHeight = m_level->defaultFloorHeight;
+        }
+        sprite.heightStart = spriteHeight;
         node->spriteIds.insert(spriteId);
         return;
     }
@@ -467,24 +452,6 @@ void TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, const SpriteEn
         _insertSprite(node->front.get(), sprite, spriteId);
     } else {
         _insertSprite(node->back.get(), sprite, spriteId);
-    }
-}
-
-void TwoHalfD::BSPManager::_insertFloorSection(BSPNode *node, const FloorSection &floorSection, XYVectorf point) {
-    if (node == nullptr) return;
-
-    if (node->front == nullptr && node->back == nullptr) {
-        std::cout << "Inserting floorSection.id " << floorSection.id << '\n';
-        // node->floorSectionId = floorSection.id;
-        return;
-    }
-
-    float side = isInfront(point - node->splitterP0, node->splitterVec);
-
-    if (side > std::numeric_limits<float>::epsilon()) {
-        _insertFloorSection(node->front.get(), floorSection, point);
-    } else {
-        _insertFloorSection(node->back.get(), floorSection, point);
     }
 }
 

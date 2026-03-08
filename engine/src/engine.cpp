@@ -444,9 +444,10 @@ void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) 
         return;
     }
 
-    const float bottomOfSpriteScreen = focalLength * (m_cameraObject.cameraHeight) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
-    const float topSpriteScreen =
-        focalLength * (m_cameraObject.cameraHeight - spriteEntity.height) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+    const float bottomOfSpriteScreen =
+        focalLength * (m_cameraObject.cameraHeight - spriteEntity.heightStart) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
+    const float topSpriteScreen = focalLength * (m_cameraObject.cameraHeight - spriteEntity.height - spriteEntity.heightStart) / perpWorldDistance +
+                                  m_engineSettings.resolution.y / 2.0f;
 
     const float spriteHeightScreen = bottomOfSpriteScreen - topSpriteScreen;
 
@@ -512,9 +513,6 @@ void TwoHalfD::Engine::renderFloorSection(const TwoHalfD::FloorSection *floorSec
 
     states.shader = &m_floorShader;
 
-    std::cout << "Rendering floor section with: relCameraHeight: " << m_cameraObject.cameraHeight - floorSection->height
-              << "and id: " << floorSection->id << '\n';
-
     m_floorShader.setUniform("textureStartCord", sf::Vector2f(floorSection->floorTextureStart.x, floorSection->floorTextureStart.y));
     m_floorShader.setUniform("texture", floorTileTexture);
     m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
@@ -527,7 +525,6 @@ void TwoHalfD::Engine::renderFloorSection(const TwoHalfD::FloorSection *floorSec
     m_floorShader.setUniform("distanceCutoff", 3000.0f);
     m_floorShader.setUniform("shaderScale", m_engineSettings.shaderScale);
 
-    std::cout << "Drawing floor shape with id: " << floorSection->id << '\n';
     m_renderTexture.draw(floorShape, states);
 }
 
