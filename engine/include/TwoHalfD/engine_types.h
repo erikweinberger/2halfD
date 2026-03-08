@@ -96,6 +96,8 @@ struct XYVectorf {
     }
 };
 
+using Polygon = std::vector<TwoHalfD::XYVectorf>;
+
 inline float dot(const XYVectorf &a, const XYVectorf &b) {
     return a.x * b.x + a.y * b.y;
 }
@@ -138,16 +140,17 @@ struct Position {
 };
 
 struct TextureSignature {
-    int id;
-    std::string filePath;
     sf::Texture texture;
+    std::string filePath;
+    int id;
 };
 
 struct Wall {
-    int id;
     XYVectorf start, end;
-    float height;
+    int id;
     int textureId;
+    float height;
+    float wallHeightStart = 0.f;
 };
 
 struct SpriteEntity {
@@ -157,13 +160,16 @@ struct SpriteEntity {
     int height;
     int textureId;
     float scale;
+    float heightStart = 0.f;
 };
 
 struct FloorSection {
-    int id;
+    Polygon vertices;
     XYVectorf floorTextureStart;
-    std::vector<XYVectorf> vertices;
+    int id;
     int textureId;
+    float height;
+    bool isCCW;
 };
 
 struct EngineSettings {
@@ -172,7 +178,6 @@ struct EngineSettings {
     float aspectRatio = 16.f / 9.f;
     float fov = std::numbers::pi_v<float> / 3.f;
     float fovScale = std::tan(fov / 2);
-    int numRays = 960;
 
     double graphicsFpsCap = 1000.0;
     double gameFpsCap = 60.0;
@@ -180,6 +185,7 @@ struct EngineSettings {
     float shaderScale = 256.f;
 
     bool cameraCollision = true;
+    float heightClipping = 10.f; // How much difference in floor height is allowed before clipping occurs
 
     EngineSettings() = default;
 };
@@ -195,6 +201,7 @@ struct Level {
 
     int defaultFloorTextureId = -1;
     XYVectorf defaultFloorStart;
+    float defaultFloorHeight = 0.f;
 };
 
 struct EngineContext {
@@ -327,9 +334,19 @@ enum class EngineState {
 struct Segment {
     XYVectorf v1;
     XYVectorf v2;
+
     const Wall *wall;
+    const FloorSection *floorSection;
     float wallRatioStart{0.f};
     float wallRatioEnd{1.f};
+
+    bool isWall() const {
+        return wall != nullptr;
+    }
+
+    bool isFloorBoundary() const {
+        return floorSection != nullptr;
+    }
 };
 
 struct BSPNode {
@@ -337,7 +354,8 @@ struct BSPNode {
     std::unique_ptr<BSPNode> back;
 
     std::unordered_set<int> spriteIds;
-    std::unordered_set<int> floorSectionIds;
+    Polygon bounds;
+    std::unique_ptr<FloorSection> floorSection = nullptr;
 
     XYVectorf splitterP0;
     XYVectorf splitterP1;
@@ -347,11 +365,37 @@ struct BSPNode {
 };
 
 struct DrawCommand {
-    enum Type {
+    enum class Type {
         Segment,
-        Sprite
+        Sprite,
+        FloorSection
     } type;
-    int id;
+
+    union {
+        int id;                        // For Segment or Sprite
+        FloorSection *floorSectionPtr; // For FloorSection
+    };
+
+    static DrawCommand makeSegment(int segId) {
+        DrawCommand cmd;
+        cmd.type = Type::Segment;
+        cmd.id = segId;
+        return cmd;
+    }
+
+    static DrawCommand makeSprite(int spriteId) {
+        DrawCommand cmd;
+        cmd.type = Type::Sprite;
+        cmd.id = spriteId;
+        return cmd;
+    }
+
+    static DrawCommand makeFloorSection(FloorSection *ptr) {
+        DrawCommand cmd;
+        cmd.type = Type::FloorSection;
+        cmd.floorSectionPtr = ptr;
+        return cmd;
+    }
 };
 
 } // namespace TwoHalfD

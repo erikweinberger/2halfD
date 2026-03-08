@@ -2,7 +2,7 @@ uniform vec2 textureStartCord;
 uniform sampler2D texture;
 uniform vec2 textureSize;
 uniform vec2 cameraPos;
-uniform float cameraHeight;
+uniform float relativeCameraHeight;
 uniform vec2 n_plane;
 uniform vec2 direction;
 uniform float focalLength;
@@ -18,9 +18,8 @@ void main() {
 
     float pixelsFromCenterY = pixelCord.y - resolution.y / 2.0;
     float pixelsFromCenterX = pixelCord.x - resolution.x / 2.0;
-
-
-    float perpWorldDistance = (cameraHeight * focalLength) / pixelsFromCenterY;
+    
+    float perpWorldDistance = (relativeCameraHeight * focalLength) / pixelsFromCenterY;
 
     if ((perpWorldDistance < 0.001 || perpWorldDistance > distanceCutoff)) {
         discard;
