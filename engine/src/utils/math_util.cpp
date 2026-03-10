@@ -82,3 +82,35 @@ bool isCounterClockwise(const std::vector<TwoHalfD::XYVectorf> &vertices) {
 
     return area > 0;
 }
+
+std::vector<TwoHalfD::XYVectorf> circleLineIntersect(const TwoHalfD::XYVectorf &center, float radius, const TwoHalfD::XYVectorf &lineP1,
+                                                     const TwoHalfD::XYVectorf &lineP2) {
+    std::vector<TwoHalfD::XYVectorf> intersections;
+
+    TwoHalfD::XYVectorf d = lineP2 - lineP1;
+    TwoHalfD::XYVectorf f = lineP1 - center;
+
+    float a = dotProduct(d, d);
+    float b = 2 * dotProduct(f, d);
+    float c = dotProduct(f, f) - radius * radius;
+
+    float discriminant = b * b - 4 * a * c;
+
+    if (discriminant < 0) {
+        return intersections;
+    }
+
+    discriminant = std::sqrt(discriminant);
+
+    float t1 = (-b - discriminant) / (2 * a);
+    float t2 = (-b + discriminant) / (2 * a);
+
+    if (t1 >= 0 && t1 <= 1) {
+        intersections.push_back(lineP1 + t1 * d);
+    }
+    if (t2 >= 0 && t2 <= 1) {
+        intersections.push_back(lineP1 + t2 * d);
+    }
+
+    return intersections;
+}

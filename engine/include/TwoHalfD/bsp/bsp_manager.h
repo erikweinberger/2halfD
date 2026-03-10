@@ -24,9 +24,13 @@ class BSPManager {
     BSPManager() : m_level(nullptr) {}
     BSPManager(TwoHalfD::Level *level) : m_level(level) {}
 
+    // Construction
     void buildBSPTree();
     void insertSprites(std::vector<SpriteEntity> &sprites);
     void insertFloorSections(const std::unordered_map<int, FloorSection> &floorSections);
+
+    // Core functions
+    TwoHalfD::BSPNode *findConvexSection(const TwoHalfD::XYVectorf &point);
 
     // Traverse logic
     std::pair<std::vector<TwoHalfD::DrawCommand>, std::unordered_set<int>> update(TwoHalfD::Position &cameraPos);
@@ -41,6 +45,9 @@ class BSPManager {
 
     // BSP optimization
     int findBestPartitioning();
+
+    // Collision
+    std::vector<TwoHalfD::Segment> findSegmentIntersection(const TwoHalfD::XYVectorf &p1, const float radius);
 
   private:
     TwoHalfD::Level *m_level;
@@ -57,9 +64,14 @@ class BSPManager {
                                                                                           const std::vector<TwoHalfD::Segment> &inputSegments,
                                                                                           struct OptimalCostPartitioning &cost,
                                                                                           bool saveSegments = true);
+
+    // Construction
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
     void _insertSprite(TwoHalfD::BSPNode *node, TwoHalfD::SpriteEntity &sprite, int spriteId);
     void _insertFloorSection(TwoHalfD::BSPNode *node, const FloorSection &floorSection, XYVectorf point);
+
+    // Core functionality
+    TwoHalfD::BSPNode *_findConvexSection(const TwoHalfD::XYVectorf &point, TwoHalfD::BSPNode *node);
 
     // BSP optimization
     float _findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments);
@@ -67,6 +79,10 @@ class BSPManager {
     // Find bounding box of a set of segments
     std::pair<Polygon, Polygon> _splitConvexShape(const Polygon &vertices, const TwoHalfD::Segment &splitter);
     TwoHalfD::Polygon _getInitialBounds(const std::vector<TwoHalfD::Segment> &segments);
+
+    // Collision
+    void _findSegmentIntersections(const TwoHalfD::XYVectorf &p1, float radius, TwoHalfD::BSPNode *node,
+                                   std::vector<TwoHalfD::Segment> &intersectedSegments);
 };
 } // namespace TwoHalfD
 

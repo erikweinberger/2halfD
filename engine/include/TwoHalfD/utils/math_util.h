@@ -58,4 +58,7 @@ TwoHalfD::XYVectorf computeLineIntersection(const TwoHalfD::XYVectorf &p1, const
 
 bool isCounterClockwise(const TwoHalfD::Polygon &polygon);
 
+std::vector<TwoHalfD::XYVectorf> circleLineIntersect(const TwoHalfD::XYVectorf &center, float radius, const TwoHalfD::XYVectorf &lineP1,
+                                                     const TwoHalfD::XYVectorf &lineP2);
+
 #endif

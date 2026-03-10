@@ -95,6 +95,10 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
             sf::Mouse::setPosition({middleScreen.x, middleScreen.y}, m_window);
         }
     }
+
+    auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
+    m_cameraObject.cameraHeightStart =
+        convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_level.defaultFloorStart.y;
 }
 
 bool TwoHalfD::Engine::gameDeltaTimePassed() {
@@ -127,14 +131,14 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
     float moveMagnitude = 0;
     if (m_engineSettings.cameraCollision) {
         TwoHalfD::XYVectorf oldPos = prevPos.pos;
-        auto wallReferences = wallCollisionSelf();
-        if (wallReferences.size() > 0) {
-            for (auto wall : wallReferences) {
-                const TwoHalfD::XYVectorf wallVec = {(wall->end.x - wall->start.x), (wall->end.y - wall->start.y)};
-                TwoHalfD::XYVectorf n_wallVec{wallVec.normalized()};
+        auto segmentSpans = wallCollisionSelf();
+        if (segmentSpans.size() > 0) {
+            for (const auto &[start, end] : segmentSpans) {
+                const TwoHalfD::XYVectorf segmentVec = {end.x - start.x, end.y - start.y};
+                TwoHalfD::XYVectorf n_segmentVec{segmentVec.normalized()};
 
-                const float perpPointDistToStart = TwoHalfD::dot(m_cameraObject.cameraPos.pos - wall->start, n_wallVec);
-                TwoHalfD::XYVectorf perpP{wall->start + n_wallVec * perpPointDistToStart};
+                const float perpPointDistToStart = TwoHalfD::dot(m_cameraObject.cameraPos.pos - start, n_segmentVec);
+                TwoHalfD::XYVectorf perpP{start + n_segmentVec * perpPointDistToStart};
 
                 TwoHalfD::XYVectorf perpVec{m_cameraObject.cameraPos.pos - perpP};
                 TwoHalfD::XYVectorf n_perpVec{perpVec.normalized()};
@@ -367,12 +371,19 @@ void TwoHalfD::Engine::renderSegment(TwoHalfD::Segment segment) {
         return;
     }
 
-    float p_topWallStart =
-        p_focalLength * (m_cameraObject.cameraHeight - wall->wallHeightStart - wall->height) / singedPerpWorldDistanceStart + halfYRes;
-    float p_bottomWallStart = p_focalLength * (m_cameraObject.cameraHeight - wall->wallHeightStart) / singedPerpWorldDistanceStart + halfYRes;
+    float p_topWallStart = p_focalLength * (m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - wall->wallHeightStart - wall->height) /
+                               singedPerpWorldDistanceStart +
+                           halfYRes;
+    float p_bottomWallStart =
+        p_focalLength * (m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - wall->wallHeightStart) / singedPerpWorldDistanceStart +
+        halfYRes;
 
-    float p_topWallEnd = p_focalLength * (m_cameraObject.cameraHeight - wall->wallHeightStart - wall->height) / singedPerpWorldDistanceEnd + halfYRes;
-    float p_bottomWallEnd = p_focalLength * (m_cameraObject.cameraHeight - wall->wallHeightStart) / singedPerpWorldDistanceEnd + halfYRes;
+    float p_topWallEnd = p_focalLength * (m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - wall->wallHeightStart - wall->height) /
+                             singedPerpWorldDistanceEnd +
+                         halfYRes;
+    float p_bottomWallEnd =
+        p_focalLength * (m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - wall->wallHeightStart) / singedPerpWorldDistanceEnd +
+        halfYRes;
     auto it = m_level.textures.find(wall->textureId);
     if (it == m_level.textures.end()) {
         std::cerr << "No texture found for wall: " << wall->id << " with texture id: " << wall->textureId << std::endl;
@@ -445,9 +456,12 @@ void TwoHalfD::Engine::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity) 
     }
 
     const float bottomOfSpriteScreen =
-        focalLength * (m_cameraObject.cameraHeight - spriteEntity.heightStart) / perpWorldDistance + m_engineSettings.resolution.y / 2.0f;
-    const float topSpriteScreen = focalLength * (m_cameraObject.cameraHeight - spriteEntity.height - spriteEntity.heightStart) / perpWorldDistance +
-                                  m_engineSettings.resolution.y / 2.0f;
+        focalLength * (m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - spriteEntity.heightStart) / perpWorldDistance +
+        m_engineSettings.resolution.y / 2.0f;
+    const float topSpriteScreen =
+        focalLength * (m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - spriteEntity.height - spriteEntity.heightStart) /
+            perpWorldDistance +
+        m_engineSettings.resolution.y / 2.0f;
 
     const float spriteHeightScreen = bottomOfSpriteScreen - topSpriteScreen;
 
@@ -518,7 +532,7 @@ void TwoHalfD::Engine::renderFloorSection(const TwoHalfD::FloorSection *floorSec
     m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
     m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
     m_floorShader.setUniform("n_plane", sf::Vector2f(n_plane.x, n_plane.y));
-    m_floorShader.setUniform("relativeCameraHeight", m_cameraObject.cameraHeight - floorSection->height);
+    m_floorShader.setUniform("relativeCameraHeight", m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - floorSection->height);
     m_floorShader.setUniform("direction", sf::Vector2f(n_direction.x, n_direction.y));
     m_floorShader.setUniform("focalLength", focalLength);
     m_floorShader.setUniform("resolution", sf::Vector2f(m_engineSettings.resolution));
@@ -557,7 +571,7 @@ void TwoHalfD::Engine::renderFloor() {
         m_floorShader.setUniform("texture", floorTileTexture);
         m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
         m_floorShader.setUniform("cameraPos", sf::Vector2f(m_cameraObject.cameraPos.pos.x, m_cameraObject.cameraPos.pos.y));
-        m_floorShader.setUniform("relativeCameraHeight", m_cameraObject.cameraHeight);
+        m_floorShader.setUniform("relativeCameraHeight", m_cameraObject.cameraHeight + m_cameraObject.cameraHeightStart - m_level.defaultFloorHeight);
         m_floorShader.setUniform("n_plane", sf::Vector2f(n_plane.x, n_plane.y));
         m_floorShader.setUniform("direction", sf::Vector2f(n_direction.x, n_direction.y));
         m_floorShader.setUniform("focalLength", focalLength);
@@ -611,60 +625,26 @@ std::pair<const TwoHalfD::Wall *, float> TwoHalfD::Engine::findNearestWall(const
 }
 
 // Collisions
-const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf(const CameraObject &cameraObject) {
+const std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> TwoHalfD::Engine::wallCollisionSelf(const CameraObject &cameraObject) {
 
-    auto &walls = getWallsInRegion();
-    std::vector<const TwoHalfD::Wall *> wall_intercepts;
+    auto intersectedSegments = m_bspManager.findSegmentIntersection(cameraObject.cameraPos.pos, cameraObject.cameraRadius);
 
-    for (const auto &wall : walls) {
-        TwoHalfD::XYVectorf wallVector{wall.end.x - wall.start.x, wall.end.y - wall.start.y};
-        TwoHalfD::XYVectorf perpWallVector{-wallVector.y, wallVector.x};
-        float perpWallVectorLen = sqrt(perpWallVector.x * perpWallVector.x + perpWallVector.y * perpWallVector.y);
-        TwoHalfD::XYVectorf perpWallVectorN{perpWallVector.x / perpWallVectorLen, perpWallVector.y / perpWallVectorLen};
+    std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> intersectedSegmentVectors;
 
-        float x1 = cameraObject.cameraPos.posf.x, y1 = cameraObject.cameraPos.posf.y;
-        float x2 = x1 + perpWallVectorN.x * cameraObject.cameraRadius, y2 = y1 + perpWallVectorN.y * cameraObject.cameraRadius;
-
-        float x3 = wall.start.x, y3 = wall.start.y;
-        float x4 = wall.end.x, y4 = wall.end.y;
-
-        float denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-        if (std::abs(denom) < 0.00001f) continue;
-
-        float numeratorT = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
-        float numeratorU = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3));
-
-        float t = numeratorT / denom;
-        float u = numeratorU / denom;
-
-        if (u < 0 || u > 1 || t > 1 || t < -1) continue;
-
-        wall_intercepts.push_back(&wall);
-    }
-
-    return wall_intercepts;
-}
-
-const std::vector<const TwoHalfD::Wall *> TwoHalfD::Engine::wallCollisionSelf() {
-
-    auto &walls = getWallsInRegion();
-    std::vector<const TwoHalfD::Wall *> wall_intercepts;
-
-    const float r = m_cameraObject.cameraRadius;
-    const float cx = m_cameraObject.cameraPos.posf.x, cy = m_cameraObject.cameraPos.posf.y;
-
-    for (const auto &wall : walls) {
-        // std::cout << "Wall is: id, (xs, ys), (xe, ye): " << wall.id << ", (" << wall.start.x << ", " << wall.start.y << "), (" << wall.end.x <<
-        // ","
-        //           << wall.end.y << ")\n";
-        // std::cout << "(a, b, r): (" << a << ", " << b << ", " << c << ")\n";
-
-        auto interceptPoints = findCircleLineSegmentIntercept(cx, cy, r, {wall.start.x, wall.start.y}, {wall.end.x, wall.end.y});
-
-        if (interceptPoints.size() > 0) {
-            wall_intercepts.push_back(&wall);
+    for (const auto &segment : intersectedSegments) {
+        std::cout << "Segment intersected: (" << segment.v1.x << ", " << segment.v1.y << ") to (" << segment.v2.x << ", " << segment.v2.y << ")\n";
+        if (segment.isWall()) {
+            intersectedSegmentVectors.push_back({segment.v1, segment.v2});
+        } else if (segment.isFloorBoundary()) {
+            if (segment.floorSection->height - m_cameraObject.cameraHeightStart > 30.f) {
+                intersectedSegmentVectors.push_back({segment.v1, segment.v2});
+            }
         }
     }
 
-    return wall_intercepts;
+    return intersectedSegmentVectors;
+}
+
+const std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> TwoHalfD::Engine::wallCollisionSelf() {
+    return wallCollisionSelf(m_cameraObject);
 }

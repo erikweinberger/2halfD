@@ -122,8 +122,8 @@ class Engine {
     std::pair<const Wall *, float> findNearestWall(const Position &ray);
     std::pair<const Wall *, float> findNearestWall(const Position &ray, const std::vector<Wall> &walls);
 
-    const std::vector<const Wall *> wallCollisionSelf(const CameraObject &cameraObject);
-    const std::vector<const Wall *> wallCollisionSelf();
+    const std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> wallCollisionSelf(const CameraObject &cameraObject);
+    const std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> wallCollisionSelf();
     const Wall &wallCollisionSprite(const SpriteEntity &spriteEntity);
 };
 } // namespace TwoHalfD
