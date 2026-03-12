@@ -214,6 +214,8 @@ struct CameraObject {
     Position cameraPos{300, 700, 3 * std::numbers::pi_v<float> / 2};
     float cameraHeight{100.f};
     float cameraRadius{64};
+
+    float cameraHeightStart{0.0f};
 };
 
 struct RenderZBuffer {

@@ -252,6 +252,18 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
     return score;
 }
 
+std::vector<TwoHalfD::Segment> TwoHalfD::BSPManager::findSegmentIntersection(const TwoHalfD::XYVectorf &p1, const float radius) {
+    std::vector<TwoHalfD::Segment> intersectedSegments;
+
+    _findSegmentIntersections(p1, radius, m_root.get(), intersectedSegments);
+
+    return intersectedSegments;
+}
+
+TwoHalfD::BSPNode *TwoHalfD::BSPManager::findConvexSection(const TwoHalfD::XYVectorf &point) {
+    return _findConvexSection(point, m_root.get());
+}
+
 /* =============================================================================================================================
  * Private functions
  * =============================================================================================================================
@@ -319,12 +331,6 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         } else if (floorSectionId != -1) {
             std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
         }
-
-        std::cout << "Bounds vertex: ";
-        for (const auto &vertex : backBounds) {
-            std::cout << vertex.x << ", " << vertex.y << " | ";
-        }
-        std::cout << std::endl;
     }
 
     if (frontSegs.size() > 0) {
@@ -347,11 +353,6 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         } else if (floorSectionId != -1) {
             std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
         }
-        std::cout << "Bounds vertex: ";
-        for (const auto &vertex : frontBounds) {
-            std::cout << vertex.x << ", " << vertex.y << " | ";
-        }
-        std::cout << std::endl;
     }
 }
 
@@ -466,14 +467,12 @@ std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> TwoHalfD::BSPManager::_splitConv
         bool sideCurr = isInfront(currVert - splitter.v1, splitter.v2 - splitter.v1);
         bool sideNext = isInfront(nextVert - splitter.v1, splitter.v2 - splitter.v1);
 
-        // Add current vertex to appropriate side(s)
         if (sideCurr) frontVertices.push_back(currVert);
         if (!sideCurr) backVertices.push_back(currVert);
 
-        // If edge crosses, insert intersection point BEFORE next iteration
         if ((sideCurr && !sideNext) || (!sideCurr && sideNext)) {
             XYVectorf ip = computeLineIntersection(currVert, nextVert, splitter.v1, splitter.v2);
-            frontVertices.push_back(ip); // intersection goes in here, next vert will follow naturally
+            frontVertices.push_back(ip);
             backVertices.push_back(ip);
         }
     }
@@ -514,4 +513,42 @@ TwoHalfD::Polygon TwoHalfD::BSPManager::_getInitialBounds(const std::vector<TwoH
     }
     std::cout << std::endl;
     return initialBounds;
+}
+
+void TwoHalfD::BSPManager::_findSegmentIntersections(const TwoHalfD::XYVectorf &p1, const float radius, BSPNode *node,
+                                                     std::vector<Segment> &intersectedSegments) {
+    if (node == nullptr) return;
+
+    if (node->segmentID != -1) {
+        const auto &segment = m_segments[node->segmentID];
+        auto intersections = circleLineIntersect(p1, radius, segment.v1, segment.v2);
+        if (!intersections.empty()) {
+            intersectedSegments.push_back(segment);
+        }
+    }
+
+    float signedDist = crossProduct2d(p1 - node->splitterP0, node->splitterVec.normalized());
+
+    if (signedDist > -radius) {
+        _findSegmentIntersections(p1, radius, node->back.get(), intersectedSegments);
+    }
+    if (signedDist < radius) {
+        _findSegmentIntersections(p1, radius, node->front.get(), intersectedSegments);
+    }
+}
+
+TwoHalfD::BSPNode *TwoHalfD::BSPManager::_findConvexSection(const TwoHalfD::XYVectorf &point, BSPNode *node) {
+    if (node == nullptr) return nullptr;
+
+    if (node->front == nullptr && node->back == nullptr) {
+        return node;
+    }
+
+    bool isInfrontOfSplit = isInfront(point - node->splitterP0, node->splitterVec);
+
+    if (isInfrontOfSplit) {
+        return _findConvexSection(point, node->front.get());
+    } else {
+        return _findConvexSection(point, node->back.get());
+    }
 }

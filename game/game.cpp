@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 void Game::run() {
     TwoHalfD::Level level;
     level.cameraHeightStart = 128.f;
-    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level1.txt";
+    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level3.txt";
     m_engine.loadLevel(levelFile);
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
            m_engine.getState() == TwoHalfD::EngineState::paused) {
