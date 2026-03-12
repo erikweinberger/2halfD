@@ -1,3 +1,6 @@
+#ifndef ENGINE_CLOCKS_H
+#define ENGINE_CLOCKS_H
+
 #include "circular_buffer.hpp"
 #include "time_delta.h"
 
@@ -27,3 +30,5 @@ class EngineClocks
     double getAverageGraphicsFps();
 };
 } // namespace TwoHalfD
+
+#endif
