@@ -1,6 +1,7 @@
 #include "TwoHalfD/level_maker.h"
 #include "TwoHalfD/engine_types.h"
 #include "TwoHalfD/utils/math_util.h"
+#include <sstream>
 
 TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) {
     std::ifstream inputFile(fs::path(ASSETS_DIR) / levelFilePath);

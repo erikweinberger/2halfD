@@ -8,6 +8,7 @@
 #include <memory>
 #include <queue>
 #include <random>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -258,6 +259,23 @@ std::vector<TwoHalfD::Segment> TwoHalfD::BSPManager::findSegmentIntersection(con
     _findSegmentIntersections(p1, radius, m_root.get(), intersectedSegments);
 
     return intersectedSegments;
+}
+
+std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> TwoHalfD::BSPManager::findCollisions(const TwoHalfD::XYVectorf &pos,
+                                                                                                       float radius, float cameraHeightStart) {
+    auto intersectedSegments = findSegmentIntersection(pos, radius);
+
+    std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> result;
+    for (const auto &segment : intersectedSegments) {
+        if (segment.isWall()) {
+            result.push_back({segment.v1, segment.v2});
+        } else if (segment.isFloorBoundary()) {
+            if (segment.floorSection->height - cameraHeightStart > 30.f) {
+                result.push_back({segment.v1, segment.v2});
+            }
+        }
+    }
+    return result;
 }
 
 TwoHalfD::BSPNode *TwoHalfD::BSPManager::findConvexSection(const TwoHalfD::XYVectorf &point) {

@@ -1,3 +1,6 @@
+#ifndef TIME_DELTA_H
+#define TIME_DELTA_H
+
 #include <chrono>
 
 namespace TwoHalfD
@@ -24,3 +27,5 @@ class TimeDelta
 };
 
 } // namespace TwoHalfD
+
+#endif

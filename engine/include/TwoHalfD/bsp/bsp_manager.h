@@ -48,6 +48,8 @@ class BSPManager {
 
     // Collision
     std::vector<TwoHalfD::Segment> findSegmentIntersection(const TwoHalfD::XYVectorf &p1, const float radius);
+    std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> findCollisions(const TwoHalfD::XYVectorf &pos, float radius,
+                                                                                     float cameraHeightStart);
 
   private:
     TwoHalfD::Level *m_level;
