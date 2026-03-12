@@ -30,6 +30,7 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     m_level = m_levelMaker.parseLevelFile(levelFilePath);
     m_bspManager.setLevel(&m_level);
     m_bspManager.buildBSPTree();
+    m_bspManager.printTree();
 }
 
 // Game Inputs
@@ -632,7 +633,6 @@ const std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> TwoHalfD:
     std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> intersectedSegmentVectors;
 
     for (const auto &segment : intersectedSegments) {
-        std::cout << "Segment intersected: (" << segment.v1.x << ", " << segment.v1.y << ") to (" << segment.v2.x << ", " << segment.v2.y << ")\n";
         if (segment.isWall()) {
             intersectedSegmentVectors.push_back({segment.v1, segment.v2});
         } else if (segment.isFloorBoundary()) {

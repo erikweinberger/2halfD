@@ -331,12 +331,6 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         } else if (floorSectionId != -1) {
             std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
         }
-
-        std::cout << "Bounds vertex: ";
-        for (const auto &vertex : backBounds) {
-            std::cout << vertex.x << ", " << vertex.y << " | ";
-        }
-        std::cout << std::endl;
     }
 
     if (frontSegs.size() > 0) {
@@ -359,11 +353,6 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         } else if (floorSectionId != -1) {
             std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
         }
-        std::cout << "Bounds vertex: ";
-        for (const auto &vertex : frontBounds) {
-            std::cout << vertex.x << ", " << vertex.y << " | ";
-        }
-        std::cout << std::endl;
     }
 }
 
