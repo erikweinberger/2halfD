@@ -1,5 +1,5 @@
-#include <TwoHalfD/engine.h>
 #include "TwoHalfD/utils/math_util.h"
+#include <TwoHalfD/engine.h>
 
 #include <SFML/Window/Mouse.hpp>
 #include <cmath>
@@ -11,6 +11,7 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     m_level = m_levelMaker.parseLevelFile(levelFilePath);
     m_bspManager.setLevel(&m_level);
     m_bspManager.buildBSPTree();
+    m_bspManager.buildGraph();
 }
 
 // Game Inputs
@@ -116,4 +117,3 @@ std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls() {
 void TwoHalfD::Engine::render() {
     m_renderer.render(m_cameraObject, m_level, m_bspManager);
 }
-
