@@ -103,12 +103,11 @@ int main() {
             drawLine({wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}, sf::Color::White);
 
         // --- Graph edges drawn as centroid → portal midpoint → centroid ---
-        // This shows the actual safe waypoint path. Blue = bidirectional, orange = drop-only.
         for (int i = 0; i < graph.getNodeCount(); ++i) {
             const auto &node = graph.getNode(i);
             for (const auto &edge : node.edges) {
-                if (edge.isDropOnly || edge.targetNodeIndex > i) { // avoid drawing bidirectional edges twice
-                    sf::Color col = edge.isDropOnly ? sf::Color(255, 130, 0) : sf::Color(60, 140, 255);
+                if (edge.targetNodeIndex > i) { // avoid drawing each edge twice
+                    sf::Color col = (std::abs(edge.heightDiff) > 30.f) ? sf::Color(255, 130, 0) : sf::Color(60, 140, 255);
                     TwoHalfD::XYVectorf mid = edge.portalMidpoint();
                     drawLine(node.centroid, mid, col);
                     drawLine(mid, graph.getNode(edge.targetNodeIndex).centroid, col);
@@ -119,7 +118,7 @@ int main() {
         // --- Portal midpoints (green dots) ---
         for (int i = 0; i < graph.getNodeCount(); ++i) {
             for (const auto &edge : graph.getNode(i).edges) {
-                if (edge.isDropOnly || edge.targetNodeIndex > i) {
+                if (edge.targetNodeIndex > i) {
                     sf::Vector2f pos = toScreen(edge.portalMidpoint());
                     sf::CircleShape dot(3.f);
                     dot.setFillColor(sf::Color(0, 220, 100));
