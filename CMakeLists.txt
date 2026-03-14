@@ -19,10 +19,10 @@ add_subdirectory(external/SFML)
 # Add source files from engine/ and game/
 file(GLOB_RECURSE ENGINE_SOURCES engine/src/*.cpp)
 file(GLOB_RECURSE GAME_SOURCES game/*.cpp)
+list(FILTER GAME_SOURCES EXCLUDE REGEX ".*visualizer\\.cpp$")
 
 # Create the executable
 add_executable(two_half ${ENGINE_SOURCES} ${GAME_SOURCES})
-
 
 target_include_directories(two_half
     PRIVATE
@@ -42,7 +42,17 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(two_half PRIVATE /W4 /permissive-)
 endif()
 
-target_compile_definitions(two_half PRIVATE 
+target_compile_definitions(two_half PRIVATE
+    ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+    ROOT_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+# --- BSP visualizer (temporary debug tool) ---
+add_executable(bsp_vis ${ENGINE_SOURCES} game/visualizer.cpp)
+
+target_include_directories(bsp_vis PRIVATE ${CMAKE_SOURCE_DIR}/engine/include)
+target_link_libraries(bsp_vis PRIVATE sfml-graphics sfml-window sfml-system sfml-audio)
+target_compile_definitions(bsp_vis PRIVATE
     ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
     ROOT_DIR="${CMAKE_SOURCE_DIR}"
 )

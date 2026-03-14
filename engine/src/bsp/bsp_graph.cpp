@@ -9,31 +9,22 @@ constexpr float BSP_EPSILON = 0.01f;
 constexpr float HEIGHT_THRESHOLD = 30.f;
 } // namespace
 
-// ============================================================
-// Public API
-// ============================================================
-
 void TwoHalfD::BSPGraph::build(BSPNode *root, const std::vector<Segment> &segments, float defaultFloorHeight) {
     m_nodes.clear();
     m_nodeIndexMap.clear();
-
-    // Phase 1: collect all leaf nodes, cache centroid and floor height
     _collectLeaves(root, defaultFloorHeight);
-
-    // Phase 2: traverse internal nodes to find adjacencies across each splitter
     _processInternalNode(root, segments);
 }
 
 int TwoHalfD::BSPGraph::findNodeForPoint(const XYVectorf &point) const {
-    for (int i = 0; i < static_cast<int>(m_nodes.size()); ++i) {
+    for (int i{}; i < static_cast<int>(m_nodes.size()); ++i) {
         const Polygon &bounds = m_nodes[i].bspNode->bounds;
         int n = static_cast<int>(bounds.size());
         if (n < 3) continue;
 
-        // Point-in-convex-polygon: all cross products of (edge, toPoint) must share the same sign
         float firstSign = 0.f;
         bool inside = true;
-        for (int j = 0; j < n; ++j) {
+        for (int j{}; j < n; ++j) {
             XYVectorf edge = bounds[(j + 1) % n] - bounds[j];
             XYVectorf toPoint = point - bounds[j];
             float cross = crossProduct2d(edge, toPoint);
@@ -54,10 +45,6 @@ int TwoHalfD::BSPGraph::getNodeIndex(const BSPNode *node) const {
     return (it != m_nodeIndexMap.end()) ? it->second : -1;
 }
 
-// ============================================================
-// Private helpers
-// ============================================================
-
 void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight) {
     if (node == nullptr) return;
 
@@ -65,7 +52,6 @@ void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight)
         BSPGraphNode graphNode;
         graphNode.bspNode = node;
 
-        // Centroid = average of bounds vertices
         XYVectorf centroid{0.f, 0.f};
         for (const auto &v : node->bounds) {
             centroid.x += v.x;
@@ -77,7 +63,6 @@ void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight)
             centroid.y *= inv;
         }
         graphNode.centroid = centroid;
-
         graphNode.floorHeight = (node->floorSection != nullptr) ? node->floorSection->height : defaultFloorHeight;
 
         int index = static_cast<int>(m_nodes.size());
@@ -91,13 +76,13 @@ void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight)
 }
 
 void TwoHalfD::BSPGraph::_collectLeavesTouchingSplitter(BSPNode *node, const XYVectorf &splitterP0, const XYVectorf &splitterDir,
-                                                         std::vector<std::pair<int, std::pair<float, float>>> &result) {
+                                                        std::vector<std::pair<int, std::pair<float, float>>> &result) {
     if (node == nullptr) return;
 
     if (node->front == nullptr && node->back == nullptr) {
         const Polygon &bounds = node->bounds;
         int n = static_cast<int>(bounds.size());
-        for (int i = 0; i < n; ++i) {
+        for (int i{}; i < n; ++i) {
             const XYVectorf &v1 = bounds[i];
             const XYVectorf &v2 = bounds[(i + 1) % n];
 
@@ -116,7 +101,7 @@ void TwoHalfD::BSPGraph::_collectLeavesTouchingSplitter(BSPNode *node, const XYV
                         result.push_back({it->second, {tMin, tMax}});
                     }
                 }
-                break; // convex polygon has at most one edge on any line
+                break;
             }
         }
         return;
@@ -126,8 +111,8 @@ void TwoHalfD::BSPGraph::_collectLeavesTouchingSplitter(BSPNode *node, const XYV
     _collectLeavesTouchingSplitter(node->back.get(), splitterP0, splitterDir, result);
 }
 
-bool TwoHalfD::BSPGraph::_isEdgeWallBlocked(float tA, float tB, const XYVectorf &splitterP0, const XYVectorf &splitterDir,
-                                              const std::vector<Segment> &segments) {
+std::vector<std::pair<float, float>> TwoHalfD::BSPGraph::_getUnblockedIntervals(float tA, float tB, const XYVectorf &splitterP0,
+                                                                                const XYVectorf &splitterDir, const std::vector<Segment> &segments) {
     if (tA > tB) std::swap(tA, tB);
 
     std::vector<std::pair<float, float>> wallIntervals;
@@ -143,23 +128,23 @@ bool TwoHalfD::BSPGraph::_isEdgeWallBlocked(float tA, float tB, const XYVectorf 
         float tw2 = dotProduct(seg.v2 - splitterP0, splitterDir);
         if (tw1 > tw2) std::swap(tw1, tw2);
 
-        // Skip if no overlap with [tA, tB]
-        if (tw2 <= tA || tw1 >= tB) continue;
+        if (tw2 <= tA + BSP_EPSILON || tw1 >= tB - BSP_EPSILON) continue;
 
         wallIntervals.push_back({std::max(tw1, tA), std::min(tw2, tB)});
     }
 
-    if (wallIntervals.empty()) return false;
-
     std::sort(wallIntervals.begin(), wallIntervals.end());
 
-    float coveredUpTo = tA;
-    for (const auto &[start, end] : wallIntervals) {
-        if (start > coveredUpTo + BSP_EPSILON) return false; // gap in coverage
-        coveredUpTo = std::max(coveredUpTo, end);
+    std::vector<std::pair<float, float>> unblocked;
+    float cursor = tA;
+    for (const auto &[wStart, wEnd] : wallIntervals) {
+        if (wStart > cursor + BSP_EPSILON) unblocked.push_back({cursor, wStart});
+        cursor = std::max(cursor, wEnd);
+        if (cursor >= tB - BSP_EPSILON) break;
     }
+    if (cursor < tB - BSP_EPSILON) unblocked.push_back({cursor, tB});
 
-    return coveredUpTo >= tB - BSP_EPSILON;
+    return unblocked;
 }
 
 void TwoHalfD::BSPGraph::_processInternalNode(BSPNode *node, const std::vector<Segment> &segments) {
@@ -184,25 +169,25 @@ void TwoHalfD::BSPGraph::_processInternalNode(BSPNode *node, const std::vector<S
 
             if (overlapEnd - overlapStart <= BSP_EPSILON) continue;
 
-            if (_isEdgeWallBlocked(overlapStart, overlapEnd, node->splitterP0, splitterDir, segments)) continue;
-
-            XYVectorf edgeStart = node->splitterP0 + splitterDir * overlapStart;
-            XYVectorf edgeEnd = node->splitterP0 + splitterDir * overlapEnd;
-            float edgeLength = overlapEnd - overlapStart;
+            auto openings = _getUnblockedIntervals(overlapStart, overlapEnd, node->splitterP0, splitterDir, segments);
 
             float heightA = m_nodes[frontIdx].floorHeight;
             float heightB = m_nodes[backIdx].floorHeight;
             float heightDiff = heightA - heightB;
 
-            if (std::abs(heightDiff) <= HEIGHT_THRESHOLD) {
-                m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, edgeLength, false});
-                m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, edgeLength, false});
-            } else if (heightDiff > HEIGHT_THRESHOLD) {
-                // A is higher — can only fall from A down to B
-                m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, edgeLength, true});
-            } else {
-                // B is higher — can only fall from B down to A
-                m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, edgeLength, true});
+            for (const auto &[a, b] : openings) {
+                XYVectorf edgeStart = node->splitterP0 + splitterDir * a;
+                XYVectorf edgeEnd = node->splitterP0 + splitterDir * b;
+                float portalWidth = b - a;
+
+                if (std::abs(heightDiff) <= HEIGHT_THRESHOLD) {
+                    m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, false});
+                    m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, false});
+                } else if (heightDiff > HEIGHT_THRESHOLD) {
+                    m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, true});
+                } else {
+                    m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, true});
+                }
             }
         }
     }
