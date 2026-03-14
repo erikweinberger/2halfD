@@ -1,6 +1,7 @@
 #ifndef BSP_MANAGER_H
 #define BSP_MANAGER_H
 
+#include "TwoHalfD/bsp/bsp_graph.h"
 #include "TwoHalfD/engine_types.h"
 #include <cstddef>
 #include <memory>
@@ -26,6 +27,7 @@ class BSPManager {
 
     // Construction
     void buildBSPTree();
+    void buildGraph();
     void insertSprites(std::vector<SpriteEntity> &sprites);
     void insertFloorSections(const std::unordered_map<int, FloorSection> &floorSections);
 
@@ -42,6 +44,7 @@ class BSPManager {
     // Getters and setters
     void setLevel(TwoHalfD::Level *level);
     TwoHalfD::Segment &getSegment(int id);
+    const TwoHalfD::BSPGraph &getGraph() const;
 
     // BSP optimization
     int findBestPartitioning();
@@ -54,6 +57,7 @@ class BSPManager {
   private:
     TwoHalfD::Level *m_level;
     std::unique_ptr<TwoHalfD::BSPNode> m_root;
+    TwoHalfD::BSPGraph m_graph;
     std::vector<TwoHalfD::Segment> m_segments;
     size_t m_segmentID = 0;
     float m_splitWeight = 3.f;

@@ -178,6 +178,38 @@ void TwoHalfD::BSPManager::setLevel(TwoHalfD::Level *level) {
     m_level = level;
 }
 
+void TwoHalfD::BSPManager::buildGraph() {
+    float defaultFloorHeight = (m_level != nullptr) ? m_level->defaultFloorHeight : 0.f;
+    m_graph.build(m_root.get(), m_segments, defaultFloorHeight);
+
+    std::cout << "=== BSP Graph ===\n";
+    std::cout << "Nodes: " << m_graph.getNodeCount() << "\n";
+    for (int i = 0; i < m_graph.getNodeCount(); ++i) {
+        const auto &node = m_graph.getNode(i);
+        std::cout << "  [" << i << "] centroid=(" << node.centroid.x << ", " << node.centroid.y << ")"
+                  << "  floor=" << node.floorHeight << "\n";
+
+        const auto &bounds = node.bspNode->bounds;
+        std::cout << "    outline (" << bounds.size() << " verts):";
+        for (const auto &v : bounds) {
+            std::cout << " (" << v.x << ", " << v.y << ")";
+        }
+        std::cout << "\n";
+
+        std::cout << "    adjacent:";
+        for (const auto &edge : node.edges) {
+            std::cout << " [" << edge.targetNodeIndex << "]";
+            if (edge.isDropOnly) std::cout << "(drop)";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "=================\n";
+}
+
+const TwoHalfD::BSPGraph &TwoHalfD::BSPManager::getGraph() const {
+    return m_graph;
+}
+
 int TwoHalfD::BSPManager::findBestPartitioning() {
     std::vector<TwoHalfD::Segment> segments;
     segments.reserve(m_level->walls.size());
