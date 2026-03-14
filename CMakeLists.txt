@@ -19,7 +19,7 @@ add_subdirectory(external/SFML)
 # Add source files from engine/ and game/
 file(GLOB_RECURSE ENGINE_SOURCES engine/src/*.cpp)
 file(GLOB_RECURSE GAME_SOURCES game/*.cpp)
-list(FILTER GAME_SOURCES EXCLUDE REGEX ".*visualizer\\.cpp$")
+list(FILTER GAME_SOURCES EXCLUDE REGEX ".*(visualizer|test_bsp)\\.cpp$")
 
 # Create the executable
 add_executable(two_half ${ENGINE_SOURCES} ${GAME_SOURCES})
@@ -60,3 +60,4 @@ target_compile_definitions(bsp_vis PRIVATE
 # Optional: treat warnings as errors (uncomment to enable)
 # target_compile_options(two_half PRIVATE -Werror)  # for Clang/GCC
 # target_compile_options(two_half PRIVATE /WX)      # for MSVC
+

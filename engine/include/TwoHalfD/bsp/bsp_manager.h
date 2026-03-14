@@ -44,7 +44,7 @@ class BSPManager {
     // Getters and setters
     void setLevel(TwoHalfD::Level *level);
     TwoHalfD::Segment &getSegment(int id);
-    const TwoHalfD::BSPGraph &getGraph() const;
+    TwoHalfD::BSPGraph &getGraph();
 
     // BSP optimization
     int findBestPartitioning();
@@ -52,7 +52,7 @@ class BSPManager {
     // Collision
     std::vector<TwoHalfD::Segment> findSegmentIntersection(const TwoHalfD::XYVectorf &p1, const float radius);
     std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> findCollisions(const TwoHalfD::XYVectorf &pos, float radius,
-                                                                                     float cameraHeightStart);
+                                                                                    float cameraHeightStart);
 
   private:
     TwoHalfD::Level *m_level;

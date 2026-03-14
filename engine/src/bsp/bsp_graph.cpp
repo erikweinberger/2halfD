@@ -6,7 +6,6 @@
 
 namespace {
 constexpr float BSP_EPSILON = 0.01f;
-constexpr float HEIGHT_THRESHOLD = 30.f;
 } // namespace
 
 void TwoHalfD::BSPGraph::build(BSPNode *root, const std::vector<Segment> &segments, float defaultFloorHeight) {
@@ -14,6 +13,15 @@ void TwoHalfD::BSPGraph::build(BSPNode *root, const std::vector<Segment> &segmen
     m_nodeIndexMap.clear();
     _collectLeaves(root, defaultFloorHeight);
     _processInternalNode(root, segments);
+}
+
+void TwoHalfD::BSPGraph::setDoor(int nodeA, int nodeB, int doorId) {
+    for (auto &edge : m_nodes[nodeA].edges) {
+        if (edge.targetNodeIndex == nodeB) edge.doorId = doorId;
+    }
+    for (auto &edge : m_nodes[nodeB].edges) {
+        if (edge.targetNodeIndex == nodeA) edge.doorId = doorId;
+    }
 }
 
 int TwoHalfD::BSPGraph::findNodeForPoint(const XYVectorf &point) const {
@@ -180,14 +188,8 @@ void TwoHalfD::BSPGraph::_processInternalNode(BSPNode *node, const std::vector<S
                 XYVectorf edgeEnd = node->splitterP0 + splitterDir * b;
                 float portalWidth = b - a;
 
-                if (std::abs(heightDiff) <= HEIGHT_THRESHOLD) {
-                    m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, false});
-                    m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, false});
-                } else if (heightDiff > HEIGHT_THRESHOLD) {
-                    m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, true});
-                } else {
-                    m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, true});
-                }
+                m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, heightA - heightB});
+                m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, heightB - heightA});
             }
         }
     }
