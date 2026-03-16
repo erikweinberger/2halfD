@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 // Runs A* and records the order nodes are expanded, plus the final waypoint path.
 static void computePathVisualization(const TwoHalfD::BSPGraph &graph, const TwoHalfD::XYVectorf &start, const TwoHalfD::XYVectorf &end,
                                      std::vector<int> &exploredOut, std::vector<TwoHalfD::XYVectorf> &pathOut) {
-    pathOut = graph.findPath(start, end, 0.f, 1000.f, 0.f);
+    pathOut = graph.findPath(start, end, 0.f, 20.f, 0.f);
 
     int startNode = graph.findNodeForPoint(start);
     int endNode = graph.findNodeForPoint(end);
@@ -78,7 +78,7 @@ int main() {
 
     // Pre-compute A* exploration steps and final path
     const TwoHalfD::XYVectorf pathStart{2800.f, 370.f};
-    const TwoHalfD::XYVectorf pathEnd{450.f, 1000.f};
+    const TwoHalfD::XYVectorf pathEnd{300.f, 300.f};
     std::vector<int> exploredNodes;
     std::vector<TwoHalfD::XYVectorf> finalPath;
     computePathVisualization(graph, pathStart, pathEnd, exploredNodes, finalPath);

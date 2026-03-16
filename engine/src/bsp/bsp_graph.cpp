@@ -91,15 +91,14 @@ std::vector<TwoHalfD::XYVectorf> TwoHalfD::BSPGraph::findPath(const XYVectorf &s
             return path;
         }
 
-        if (f > gScore[current] + (m_nodes[current].centroid - m_nodes[endNode].centroid).length())
-            continue; // stale entry in open set
+        if (f > gScore[current] + (m_nodes[current].centroid - m_nodes[endNode].centroid).length()) continue; // stale entry in open set
 
         for (const auto &edge : m_nodes[current].edges) {
             if (edge.portalWidth < entityWidth) continue;
             if (edge.heightDiff < -maxHeightDiff) continue; // too high to step up
 
-            float stepCost = (m_nodes[current].centroid - edge.portalMidpoint).length() +
-                             (edge.portalMidpoint - m_nodes[edge.targetNodeIndex].centroid).length();
+            float stepCost =
+                (m_nodes[current].centroid - edge.portalMidpoint).length() + (edge.portalMidpoint - m_nodes[edge.targetNodeIndex].centroid).length();
             float tentativeG = gScore[current] + stepCost;
 
             if (maxDistance > 0.f && tentativeG > maxDistance) continue;
@@ -253,8 +252,8 @@ void TwoHalfD::BSPGraph::_processInternalNode(BSPNode *node, const std::vector<S
                 XYVectorf mid = {(edgeStart.x + edgeEnd.x) * 0.5f, (edgeStart.y + edgeEnd.y) * 0.5f};
 
                 float portalWidth = b - a;
-                m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, heightA - heightB, mid});
-                m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, heightB - heightA, mid});
+                m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, heightDiff, mid});
+                m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, -heightDiff, mid});
             }
         }
     }
