@@ -1,3 +1,4 @@
+#include "TwoHalfD/types/math_types.h"
 #include "TwoHalfD/utils/math_util.h"
 #include <TwoHalfD/engine.h>
 
@@ -116,4 +117,9 @@ std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls() {
 
 void TwoHalfD::Engine::render() {
     m_renderer.render(m_cameraObject, m_level, m_bspManager);
+}
+
+std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth,
+                                                                        float maxHeightDiff, float maxDistance) {
+    return m_bspManager.getGraph().findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
 }

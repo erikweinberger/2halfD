@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <queue>
 
 namespace {
 constexpr float BSP_EPSILON = 0.01f;
@@ -51,6 +53,68 @@ int TwoHalfD::BSPGraph::findNodeForPoint(const XYVectorf &point) const {
 int TwoHalfD::BSPGraph::getNodeIndex(const BSPNode *node) const {
     auto it = m_nodeIndexMap.find(node);
     return (it != m_nodeIndexMap.end()) ? it->second : -1;
+}
+
+std::vector<TwoHalfD::XYVectorf> TwoHalfD::BSPGraph::findPath(const XYVectorf &start, const XYVectorf &end, float entityWidth, float maxHeightDiff,
+                                                              float maxDistance) const {
+    int startNode = findNodeForPoint(start);
+    int endNode = findNodeForPoint(end);
+    if (startNode == -1 || endNode == -1) return {};
+    if (startNode == endNode) return {start, end};
+
+    int n = static_cast<int>(m_nodes.size());
+    std::vector<float> gScore(n, std::numeric_limits<float>::max());
+    std::vector<int> cameFromNode(n, -1);
+    std::vector<XYVectorf> cameFromPortal(n);
+
+    // {fScore, nodeIndex} — pair sorts by first so priority queue orders by fScore
+    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<>> openSet;
+
+    gScore[startNode] = 0.f;
+    float h = (m_nodes[startNode].centroid - m_nodes[endNode].centroid).length();
+    openSet.push({h, startNode});
+
+    while (!openSet.empty()) {
+        auto [f, current] = openSet.top();
+        openSet.pop();
+
+        if (current == endNode) {
+            std::vector<XYVectorf> path;
+            path.push_back(end);
+            int node = current;
+            while (cameFromNode[node] != -1) {
+                path.push_back(cameFromPortal[node]);
+                node = cameFromNode[node];
+            }
+            path.push_back(start);
+            std::reverse(path.begin(), path.end());
+            return path;
+        }
+
+        if (f > gScore[current] + (m_nodes[current].centroid - m_nodes[endNode].centroid).length())
+            continue; // stale entry in open set
+
+        for (const auto &edge : m_nodes[current].edges) {
+            if (edge.portalWidth < entityWidth) continue;
+            if (edge.heightDiff < -maxHeightDiff) continue; // too high to step up
+
+            float stepCost = (m_nodes[current].centroid - edge.portalMidpoint).length() +
+                             (edge.portalMidpoint - m_nodes[edge.targetNodeIndex].centroid).length();
+            float tentativeG = gScore[current] + stepCost;
+
+            if (maxDistance > 0.f && tentativeG > maxDistance) continue;
+            if (tentativeG >= gScore[edge.targetNodeIndex]) continue;
+
+            gScore[edge.targetNodeIndex] = tentativeG;
+            cameFromNode[edge.targetNodeIndex] = current;
+            cameFromPortal[edge.targetNodeIndex] = edge.portalMidpoint;
+
+            float newH = (m_nodes[edge.targetNodeIndex].centroid - m_nodes[endNode].centroid).length();
+            openSet.push({tentativeG + newH, edge.targetNodeIndex});
+        }
+    }
+
+    return {};
 }
 
 void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight) {
@@ -186,10 +250,11 @@ void TwoHalfD::BSPGraph::_processInternalNode(BSPNode *node, const std::vector<S
             for (const auto &[a, b] : openings) {
                 XYVectorf edgeStart = node->splitterP0 + splitterDir * a;
                 XYVectorf edgeEnd = node->splitterP0 + splitterDir * b;
-                float portalWidth = b - a;
+                XYVectorf mid = {(edgeStart.x + edgeEnd.x) * 0.5f, (edgeStart.y + edgeEnd.y) * 0.5f};
 
-                m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, heightA - heightB});
-                m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, heightB - heightA});
+                float portalWidth = b - a;
+                m_nodes[frontIdx].edges.push_back({backIdx, edgeStart, edgeEnd, portalWidth, heightA - heightB, mid});
+                m_nodes[backIdx].edges.push_back({frontIdx, edgeStart, edgeEnd, portalWidth, heightB - heightA, mid});
             }
         }
     }

@@ -85,6 +85,7 @@ struct XYVectorf {
 };
 
 using Polygon = std::vector<TwoHalfD::XYVectorf>;
+using Path = std::vector<TwoHalfD::XYVectorf>;
 
 inline float dot(const XYVectorf &a, const XYVectorf &b) {
     return a.x * b.x + a.y * b.y;

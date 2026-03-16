@@ -173,6 +173,11 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
     }
 }
 
+TwoHalfD::Path TwoHalfD::BSPManager::findPath(const TwoHalfD::XYVectorf &start, const TwoHalfD::XYVectorf &end, float entityWidth,
+                                              float maxHeightDiff, float maxDistance) {
+    return m_graph.findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
+}
+
 // Getters and setters
 void TwoHalfD::BSPManager::setLevel(TwoHalfD::Level *level) {
     m_level = level;

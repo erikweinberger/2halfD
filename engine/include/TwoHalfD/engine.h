@@ -37,8 +37,7 @@ class Engine {
         : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_level(), m_cameraObject(),
           m_engineClocks(EngineClocks{m_engineSettings.graphicsFpsCap, m_engineSettings.gameFpsCap}),
           m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
-          m_renderer(m_window, m_engineSettings, m_engineClocks),
-          m_inputManager(m_window, m_engineSettings) {
+          m_renderer(m_window, m_engineSettings, m_engineClocks), m_inputManager(m_window, m_engineSettings) {
 
         m_window.setVerticalSyncEnabled(false);
         m_window.setFramerateLimit(0);
@@ -59,6 +58,8 @@ class Engine {
 
     std::vector<TwoHalfD::Wall> &getAllWalls();
     std::vector<TwoHalfD::SpriteEntity> &getAllSpriteEntities();
+    std::vector<TwoHalfD::XYVectorf> getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth, float maxHeightDiff,
+                                                          float maxDistance);
 
     void render();
 };

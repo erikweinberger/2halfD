@@ -29,7 +29,6 @@ class BSPManager {
     void buildBSPTree();
     void buildGraph();
     void insertSprites(std::vector<SpriteEntity> &sprites);
-    void insertFloorSections(const std::unordered_map<int, FloorSection> &floorSections);
 
     // Core functions
     TwoHalfD::BSPNode *findConvexSection(const TwoHalfD::XYVectorf &point);
@@ -54,6 +53,9 @@ class BSPManager {
     std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> findCollisions(const TwoHalfD::XYVectorf &pos, float radius,
                                                                                     float cameraHeightStart);
 
+    TwoHalfD::Path findPath(const TwoHalfD::XYVectorf &start, const TwoHalfD::XYVectorf &end, float entityWidth, float maxHeightDiff,
+                            float maxDistance);
+
   private:
     TwoHalfD::Level *m_level;
     std::unique_ptr<TwoHalfD::BSPNode> m_root;
@@ -74,7 +76,6 @@ class BSPManager {
     // Construction
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
     void _insertSprite(TwoHalfD::BSPNode *node, TwoHalfD::SpriteEntity &sprite, int spriteId);
-    void _insertFloorSection(TwoHalfD::BSPNode *node, const FloorSection &floorSection, XYVectorf point);
 
     // Core functionality
     TwoHalfD::BSPNode *_findConvexSection(const TwoHalfD::XYVectorf &point, TwoHalfD::BSPNode *node);
