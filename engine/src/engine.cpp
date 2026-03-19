@@ -1,5 +1,4 @@
 #include "TwoHalfD/types/math_types.h"
-#include "TwoHalfD/utils/math_util.h"
 #include <TwoHalfD/engine.h>
 
 #include <SFML/Window/Mouse.hpp>
@@ -13,6 +12,9 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     m_bspManager.setLevel(&m_level);
     m_bspManager.buildBSPTree();
     m_bspManager.buildGraph();
+    for (const auto &sprite : m_level.sprites) {
+        m_entityManager.addEntity(sprite);
+    }
 }
 
 // Game Inputs
@@ -36,6 +38,11 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
                                     m_engineSettings.windowDim.y - mousePosition.y < 0 || mousePosition.y < 0)) {
             sf::Mouse::setPosition({middleScreen.x, middleScreen.y}, m_window);
         }
+    }
+
+    auto movedEntities = m_entityManager.update(0.f);
+    for (const auto &[entityId, newPos] : movedEntities) {
+        m_bspManager.moveSprite(entityId, newPos);
     }
 
     auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
@@ -108,9 +115,10 @@ TwoHalfD::EngineState TwoHalfD::Engine::getState() {
     return this->m_engineState;
 }
 
-std::vector<TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getAllSpriteEntities() {
-    return m_level.sprites;
+const std::unordered_map<int, TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getAllSpriteEntities() {
+    return m_entityManager.getAllEntities();
 }
+
 std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls() {
     return m_level.walls;
 }
@@ -119,7 +127,14 @@ void TwoHalfD::Engine::render() {
     m_renderer.render(m_cameraObject, m_level, m_bspManager);
 }
 
+void TwoHalfD::Engine::walkTo(const int entityId, const TwoHalfD::XYVectorf targetPos) {
+    auto entity = m_entityManager.getEntity(entityId);
+    if (!entity) return;
+    auto path = getPathfindingPoints(entity->pos.pos, targetPos, entity->radius, 20.f, 10000.f);
+    m_entityManager.walkTo(entityId, path);
+}
+
 std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth,
                                                                         float maxHeightDiff, float maxDistance) {
-    return m_bspManager.getGraph().findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
+    return m_bspManager.findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
 }

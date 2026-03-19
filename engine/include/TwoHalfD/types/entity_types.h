@@ -4,7 +4,10 @@
 #include "TwoHalfD/types/math_types.h"
 
 #include <SFML/Graphics/Texture.hpp>
+#include <cstddef>
+#include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace TwoHalfD {
@@ -23,16 +26,6 @@ struct Wall {
     float wallHeightStart = 0.f;
 };
 
-struct SpriteEntity {
-    int id;
-    TwoHalfD::Position pos;
-    int radius;
-    int height;
-    int textureId;
-    float scale;
-    float heightStart = 0.f;
-};
-
 struct FloorSection {
     Polygon vertices;
     XYVectorf floorTextureStart;
@@ -40,6 +33,33 @@ struct FloorSection {
     int textureId;
     float height;
     bool isCCW;
+};
+
+struct WalkToUpdate {
+    TwoHalfD::XYVectorf targetPos;
+    TwoHalfD::Path path;
+    size_t nextPathIndex = 0;
+};
+
+struct AttackUpdate {
+    int targetEntityId;
+};
+
+struct IdleUpdate {};
+
+using EntityUpdate = std::variant<WalkToUpdate, AttackUpdate, IdleUpdate>;
+
+struct SpriteEntity {
+    int id;
+    TwoHalfD::Position pos;
+    float radius;
+    int height;
+    int textureId;
+    float scale;
+    float heightStart = 0.f;
+    float speed = 10.f;
+
+    std::optional<EntityUpdate> currentUpdate;
 };
 
 } // namespace TwoHalfD

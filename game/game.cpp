@@ -23,6 +23,8 @@ void Game::run() {
 }
 
 // Game Logic
+int frameCount = 0;
+
 void Game::updateGameState() {
     float x = 0.f, y = 0.f;
 
@@ -44,6 +46,15 @@ void Game::updateGameState() {
     m_gameState.playerState.playerPos += moveVector;
 
     m_gameState.playerState.playerPos = m_engine.updateCameraPosition(moveVector);
+
+    auto sprites = m_engine.getAllSpriteEntities();
+
+    for (const auto &[id, entity] : sprites) {
+        if (frameCount % 60 == 0) {
+            m_engine.walkTo(entity.id, m_gameState.playerState.playerPos.pos);
+        }
+    }
+    frameCount++;
 }
 
 // Input / Events

@@ -29,6 +29,7 @@ class BSPManager {
     void buildBSPTree();
     void buildGraph();
     void insertSprites(std::vector<SpriteEntity> &sprites);
+    void moveSprite(int spriteId, TwoHalfD::XYVectorf newPos);
 
     // Core functions
     TwoHalfD::BSPNode *findConvexSection(const TwoHalfD::XYVectorf &point);
@@ -59,6 +60,8 @@ class BSPManager {
   private:
     TwoHalfD::Level *m_level;
     std::unique_ptr<TwoHalfD::BSPNode> m_root;
+    std::unordered_map<int, TwoHalfD::BSPNode *> m_spriteNodeMap; // keyed by vector index
+    std::unordered_map<int, int> m_entityIdToIndex;               // entity.id → vector index
     TwoHalfD::BSPGraph m_graph;
     std::vector<TwoHalfD::Segment> m_segments;
     size_t m_segmentID = 0;
@@ -90,6 +93,10 @@ class BSPManager {
     // Collision
     void _findSegmentIntersections(const TwoHalfD::XYVectorf &p1, float radius, TwoHalfD::BSPNode *node,
                                    std::vector<TwoHalfD::Segment> &intersectedSegments);
+
+    // Path smoothing
+    TwoHalfD::Path _smoothPath(const TwoHalfD::Path &path, float entityWidth, float maxHeightDiff);
+    bool _hasLineOfSight(const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf &b, float entityWidth, float maxHeightDiff);
 };
 } // namespace TwoHalfD
 

@@ -7,6 +7,7 @@
 #include "TwoHalfD/bsp/bsp_manager.h"
 #include "TwoHalfD/engine_clocks.h"
 #include "TwoHalfD/engine_types.h"
+#include "TwoHalfD/entity_manager.h"
 #include "TwoHalfD/input_manager.h"
 #include "TwoHalfD/level_maker.h"
 #include "TwoHalfD/renderer.h"
@@ -29,6 +30,7 @@ class Engine {
     TwoHalfD::BSPManager m_bspManager;
     TwoHalfD::Renderer m_renderer;
     TwoHalfD::InputManager m_inputManager;
+    TwoHalfD::EntityManager m_entityManager;
 
     void backgroundFrameUpdates();
 
@@ -57,7 +59,9 @@ class Engine {
     TwoHalfD::Position updateCameraPosition(const Position &posUpdate);
 
     std::vector<TwoHalfD::Wall> &getAllWalls();
-    std::vector<TwoHalfD::SpriteEntity> &getAllSpriteEntities();
+    const std::unordered_map<int, TwoHalfD::SpriteEntity> &getAllSpriteEntities();
+    TwoHalfD::EntityManager &getEntityManager();
+    void walkTo(int entityId, TwoHalfD::XYVectorf targetPos);
     std::vector<TwoHalfD::XYVectorf> getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth, float maxHeightDiff,
                                                           float maxDistance);
 

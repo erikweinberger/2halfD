@@ -106,7 +106,7 @@ struct Position {
     Position(XYVectorf v, float dir = 0.f) : pos(v), direction(dir) {}
 
     Position operator+(const Position &other) const {
-        return Position(pos.x + other.pos.x, pos.y + other.pos.x, direction + other.direction);
+        return Position(pos.x + other.pos.x, pos.y + other.pos.y, direction + other.direction);
     }
 
     Position &operator+=(const Position &other) {
@@ -117,7 +117,7 @@ struct Position {
     }
 
     Position operator-(const Position &other) const {
-        return Position(pos.x - other.pos.x, pos.y - other.pos.x, direction - other.direction);
+        return Position(pos.x - other.pos.x, pos.y - other.pos.y, direction - other.direction);
     }
 
     Position &operator-=(const Position &other) {
