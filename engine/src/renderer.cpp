@@ -216,8 +216,8 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
 
     float focalLength = (m_settings.resolution.x / 2.0f) / m_settings.fovScale;
 
-    const sf::Vector2f spritePos = {spriteEntity.pos.posf.x, spriteEntity.pos.posf.y};
-    const sf::Vector2f toSpriteVec = spritePos - sf::Vector2f(camera.cameraPos.pos.x, camera.cameraPos.pos.y);
+    const sf::Vector2f spritePos = {spriteEntity.pos.pos.x, spriteEntity.pos.pos.y};
+    const sf::Vector2f toSpriteVec = spritePos - camera.cameraPos.posf;
 
     float perpWorldDistance = dotProduct(toSpriteVec, direction);
 
@@ -297,7 +297,7 @@ void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorS
     m_floorShader.setUniform("textureStartCord", sf::Vector2f(floorSection->floorTextureStart.x, floorSection->floorTextureStart.y));
     m_floorShader.setUniform("texture", floorTileTexture);
     m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
-    m_floorShader.setUniform("cameraPos", sf::Vector2f(camera.cameraPos.pos.x, camera.cameraPos.pos.y));
+    m_floorShader.setUniform("cameraPos", camera.cameraPos.posf);
     m_floorShader.setUniform("n_plane", sf::Vector2f(n_plane.x, n_plane.y));
     m_floorShader.setUniform("relativeCameraHeight", camera.cameraHeight + camera.cameraHeightStart - floorSection->height);
     m_floorShader.setUniform("direction", sf::Vector2f(n_direction.x, n_direction.y));
@@ -367,7 +367,7 @@ void TwoHalfD::Renderer::renderOverlays(const CameraObject &camera) {
 
     sf::Text text1;
     text1.setFont(font);
-    std::string position = "(" + std::to_string(camera.cameraPos.posf.x) + ", " + std::to_string(camera.cameraPos.posf.y) + ")";
+    std::string position = "(" + std::to_string(camera.cameraPos.pos.x) + ", " + std::to_string(camera.cameraPos.pos.y) + ")";
     text1.setString(position);
     text1.setCharacterSize(24);
     text1.setFillColor(sf::Color::Yellow);

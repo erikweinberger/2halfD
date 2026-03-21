@@ -54,8 +54,22 @@ void TwoHalfD::BSPManager::buildBSPTree() {
 
 void TwoHalfD::BSPManager::insertSprites(std::vector<SpriteEntity> &sprites) {
     for (size_t i{}; i < sprites.size(); ++i) {
+        m_entityIdToIndex[sprites[i].id] = static_cast<int>(i);
         _insertSprite(m_root.get(), sprites[i], i);
     }
+}
+
+void TwoHalfD::BSPManager::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
+    auto indexIt = m_entityIdToIndex.find(entityId);
+    if (indexIt == m_entityIdToIndex.end()) return;
+    int vectorIndex = indexIt->second;
+
+    auto nodeIt = m_spriteNodeMap.find(vectorIndex);
+    if (nodeIt != m_spriteNodeMap.end()) {
+        nodeIt->second->spriteIds.erase(vectorIndex);
+    }
+    m_level->sprites[vectorIndex].pos.pos = newPos;
+    _insertSprite(m_root.get(), m_level->sprites[vectorIndex], vectorIndex);
 }
 
 TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
@@ -171,6 +185,67 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
         traverse(node->back.get(), commands, floorSectionIds, cameraPos, cameraDir);
     }
+}
+
+TwoHalfD::Path TwoHalfD::BSPManager::findPath(const TwoHalfD::XYVectorf &start, const TwoHalfD::XYVectorf &end, float entityWidth,
+                                              float maxHeightDiff, float maxDistance) {
+    auto path = m_graph.findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
+    if (path.size() <= 2) return path;
+    return _smoothPath(path, entityWidth, maxHeightDiff);
+}
+
+TwoHalfD::Path TwoHalfD::BSPManager::_smoothPath(const TwoHalfD::Path &path, float entityWidth, float maxHeightDiff) {
+    TwoHalfD::Path smoothed;
+    smoothed.push_back(path[0]);
+    size_t current = 0;
+
+    while (current < path.size() - 1) {
+        size_t farthest = current + 1;
+        for (size_t i = path.size() - 1; i > current + 1; --i) {
+            if (_hasLineOfSight(path[current], path[i], entityWidth, maxHeightDiff)) {
+                farthest = i;
+                break;
+            }
+        }
+        smoothed.push_back(path[farthest]);
+        current = farthest;
+    }
+
+    return smoothed;
+}
+
+bool TwoHalfD::BSPManager::_hasLineOfSight(const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf &b, float entityWidth, float maxHeightDiff) {
+    TwoHalfD::XYVectorf dir = b - a;
+    if (dir.length() < 0.001f) return true;
+
+    for (const auto &seg : m_segments) {
+        TwoHalfD::XYVectorf d1 = seg.v1 - a;
+        TwoHalfD::XYVectorf d2 = seg.v2 - a;
+
+        float cross1 = crossProduct2d(dir, d1);
+        float cross2 = crossProduct2d(dir, d2);
+        if (cross1 * cross2 > 0.f) continue;
+
+        TwoHalfD::XYVectorf segDir = seg.v2 - seg.v1;
+        float cross3 = crossProduct2d(segDir, a - seg.v1);
+        float cross4 = crossProduct2d(segDir, b - seg.v1);
+        if (cross3 * cross4 > 0.f) continue;
+
+        // Line crosses this segment
+        if (seg.isWall()) return false;
+
+        // Floor boundary — block if height diff is too large
+        if (seg.isFloorBoundary()) {
+            float floorHeight = seg.floorSection->height;
+            float defaultHeight = m_level->defaultFloorHeight;
+
+            // The floor section is on one side, default floor on the other
+            float heightDiff = std::abs(floorHeight - defaultHeight);
+            if (heightDiff > maxHeightDiff) return false;
+        }
+    }
+
+    return true;
 }
 
 // Getters and setters
@@ -355,8 +430,6 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
                                                        floorSectionIt->second.height,
                                                        floorSectionIt->second.isCCW};
             node->back->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
-        } else if (floorSectionId != -1) {
-            std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
         }
     }
 
@@ -377,8 +450,6 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
                                                        floorSectionIt->second.height,
                                                        floorSectionIt->second.isCCW};
             node->front->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
-        } else if (floorSectionId != -1) {
-            std::cerr << "Error: floor section with id: " << floorSectionId << " not found in level data.\n";
         }
     }
 }
@@ -471,6 +542,7 @@ void TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, SpriteEntity &
         }
         sprite.heightStart = spriteHeight;
         node->spriteIds.insert(spriteId);
+        m_spriteNodeMap[spriteId] = node;
         return;
     }
 

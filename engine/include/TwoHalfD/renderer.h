@@ -5,8 +5,8 @@
 #include <filesystem>
 
 #include "TwoHalfD/bsp/bsp_manager.h"
-#include "TwoHalfD/engine_types.h"
 #include "TwoHalfD/engine_clocks.h"
+#include "TwoHalfD/engine_types.h"
 
 namespace TwoHalfD {
 

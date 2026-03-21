@@ -15,11 +15,8 @@ struct BSPGraphEdge {
     XYVectorf edgeEnd;
     float portalWidth;
     float heightDiff; // sourceNode.floorHeight - targetNode.floorHeight; negative means stepping up
+    XYVectorf portalMidpoint;
     int doorId = -1;  // -1 = no door; otherwise references a door entity by id
-
-    XYVectorf portalMidpoint() const {
-        return {(edgeStart.x + edgeEnd.x) * 0.5f, (edgeStart.y + edgeEnd.y) * 0.5f};
-    }
 };
 
 struct BSPGraphNode {
@@ -48,6 +45,8 @@ class BSPGraph {
     const std::vector<BSPGraphNode> &getNodes() const {
         return m_nodes;
     }
+
+    std::vector<XYVectorf> findPath(const XYVectorf &start, const XYVectorf &end, float entityWidth, float maxHeightDiff, float maxDistance) const;
 
   private:
     std::vector<BSPGraphNode> m_nodes;
