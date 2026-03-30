@@ -39,13 +39,22 @@ TwoHalfD::Renderer::Renderer(sf::RenderWindow &window, const EngineSettings &set
     }
 }
 
-void TwoHalfD::Renderer::render(const CameraObject &camera, Level &level, BSPManager &bsp) {
+void TwoHalfD::Renderer::setData(const std::unordered_map<int, TextureSignature> *textures, const EntityManager *entityManager,
+                                  float defaultFloorHeight, int defaultFloorTextureId, XYVectorf defaultFloorStart) {
+    m_textures = textures;
+    m_entityManager = entityManager;
+    m_defaultFloorHeight = defaultFloorHeight;
+    m_defaultFloorTextureId = defaultFloorTextureId;
+    m_defaultFloorStart = defaultFloorStart;
+}
+
+void TwoHalfD::Renderer::render(const CameraObject &camera, BSPManager &bsp) {
     if (!m_clocks.graphicsTimeDeltaPassed()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         return;
     }
     m_renderTexture.clear(sf::Color::Transparent);
-    renderBSP(camera, level, bsp);
+    renderBSP(camera, bsp);
     renderOverlays(camera);
 
     m_renderTexture.display();
@@ -57,23 +66,24 @@ void TwoHalfD::Renderer::render(const CameraObject &camera, Level &level, BSPMan
     m_window.display();
 }
 
-void TwoHalfD::Renderer::renderBSP(const CameraObject &camera, Level &level, BSPManager &bsp) {
+void TwoHalfD::Renderer::renderBSP(const CameraObject &camera, BSPManager &bsp) {
     auto bspTraversal = bsp.update(const_cast<TwoHalfD::Position &>(camera.cameraPos));
     auto &drawnCommands = bspTraversal.first;
 
-    renderFloor(camera, level);
+    renderFloor(camera);
     for (const auto &command : drawnCommands) {
         switch (command.type) {
         case TwoHalfD::DrawCommand::Type::Segment: {
-            renderSegment(bsp.getSegment(command.id), camera, level);
+            renderSegment(bsp.getSegment(command.id), camera);
             break;
         }
         case TwoHalfD::DrawCommand::Type::Sprite: {
-            renderSprite(level.sprites[command.id], camera, level);
+            auto entity = m_entityManager->getEntity(command.id);
+            if (entity) renderSprite(*entity, camera);
             break;
         }
         case TwoHalfD::DrawCommand::Type::FloorSection: {
-            renderFloorSection(command.floorSectionPtr, camera, level);
+            renderFloorSection(command.floorSectionPtr, camera);
             break;
         }
         default:
@@ -82,7 +92,7 @@ void TwoHalfD::Renderer::renderBSP(const CameraObject &camera, Level &level, BSP
     }
 }
 
-void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraObject &camera, const Level &level) {
+void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraObject &camera) {
     const float NEAR_CLIP = 50.0f;
 
     auto wallB = segment.isWall() ? *segment.wall : TwoHalfD::Wall(segment.v1, segment.v2, 1, 1, segment.floorSection->height, 0);
@@ -156,8 +166,8 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
     float p_bottomWallEnd =
         p_focalLength * (camera.cameraHeight + camera.cameraHeightStart - wall->wallHeightStart) / singedPerpWorldDistanceEnd + halfYRes;
 
-    auto it = level.textures.find(wall->textureId);
-    if (it == level.textures.end()) {
+    auto it = m_textures->find(wall->textureId);
+    if (it == m_textures->end()) {
         std::cerr << "No texture found for wall: " << wall->id << " with texture id: " << wall->textureId << std::endl;
         exit(1);
     }
@@ -190,15 +200,15 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
     m_perspectiveShader.setUniform("rightDepth", 1.0f / singedPerpWorldDistanceEnd);
     m_perspectiveShader.setUniform("resolution", sf::Vector2f(m_settings.resolution));
     m_perspectiveShader.setUniform("shaderScale", m_settings.shaderScale);
-    m_perspectiveShader.setUniform("wallHeightFloorHeighDiff", level.defaultFloorHeight - wall->wallHeightStart);
+    m_perspectiveShader.setUniform("wallHeightFloorHeighDiff", m_defaultFloorHeight - wall->wallHeightStart);
     m_perspectiveShader.setUniform("wallHeight", wall->height);
 
     m_renderTexture.draw(quad, states);
 }
 
-void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity, const CameraObject &camera, const Level &level) {
-    auto it = level.textures.find(spriteEntity.textureId);
-    if (it == level.textures.end()) {
+void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity, const CameraObject &camera) {
+    auto it = m_textures->find(spriteEntity.textureId);
+    if (it == m_textures->end()) {
         std::cerr << "No texture found for sprite: " << spriteEntity.id << " with texture id: " << spriteEntity.textureId << std::endl;
         exit(1);
     }
@@ -244,14 +254,14 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
     m_renderTexture.draw(sprite);
 }
 
-void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorSection, const CameraObject &camera, const Level &level) {
+void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorSection, const CameraObject &camera) {
     float focalLength = (m_settings.resolution.x / 2.0f) / m_settings.fovScale;
     XYVectorf n_direction{std::cos(camera.cameraPos.direction), std::sin(camera.cameraPos.direction)};
     XYVectorf n_plane{-n_direction.y, n_direction.x};
     const float NEAR_CLIP = 100.0f;
 
-    auto texIt = level.textures.find(floorSection->textureId);
-    if (texIt == level.textures.end()) {
+    auto texIt = m_textures->find(floorSection->textureId);
+    if (texIt == m_textures->end()) {
         std::cerr << "No texture found for floor section with texture id: " << floorSection->textureId << std::endl;
         return;
     }
@@ -309,15 +319,15 @@ void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorS
     m_renderTexture.draw(floorShape, states);
 }
 
-void TwoHalfD::Renderer::renderFloor(const CameraObject &camera, const Level &level) {
+void TwoHalfD::Renderer::renderFloor(const CameraObject &camera) {
     float focalLength = (m_settings.resolution.x / 2.0f) / m_settings.fovScale;
     XYVectorf n_direction{std::cos(camera.cameraPos.direction), std::sin(camera.cameraPos.direction)};
     XYVectorf n_plane{-n_direction.y, n_direction.x};
 
-    if (level.defaultFloorTextureId != -1) {
-        auto it = level.textures.find(level.defaultFloorTextureId);
-        if (it == level.textures.end()) {
-            std::cerr << "No texture found for default floor with texture id: " << level.defaultFloorTextureId << std::endl;
+    if (m_defaultFloorTextureId != -1) {
+        auto it = m_textures->find(m_defaultFloorTextureId);
+        if (it == m_textures->end()) {
+            std::cerr << "No texture found for default floor with texture id: " << m_defaultFloorTextureId << std::endl;
             exit(1);
         }
         const sf::Texture &floorTileTexture = it->second.texture;
@@ -332,11 +342,11 @@ void TwoHalfD::Renderer::renderFloor(const CameraObject &camera, const Level &le
         states.texture = &floorTileTexture;
         states.shader = &m_floorShader;
 
-        m_floorShader.setUniform("textureStartCord", sf::Vector2f(level.defaultFloorStart.x, level.defaultFloorStart.y));
+        m_floorShader.setUniform("textureStartCord", sf::Vector2f(m_defaultFloorStart.x, m_defaultFloorStart.y));
         m_floorShader.setUniform("texture", floorTileTexture);
         m_floorShader.setUniform("textureSize", sf::Vector2f(floorTileTexture.getSize()));
         m_floorShader.setUniform("cameraPos", sf::Vector2f(camera.cameraPos.pos.x, camera.cameraPos.pos.y));
-        m_floorShader.setUniform("relativeCameraHeight", camera.cameraHeight + camera.cameraHeightStart - level.defaultFloorHeight);
+        m_floorShader.setUniform("relativeCameraHeight", camera.cameraHeight + camera.cameraHeightStart - m_defaultFloorHeight);
         m_floorShader.setUniform("n_plane", sf::Vector2f(n_plane.x, n_plane.y));
         m_floorShader.setUniform("direction", sf::Vector2f(n_direction.x, n_direction.y));
         m_floorShader.setUniform("focalLength", focalLength);

@@ -8,8 +8,6 @@
 namespace fs = std::filesystem;
 
 void Game::run() {
-    TwoHalfD::Level level;
-    level.cameraHeightStart = 128.f;
     fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level1.txt";
     m_engine.loadLevel(levelFile);
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
@@ -51,7 +49,7 @@ void Game::updateGameState() {
 
     for (const auto &[id, entity] : sprites) {
         if (frameCount % 60 == 0) {
-            m_engine.walkTo(entity.id, m_gameState.playerState.playerPos.pos);
+            m_engine.walkTo(entity.id, m_gameState.playerState.playerPos.pos, 25.f, 10000.f);
         }
     }
     frameCount++;

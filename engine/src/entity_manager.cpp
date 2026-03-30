@@ -22,6 +22,13 @@ const std::unordered_map<int, TwoHalfD::SpriteEntity> &TwoHalfD::EntityManager::
     return m_entities;
 }
 
+void TwoHalfD::EntityManager::setHeightStart(int entityId, float heightStart) {
+    auto it = m_entities.find(entityId);
+    if (it != m_entities.end()) {
+        it->second.heightStart = heightStart;
+    }
+}
+
 void TwoHalfD::EntityManager::walkTo(int entityId, const TwoHalfD::Path &path) {
     if (path.empty()) return;
     auto it = m_entities.find(entityId);
@@ -29,7 +36,7 @@ void TwoHalfD::EntityManager::walkTo(int entityId, const TwoHalfD::Path &path) {
     it->second.currentUpdate = TwoHalfD::WalkToUpdate{path.back(), path, 1};
 }
 
-std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update(float deltaTime) {
+std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update([[maybe_unused]] float deltaTime) {
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> movedEntities;
 
     for (auto &[id, entity] : m_entities) {

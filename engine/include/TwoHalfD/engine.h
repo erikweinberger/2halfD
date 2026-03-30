@@ -20,9 +20,14 @@ class Engine {
     EngineSettings m_engineSettings;
     EngineState m_engineState;
 
-    Level m_level;
     TwoHalfD::LevelMaker m_levelMaker;
     CameraObject m_cameraObject;
+
+    // Level data owned by Engine after initialization
+    std::unordered_map<int, TextureSignature> m_textures;
+    float m_defaultFloorHeight = 0.f;
+    int m_defaultFloorTextureId = -1;
+    XYVectorf m_defaultFloorStart{};
 
     EngineClocks m_engineClocks;
 
@@ -36,7 +41,7 @@ class Engine {
 
   public:
     Engine(const EngineSettings &engineSettings)
-        : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_level(), m_cameraObject(),
+        : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_cameraObject(),
           m_engineClocks(EngineClocks{m_engineSettings.graphicsFpsCap, m_engineSettings.gameFpsCap}),
           m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
           m_renderer(m_window, m_engineSettings, m_engineClocks), m_inputManager(m_window, m_engineSettings) {
@@ -58,10 +63,10 @@ class Engine {
     void setCameraPosition(const Position &newPos);
     TwoHalfD::Position updateCameraPosition(const Position &posUpdate);
 
-    std::vector<TwoHalfD::Wall> &getAllWalls();
+    const std::vector<TwoHalfD::Wall> &getAllWalls();
     const std::unordered_map<int, TwoHalfD::SpriteEntity> &getAllSpriteEntities();
     TwoHalfD::EntityManager &getEntityManager();
-    void walkTo(int entityId, TwoHalfD::XYVectorf targetPos);
+    void walkTo(int entityId, TwoHalfD::XYVectorf targetPos, float maxHeightDiff = 0.f, float maxDistance = 10000.f);
     std::vector<TwoHalfD::XYVectorf> getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth, float maxHeightDiff,
                                                           float maxDistance);
 

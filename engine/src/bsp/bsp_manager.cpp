@@ -12,8 +12,17 @@
 #include <unordered_map>
 #include <vector>
 
+void TwoHalfD::BSPManager::init(std::vector<Wall> walls, std::unordered_map<int, FloorSection> floorSections, float defaultFloorHeight,
+                                int defaultFloorTextureId, int seed) {
+    m_walls = std::move(walls);
+    m_floorSections = std::move(floorSections);
+    m_defaultFloorHeight = defaultFloorHeight;
+    m_defaultFloorTextureId = defaultFloorTextureId;
+    m_seed = seed;
+}
+
 void TwoHalfD::BSPManager::buildBSPTree() {
-    int seed = 1; // m_level->seed;
+    int seed = 1; // m_seed;
     std::cout << "Seed for BSP: " << seed << std::endl;
     if (seed == -1) {
         seed = findBestPartitioning();
@@ -21,15 +30,15 @@ void TwoHalfD::BSPManager::buildBSPTree() {
 
     m_root = std::make_unique<TwoHalfD::BSPNode>();
     std::vector<TwoHalfD::Segment> segments;
-    if (m_level->walls.size() == 0) {
+    if (m_walls.size() == 0) {
         return;
     }
-    segments.reserve(m_level->walls.size());
-    for (const auto &wall : m_level->walls) {
+    segments.reserve(m_walls.size());
+    for (const auto &wall : m_walls) {
         segments.push_back({{wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}, &wall, nullptr});
     }
 
-    for (const auto &floorSectionIt : m_level->floorSections) {
+    for (const auto &floorSectionIt : m_floorSections) {
         const auto &floorSection = floorSectionIt.second;
         size_t n = floorSection.vertices.size();
         for (size_t i{}; i < n; ++i) {
@@ -47,33 +56,38 @@ void TwoHalfD::BSPManager::buildBSPTree() {
     OptimalCostPartitioning cost{0, 0, 0};
     _buildBSPTree(m_root.get(), segments, initialBounds, -1, cost);
 
-    insertSprites(m_level->sprites);
-
     return;
 }
 
-void TwoHalfD::BSPManager::insertSprites(std::vector<SpriteEntity> &sprites) {
-    for (size_t i{}; i < sprites.size(); ++i) {
-        m_entityIdToIndex[sprites[i].id] = static_cast<int>(i);
-        _insertSprite(m_root.get(), sprites[i], i);
+std::unordered_map<int, float> TwoHalfD::BSPManager::insertSprites(const std::unordered_map<int, SpriteEntity> &entities) {
+    std::unordered_map<int, float> heightStarts;
+    for (const auto &[entityId, entity] : entities) {
+        m_spritePositions[entityId] = entity.pos.pos;
+        float h = _insertSprite(m_root.get(), entityId, entity.pos.pos);
+        heightStarts[entityId] = h;
     }
+    return heightStarts;
 }
 
-void TwoHalfD::BSPManager::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
-    auto indexIt = m_entityIdToIndex.find(entityId);
-    if (indexIt == m_entityIdToIndex.end()) return;
-    int vectorIndex = indexIt->second;
-
-    auto nodeIt = m_spriteNodeMap.find(vectorIndex);
+float TwoHalfD::BSPManager::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
+    auto nodeIt = m_spriteNodeMap.find(entityId);
     if (nodeIt != m_spriteNodeMap.end()) {
-        nodeIt->second->spriteIds.erase(vectorIndex);
+        nodeIt->second->spriteIds.erase(entityId);
     }
-    m_level->sprites[vectorIndex].pos.pos = newPos;
-    _insertSprite(m_root.get(), m_level->sprites[vectorIndex], vectorIndex);
+    m_spritePositions[entityId] = newPos;
+    return _insertSprite(m_root.get(), entityId, newPos);
 }
 
 TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
     return m_segments[id];
+}
+
+const std::vector<TwoHalfD::Wall> &TwoHalfD::BSPManager::getWalls() const {
+    return m_walls;
+}
+
+const std::unordered_map<int, TwoHalfD::FloorSection> &TwoHalfD::BSPManager::getFloorSections() const {
+    return m_floorSections;
 }
 
 std::pair<std::vector<TwoHalfD::DrawCommand>, std::unordered_set<int>> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
@@ -99,10 +113,11 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
         auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
         std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
 
-        for (const auto &spriteId : node->spriteIds) {
-            TwoHalfD::XYVectorf spritePos = m_level->sprites[spriteId].pos.pos;
-            float distance = (spritePos - cameraPos.pos).length();
-            spriteOrderedDistance.push({distance, spriteId});
+        for (const auto &entityId : node->spriteIds) {
+            auto posIt = m_spritePositions.find(entityId);
+            if (posIt == m_spritePositions.end()) continue;
+            float distance = (posIt->second - cameraPos.pos).length();
+            spriteOrderedDistance.push({distance, entityId});
         }
 
         if (!isInfrontOfCamera) {
@@ -151,10 +166,11 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
         auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
         std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
 
-        for (const auto &spriteId : node->spriteIds) {
-            TwoHalfD::XYVectorf spritePos = m_level->sprites[spriteId].pos.pos;
-            float distance = (spritePos - cameraPos.pos).length();
-            spriteOrderedDistance.push({distance, spriteId});
+        for (const auto &entityId : node->spriteIds) {
+            auto posIt = m_spritePositions.find(entityId);
+            if (posIt == m_spritePositions.end()) continue;
+            float distance = (posIt->second - cameraPos.pos).length();
+            spriteOrderedDistance.push({distance, entityId});
         }
 
         if (!isInfrontOfCamera) {
@@ -214,7 +230,8 @@ TwoHalfD::Path TwoHalfD::BSPManager::_smoothPath(const TwoHalfD::Path &path, flo
     return smoothed;
 }
 
-bool TwoHalfD::BSPManager::_hasLineOfSight(const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf &b, float entityWidth, float maxHeightDiff) {
+bool TwoHalfD::BSPManager::_hasLineOfSight(const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf &b, [[maybe_unused]] float entityWidth,
+                                           float maxHeightDiff) {
     TwoHalfD::XYVectorf dir = b - a;
     if (dir.length() < 0.001f) return true;
 
@@ -237,7 +254,7 @@ bool TwoHalfD::BSPManager::_hasLineOfSight(const TwoHalfD::XYVectorf &a, const T
         // Floor boundary — block if height diff is too large
         if (seg.isFloorBoundary()) {
             float floorHeight = seg.floorSection->height;
-            float defaultHeight = m_level->defaultFloorHeight;
+            float defaultHeight = m_defaultFloorHeight;
 
             // The floor section is on one side, default floor on the other
             float heightDiff = std::abs(floorHeight - defaultHeight);
@@ -248,14 +265,9 @@ bool TwoHalfD::BSPManager::_hasLineOfSight(const TwoHalfD::XYVectorf &a, const T
     return true;
 }
 
-// Getters and setters
-void TwoHalfD::BSPManager::setLevel(TwoHalfD::Level *level) {
-    m_level = level;
-}
-
+// Getters
 void TwoHalfD::BSPManager::buildGraph() {
-    float defaultFloorHeight = (m_level != nullptr) ? m_level->defaultFloorHeight : 0.f;
-    m_graph.build(m_root.get(), m_segments, defaultFloorHeight);
+    m_graph.build(m_root.get(), m_segments, m_defaultFloorHeight);
 }
 
 TwoHalfD::BSPGraph &TwoHalfD::BSPManager::getGraph() {
@@ -264,12 +276,12 @@ TwoHalfD::BSPGraph &TwoHalfD::BSPManager::getGraph() {
 
 int TwoHalfD::BSPManager::findBestPartitioning() {
     std::vector<TwoHalfD::Segment> segments;
-    segments.reserve(m_level->walls.size());
-    for (const auto &wall : m_level->walls) {
+    segments.reserve(m_walls.size());
+    for (const auto &wall : m_walls) {
         segments.push_back({{wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}, &wall, nullptr});
     }
 
-    for (const auto &floorSectionIt : m_level->floorSections) {
+    for (const auto &floorSectionIt : m_floorSections) {
         const auto &floorSection = floorSectionIt.second;
         size_t n = floorSection.vertices.size();
         for (size_t i{}; i < n; ++i) {
@@ -387,29 +399,32 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         backSectionFloorId = -1;
     }
     if (splitterSeg.isWall() && floorSectionId != -1) {
-        auto &floorPoly = m_level->floorSections.find(floorSectionId)->second.vertices;
+        auto floorIt = m_floorSections.find(floorSectionId);
+        if (floorIt != m_floorSections.end()) {
+            auto &floorPoly = floorIt->second.vertices;
 
-        bool anyFront = false;
-        bool anyBack = false;
+            bool anyFront = false;
+            bool anyBack = false;
 
-        for (const auto &vertex : floorPoly) {
-            bool side = isInfront(vertex - splitterSeg.v1, splitterSeg.v2 - splitterSeg.v1);
-            if (side) anyFront = true;
-            else anyBack = true;
-        }
+            for (const auto &vertex : floorPoly) {
+                bool side = isInfront(vertex - splitterSeg.v1, splitterSeg.v2 - splitterSeg.v1);
+                if (side) anyFront = true;
+                else anyBack = true;
+            }
 
-        if (anyFront && anyBack) {
-            // Wall cuts through floor section - both sides keep the floor id
-            frontSectionFloorId = floorSectionId;
-            backSectionFloorId = floorSectionId;
-        } else if (anyFront) {
-            // Floor section entirely on front side
-            frontSectionFloorId = floorSectionId;
-            backSectionFloorId = -1;
-        } else {
-            // Floor section entirely on back side
-            frontSectionFloorId = -1;
-            backSectionFloorId = floorSectionId;
+            if (anyFront && anyBack) {
+                // Wall cuts through floor section - both sides keep the floor id
+                frontSectionFloorId = floorSectionId;
+                backSectionFloorId = floorSectionId;
+            } else if (anyFront) {
+                // Floor section entirely on front side
+                frontSectionFloorId = floorSectionId;
+                backSectionFloorId = -1;
+            } else {
+                // Floor section entirely on back side
+                frontSectionFloorId = -1;
+                backSectionFloorId = floorSectionId;
+            }
         }
     }
     auto [frontSegs, backSegs] = _splitSpace(node, inputSegments, cost, saveSegments);
@@ -421,8 +436,8 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
     } else if (saveSegments) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
         node->back->bounds = backBounds;
-        auto floorSectionIt = m_level->floorSections.find(backSectionFloorId);
-        if (floorSectionIt != m_level->floorSections.end() && backSectionFloorId != -1) {
+        auto floorSectionIt = m_floorSections.find(backSectionFloorId);
+        if (floorSectionIt != m_floorSections.end() && backSectionFloorId != -1) {
             auto floorSection = TwoHalfD::FloorSection{backBounds,
                                                        floorSectionIt->second.floorTextureStart,
                                                        floorSectionId,
@@ -441,8 +456,8 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         node->front = std::make_unique<TwoHalfD::BSPNode>();
         node->front->bounds = frontBounds;
 
-        auto floorSectionIt = m_level->floorSections.find(frontSectionFloorId);
-        if (floorSectionIt != m_level->floorSections.end() && frontSectionFloorId != -1) {
+        auto floorSectionIt = m_floorSections.find(frontSectionFloorId);
+        if (floorSectionIt != m_floorSections.end() && frontSectionFloorId != -1) {
             auto floorSection = TwoHalfD::FloorSection{frontBounds,
                                                        floorSectionIt->second.floorTextureStart,
                                                        floorSectionId,
@@ -529,29 +544,28 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
     return {frontSegs, backSegs};
 }
 
-void TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, SpriteEntity &sprite, int spriteId) {
-    if (node == nullptr) return;
+float TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos) {
+    if (node == nullptr) return 0.f;
 
     // If this is a leaf node, add the sprite here
     if (node->front == nullptr && node->back == nullptr) {
         float spriteHeight = 0.f;
         if (node->floorSection != nullptr) {
             spriteHeight = node->floorSection->height;
-        } else if (m_level->defaultFloorTextureId != -1) {
-            spriteHeight = m_level->defaultFloorHeight;
+        } else if (m_defaultFloorTextureId != -1) {
+            spriteHeight = m_defaultFloorHeight;
         }
-        sprite.heightStart = spriteHeight;
-        node->spriteIds.insert(spriteId);
-        m_spriteNodeMap[spriteId] = node;
-        return;
+        node->spriteIds.insert(entityId);
+        m_spriteNodeMap[entityId] = node;
+        return spriteHeight;
     }
 
-    float isInfrontOfSplit = isInfront(sprite.pos.pos - node->splitterP0, node->splitterVec);
+    float isInfrontOfSplit = isInfront(pos - node->splitterP0, node->splitterVec);
 
     if (isInfrontOfSplit > std::numeric_limits<float>::epsilon()) {
-        _insertSprite(node->front.get(), sprite, spriteId);
+        return _insertSprite(node->front.get(), entityId, pos);
     } else {
-        _insertSprite(node->back.get(), sprite, spriteId);
+        return _insertSprite(node->back.get(), entityId, pos);
     }
 }
 
