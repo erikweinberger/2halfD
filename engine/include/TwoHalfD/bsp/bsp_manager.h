@@ -22,14 +22,17 @@ static constexpr float BSP_EPSILON = 0.01f;
 
 class BSPManager {
   public:
-    BSPManager() : m_level(nullptr) {}
-    BSPManager(TwoHalfD::Level *level) : m_level(level) {}
+    BSPManager() = default;
+
+    // Initialization — takes ownership of level geometry
+    void init(std::vector<Wall> walls, std::unordered_map<int, FloorSection> floorSections, float defaultFloorHeight, int defaultFloorTextureId,
+              int seed);
 
     // Construction
     void buildBSPTree();
     void buildGraph();
-    void insertSprites(std::vector<SpriteEntity> &sprites);
-    void moveSprite(int spriteId, TwoHalfD::XYVectorf newPos);
+    std::unordered_map<int, float> insertSprites(const std::unordered_map<int, SpriteEntity> &entities);
+    float moveSprite(int entityId, TwoHalfD::XYVectorf newPos);
 
     // Core functions
     TwoHalfD::BSPNode *findConvexSection(const TwoHalfD::XYVectorf &point);
@@ -41,10 +44,11 @@ class BSPManager {
     void traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalfD::DrawCommand> &commands, std::unordered_set<int> &floorSectionIds,
                   const TwoHalfD::Position &cameraPos, const TwoHalfD::XYVectorf &cameraDir);
 
-    // Getters and setters
-    void setLevel(TwoHalfD::Level *level);
+    // Getters
     TwoHalfD::Segment &getSegment(int id);
     TwoHalfD::BSPGraph &getGraph();
+    const std::vector<Wall> &getWalls() const;
+    const std::unordered_map<int, FloorSection> &getFloorSections() const;
 
     // BSP optimization
     int findBestPartitioning();
@@ -58,10 +62,16 @@ class BSPManager {
                             float maxDistance);
 
   private:
-    TwoHalfD::Level *m_level;
+    // Owned level geometry
+    std::vector<Wall> m_walls;
+    std::unordered_map<int, FloorSection> m_floorSections;
+    float m_defaultFloorHeight = 0.f;
+    int m_defaultFloorTextureId = -1;
+    int m_seed = -1;
+
     std::unique_ptr<TwoHalfD::BSPNode> m_root;
-    std::unordered_map<int, TwoHalfD::BSPNode *> m_spriteNodeMap; // keyed by vector index
-    std::unordered_map<int, int> m_entityIdToIndex;               // entity.id → vector index
+    std::unordered_map<int, TwoHalfD::BSPNode *> m_spriteNodeMap; // entityId → BSP node
+    std::unordered_map<int, XYVectorf> m_spritePositions;         // entityId → position (for traverse)
     TwoHalfD::BSPGraph m_graph;
     std::vector<TwoHalfD::Segment> m_segments;
     size_t m_segmentID = 0;
@@ -78,7 +88,7 @@ class BSPManager {
 
     // Construction
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
-    void _insertSprite(TwoHalfD::BSPNode *node, TwoHalfD::SpriteEntity &sprite, int spriteId);
+    float _insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos);
 
     // Core functionality
     TwoHalfD::BSPNode *_findConvexSection(const TwoHalfD::XYVectorf &point, TwoHalfD::BSPNode *node);

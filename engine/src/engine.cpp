@@ -8,13 +8,34 @@
 void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
     m_window.setMouseCursorVisible(false);
-    m_level = m_levelMaker.parseLevelFile(levelFilePath);
-    m_bspManager.setLevel(&m_level);
+
+    // Parse level file into temporary Level struct
+    TwoHalfD::Level level = m_levelMaker.parseLevelFile(levelFilePath);
+
+    // Distribute data to subsystems
+    m_textures = std::move(level.textures);
+    m_defaultFloorHeight = level.defaultFloorHeight;
+    m_defaultFloorTextureId = level.defaultFloorTextureId;
+    m_defaultFloorStart = level.defaultFloorStart;
+
+    // EntityManager takes sprites
+    for (auto &sprite : level.sprites) {
+        m_entityManager.addEntity(std::move(sprite));
+    }
+
+    // BSPManager takes walls and floor sections
+    m_bspManager.init(std::move(level.walls), std::move(level.floorSections), m_defaultFloorHeight, m_defaultFloorTextureId, level.seed);
     m_bspManager.buildBSPTree();
     m_bspManager.buildGraph();
-    for (const auto &sprite : m_level.sprites) {
-        m_entityManager.addEntity(sprite);
+
+    // Insert sprites into BSP and update their heightStarts
+    auto heightStarts = m_bspManager.insertSprites(m_entityManager.getAllEntities());
+    for (const auto &[entityId, heightStart] : heightStarts) {
+        m_entityManager.setHeightStart(entityId, heightStart);
     }
+
+    // Set up renderer data sources
+    m_renderer.setData(&m_textures, &m_entityManager, m_defaultFloorHeight, m_defaultFloorTextureId, m_defaultFloorStart);
 }
 
 // Game Inputs
@@ -42,12 +63,13 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
 
     auto movedEntities = m_entityManager.update(0.f);
     for (const auto &[entityId, newPos] : movedEntities) {
-        m_bspManager.moveSprite(entityId, newPos);
+        float newHeight = m_bspManager.moveSprite(entityId, newPos);
+        m_entityManager.setHeightStart(entityId, newHeight);
     }
 
     auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
     m_cameraObject.cameraHeightStart =
-        convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_level.defaultFloorStart.y;
+        convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_defaultFloorHeight;
 }
 
 bool TwoHalfD::Engine::gameDeltaTimePassed() {
@@ -119,18 +141,18 @@ const std::unordered_map<int, TwoHalfD::SpriteEntity> &TwoHalfD::Engine::getAllS
     return m_entityManager.getAllEntities();
 }
 
-std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls() {
-    return m_level.walls;
+const std::vector<TwoHalfD::Wall> &TwoHalfD::Engine::getAllWalls() {
+    return m_bspManager.getWalls();
 }
 
 void TwoHalfD::Engine::render() {
-    m_renderer.render(m_cameraObject, m_level, m_bspManager);
+    m_renderer.render(m_cameraObject, m_bspManager);
 }
 
-void TwoHalfD::Engine::walkTo(const int entityId, const TwoHalfD::XYVectorf targetPos) {
+void TwoHalfD::Engine::walkTo(const int entityId, const TwoHalfD::XYVectorf targetPos, float maxHeightDiff, float maxDistance) {
     auto entity = m_entityManager.getEntity(entityId);
     if (!entity) return;
-    auto path = getPathfindingPoints(entity->pos.pos, targetPos, entity->radius, 20.f, 10000.f);
+    auto path = getPathfindingPoints(entity->pos.pos, targetPos, entity->radius, maxHeightDiff, maxDistance);
     m_entityManager.walkTo(entityId, path);
 }
 

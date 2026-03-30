@@ -52,22 +52,25 @@ int main() {
     fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level1.txt";
     TwoHalfD::Level level = levelMaker.parseLevelFile(levelFile.string());
 
-    TwoHalfD::BSPManager bspManager(&level);
+    TwoHalfD::BSPManager bspManager;
+    bspManager.init(std::move(level.walls), std::move(level.floorSections), level.defaultFloorHeight, level.defaultFloorTextureId, level.seed);
     bspManager.buildBSPTree();
     bspManager.buildGraph();
 
     const TwoHalfD::BSPGraph &graph = bspManager.getGraph();
+    const auto &walls = bspManager.getWalls();
+    const auto &floorSections = bspManager.getFloorSections();
 
     // Compute world bounding box
     float minX = std::numeric_limits<float>::max(), minY = std::numeric_limits<float>::max();
     float maxX = std::numeric_limits<float>::lowest(), maxY = std::numeric_limits<float>::lowest();
-    for (const auto &wall : level.walls) {
+    for (const auto &wall : walls) {
         minX = std::min({minX, wall.start.x, wall.end.x});
         minY = std::min({minY, wall.start.y, wall.end.y});
         maxX = std::max({maxX, wall.start.x, wall.end.x});
         maxY = std::max({maxY, wall.start.y, wall.end.y});
     }
-    for (const auto &[id, fs] : level.floorSections) {
+    for (const auto &[id, fs] : floorSections) {
         for (const auto &v : fs.vertices) {
             minX = std::min(minX, v.x);
             minY = std::min(minY, v.y);
@@ -175,12 +178,12 @@ int main() {
             drawDot(graph.getNode(exploredNodes[step]).centroid, 6.f, sf::Color(255, 220, 0));
 
         // --- White: floor section boundaries and walls (drawn on top) ---
-        for (const auto &[id, floorSec] : level.floorSections) {
+        for (const auto &[id, floorSec] : floorSections) {
             int n = static_cast<int>(floorSec.vertices.size());
             for (int i = 0; i < n; ++i)
                 drawLine(floorSec.vertices[i], floorSec.vertices[(i + 1) % n], sf::Color(220, 220, 220));
         }
-        for (const auto &wall : level.walls)
+        for (const auto &wall : walls)
             drawLine({wall.start.x, wall.start.y}, {wall.end.x, wall.end.y}, sf::Color::White);
 
         // --- Green: final path ---

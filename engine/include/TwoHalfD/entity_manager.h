@@ -1,7 +1,10 @@
+#ifndef ENTITY_MANAGER_H
+#define ENTITY_MANAGER_H
+
 #include "TwoHalfD/types/entity_types.h"
-#include <TwoHalfD/engine_types.h>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 namespace TwoHalfD {
 
@@ -16,6 +19,7 @@ class EntityManager {
     const std::unordered_map<int, TwoHalfD::SpriteEntity> &getAllEntities() const;
 
     void walkTo(int entityId, const TwoHalfD::Path &path);
+    void setHeightStart(int entityId, float heightStart);
 
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime);
 
@@ -25,3 +29,5 @@ class EntityManager {
     void _tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update);
 };
 } // namespace TwoHalfD
+
+#endif
