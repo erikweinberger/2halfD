@@ -40,7 +40,7 @@ TwoHalfD::Renderer::Renderer(sf::RenderWindow &window, const EngineSettings &set
 }
 
 void TwoHalfD::Renderer::setData(const std::unordered_map<int, TextureSignature> *textures, const EntityManager *entityManager,
-                                  float defaultFloorHeight, int defaultFloorTextureId, XYVectorf defaultFloorStart) {
+                                 float defaultFloorHeight, int defaultFloorTextureId, XYVectorf defaultFloorStart) {
     m_textures = textures;
     m_entityManager = entityManager;
     m_defaultFloorHeight = defaultFloorHeight;
@@ -149,8 +149,7 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
     float p_xScreenPosV1 = halfXRes + p_focalLength * signedLateralDistV1 / singedPerpWorldDistanceStart;
     float p_xScreenPosV2 = halfXRes + p_focalLength * signedLateralDistV2 / singedPerpWorldDistanceEnd;
 
-    if ((p_xScreenPosV1 > m_settings.resolution.x && p_xScreenPosV2 > m_settings.resolution.x) ||
-        (p_xScreenPosV2 < 0 && p_xScreenPosV1 < 0)) {
+    if ((p_xScreenPosV1 > m_settings.resolution.x && p_xScreenPosV2 > m_settings.resolution.x) || (p_xScreenPosV2 < 0 && p_xScreenPosV1 < 0)) {
         return;
     }
 
@@ -207,9 +206,22 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
 }
 
 void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity, const CameraObject &camera) {
-    auto it = m_textures->find(spriteEntity.textureId);
+    int textureId = spriteEntity.textureId;
+
+    if (spriteEntity.currentAnimation) {
+        const auto &animState = *spriteEntity.currentAnimation;
+        const auto *templates = m_entityManager->getAnimationTemplates();
+        if (templates) {
+            auto tmplIt = templates->find(animState.templateId);
+            if (tmplIt != templates->end() && !tmplIt->second.frames.empty()) {
+                textureId = tmplIt->second.frames[animState.frameIndex].textureId;
+            }
+        }
+    }
+
+    auto it = m_textures->find(textureId);
     if (it == m_textures->end()) {
-        std::cerr << "No texture found for sprite: " << spriteEntity.id << " with texture id: " << spriteEntity.textureId << std::endl;
+        std::cerr << "No texture found for sprite: " << spriteEntity.id << " with texture id: " << textureId << std::endl;
         exit(1);
     }
 
@@ -235,9 +247,8 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
         return;
     }
 
-    const float bottomOfSpriteScreen =
-        focalLength * (camera.cameraHeight + camera.cameraHeightStart - spriteEntity.heightStart) / perpWorldDistance +
-        m_settings.resolution.y / 2.0f;
+    const float bottomOfSpriteScreen = focalLength * (camera.cameraHeight + camera.cameraHeightStart - spriteEntity.heightStart) / perpWorldDistance +
+                                       m_settings.resolution.y / 2.0f;
     const float topSpriteScreen =
         focalLength * (camera.cameraHeight + camera.cameraHeightStart - spriteEntity.height - spriteEntity.heightStart) / perpWorldDistance +
         m_settings.resolution.y / 2.0f;

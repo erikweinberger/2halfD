@@ -4,10 +4,8 @@
 #include "circular_buffer.hpp"
 #include "time_delta.h"
 
-namespace TwoHalfD
-{
-class EngineClocks
-{
+namespace TwoHalfD {
+class EngineClocks {
   private:
     double m_graphicsFpsCap;
     double m_gameFpsCap;
@@ -20,14 +18,14 @@ class EngineClocks
 
   public:
     EngineClocks(double graphicsFpsCap = 100.0, double gameFpsCap = 60.0, bool graphicsFpsUncapped = false, bool gamesFpsUncapped = false)
-        : m_graphicsFpsCap(graphicsFpsCap), m_gameFpsCap(gameFpsCap), m_graphicsFpsUncapped(graphicsFpsUncapped), m_gamesFpsUncapped(gamesFpsUncapped)
-    {
-    }
+        : m_graphicsFpsCap(graphicsFpsCap), m_gameFpsCap(gameFpsCap), m_graphicsFpsUncapped(graphicsFpsUncapped),
+          m_gamesFpsUncapped(gamesFpsUncapped) {}
 
     bool graphicsTimeDeltaPassed();
     bool gameTimeDeltaPassed();
 
     double getAverageGraphicsFps();
+    double getGameDeltaTime() const;
 };
 } // namespace TwoHalfD
 

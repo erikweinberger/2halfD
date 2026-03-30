@@ -60,6 +60,11 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
             result_level.floorSections[floorSection.id] = floorSection;
             break;
         }
+        case TwoHalfD::EntityTypes::animationTemplate: {
+            TwoHalfD::AnimationTemplate animTemplate = _makeAnimationTemplate(line);
+            result_level.animationTemplates[animTemplate.id] = animTemplate;
+            break;
+        }
         default:
             break;
         }
@@ -68,8 +73,8 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
     result_level.textures = std::move(m_textures);
     result_level.walls = std::move(m_walls);
     result_level.sprites = std::move(m_spriteEntities);
-    std::cerr << "Loaded all things lenTex: " << result_level.textures.size() << "len of wall: " << result_level.walls.size()
-              << " len of sprites: " << result_level.sprites.size() << '\n';
+    std::cerr << "Loaded all things lenTex: " << result_level.textures.size() << " len of wall: " << result_level.walls.size()
+              << " len of sprites: " << result_level.sprites.size() << " len of animTemplates: " << result_level.animationTemplates.size() << '\n';
 
     return result_level;
 }
@@ -193,7 +198,7 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
         std::cerr << "No valid texture for spriteEntity at: (" << posX << " , " << posY << ")\n";
     }
 
-    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scale, 0.f, 10.f, std::nullopt};
+    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scale, 0.f, 5.f, std::nullopt};
 }
 
 std::pair<int, TwoHalfD::XYVectorf> TwoHalfD::LevelMaker::_makeDefaultFloor(std::string floorString) {
@@ -265,4 +270,32 @@ TwoHalfD::FloorSection TwoHalfD::LevelMaker::_makeFloorSection(std::string floor
     bool isCCW = isCounterClockwise(vertices);
 
     return TwoHalfD::FloorSection{vertices, {floorStartX, floorStartY}, m_entityId++, textureId, height, isCCW};
+}
+
+TwoHalfD::AnimationTemplate TwoHalfD::LevelMaker::_makeAnimationTemplate(std::string animTemplateString) {
+    std::string word;
+    std::stringstream ss(animTemplateString);
+    int templateId = 0;
+    float frameDuration = 0.1f;
+    std::vector<AnimationFrame> frames;
+
+    for (int i = 0; std::getline(ss, word, ' '); ++i) {
+        switch (i) {
+        case 0:
+            break;
+        case 1:
+            templateId = std::stoi(word);
+            break;
+        case 2:
+            frameDuration = std::stof(word);
+            break;
+        default:
+            frames.push_back({std::stoi(word), frameDuration});
+            break;
+        }
+    }
+
+    std::cerr << "Loaded animation template id: " << templateId << " frames: " << frames.size() << '\n';
+
+    return TwoHalfD::AnimationTemplate{templateId, frames};
 }

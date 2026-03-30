@@ -50,6 +50,9 @@ void Game::updateGameState() {
     for (const auto &[id, entity] : sprites) {
         if (frameCount % 60 == 0) {
             m_engine.walkTo(entity.id, m_gameState.playerState.playerPos.pos, 25.f, 10000.f);
+            m_engine.setAnimation(entity.id, 1, true);
+        } else if (!entity.currentUpdate) {
+            m_engine.clearAnimation(entity.id);
         }
     }
     frameCount++;

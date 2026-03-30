@@ -1,3 +1,4 @@
+#include "TwoHalfD/types/animation_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include <TwoHalfD/entity_manager.h>
 
@@ -53,12 +54,73 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
             },
             *entity.currentUpdate);
 
+        if (entity.currentAnimation && _tickAnimation(*entity.currentAnimation, deltaTime)) entity.currentAnimation = std::nullopt;
+        if (entity.animationOverlay && _tickAnimation(*entity.animationOverlay, deltaTime)) entity.animationOverlay = std::nullopt;
+
         if (entity.pos.pos.x != prevPos.x || entity.pos.pos.y != prevPos.y) {
             movedEntities.push_back({id, entity.pos.pos});
         }
     }
 
     return movedEntities;
+}
+
+void TwoHalfD::EntityManager::setAnimationTemplates(const std::unordered_map<int, TwoHalfD::AnimationTemplate> &templates) {
+    m_animationTemplates = &templates;
+}
+
+const std::unordered_map<int, TwoHalfD::AnimationTemplate> *TwoHalfD::EntityManager::getAnimationTemplates() const {
+    return m_animationTemplates;
+}
+
+void TwoHalfD::EntityManager::setAnimation(int entityId, int templateId, bool loop) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.currentAnimation = TwoHalfD::AnimationState{templateId, 0, 0.f, loop};
+}
+
+void TwoHalfD::EntityManager::clearAnimation(int entityId) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.currentAnimation = std::nullopt;
+}
+
+void TwoHalfD::EntityManager::setAnimationOverlay(int entityId, int templateId, bool loop) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.animationOverlay = TwoHalfD::AnimationState{templateId, 0, 0.f, loop};
+}
+
+void TwoHalfD::EntityManager::clearAnimationOverlay(int entityId) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.animationOverlay = std::nullopt;
+}
+
+bool TwoHalfD::EntityManager::_tickAnimation(TwoHalfD::AnimationState &state, float deltaTime) {
+    if (!m_animationTemplates) return false;
+    auto it = m_animationTemplates->find(state.templateId);
+    if (it == m_animationTemplates->end()) return false;
+
+    const auto &tmpl = it->second;
+    if (tmpl.frames.empty()) return false;
+
+    state.elapsedTime += deltaTime;
+    const auto &currentFrame = tmpl.frames[state.frameIndex];
+
+    while (state.elapsedTime >= currentFrame.duration) {
+        state.elapsedTime -= currentFrame.duration;
+        state.frameIndex++;
+
+        if (state.frameIndex >= static_cast<int>(tmpl.frames.size())) {
+            if (state.loop) {
+                state.frameIndex = 0;
+            } else {
+                return true; // finished
+            }
+        }
+    }
+    return false;
 }
 
 void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update) {

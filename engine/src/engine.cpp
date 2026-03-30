@@ -18,6 +18,10 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     m_defaultFloorTextureId = level.defaultFloorTextureId;
     m_defaultFloorStart = level.defaultFloorStart;
 
+    // Animation templates
+    m_animationTemplates = std::move(level.animationTemplates);
+    m_entityManager.setAnimationTemplates(m_animationTemplates);
+
     // EntityManager takes sprites
     for (auto &sprite : level.sprites) {
         m_entityManager.addEntity(std::move(sprite));
@@ -61,7 +65,8 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         }
     }
 
-    auto movedEntities = m_entityManager.update(0.f);
+    float deltaTime = static_cast<float>(m_engineClocks.getGameDeltaTime());
+    auto movedEntities = m_entityManager.update(deltaTime);
     for (const auto &[entityId, newPos] : movedEntities) {
         float newHeight = m_bspManager.moveSprite(entityId, newPos);
         m_entityManager.setHeightStart(entityId, newHeight);
@@ -154,6 +159,19 @@ void TwoHalfD::Engine::walkTo(const int entityId, const TwoHalfD::XYVectorf targ
     if (!entity) return;
     auto path = getPathfindingPoints(entity->pos.pos, targetPos, entity->radius, maxHeightDiff, maxDistance);
     m_entityManager.walkTo(entityId, path);
+}
+
+void TwoHalfD::Engine::setAnimation(int entityId, int templateId, bool loop) {
+    m_entityManager.setAnimation(entityId, templateId, loop);
+}
+void TwoHalfD::Engine::clearAnimation(int entityId) {
+    m_entityManager.clearAnimation(entityId);
+}
+void TwoHalfD::Engine::setAnimationOverlay(int entityId, int templateId, bool loop) {
+    m_entityManager.setAnimationOverlay(entityId, templateId, loop);
+}
+void TwoHalfD::Engine::clearAnimationOverlay(int entityId) {
+    m_entityManager.clearAnimationOverlay(entityId);
 }
 
 std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth,

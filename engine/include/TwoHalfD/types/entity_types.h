@@ -1,6 +1,7 @@
 #ifndef ENTITY_TYPES_H
 #define ENTITY_TYPES_H
 
+#include "TwoHalfD/types/animation_types.h"
 #include "TwoHalfD/types/math_types.h"
 
 #include <SFML/Graphics/Texture.hpp>
@@ -57,9 +58,11 @@ struct SpriteEntity {
     int textureId;
     float scale;
     float heightStart = 0.f;
-    float speed = 10.f;
+    float speed = 5.f;
 
     std::optional<EntityUpdate> currentUpdate;
+    std::optional<AnimationState> currentAnimation;
+    std::optional<AnimationState> animationOverlay;
 };
 
 } // namespace TwoHalfD

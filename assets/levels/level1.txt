@@ -5,6 +5,17 @@
 # Sprite Entity textures
 0 3 textures/enemy_1.png 2
 
+# Animation textures
+0 4 textures/animations/enemy_1_walk/enemy_1_walk_0.png 2
+0 5 textures/animations/enemy_1_walk/enemy_1_walk_1.png 2
+0 6 textures/animations/enemy_1_walk/enemy_1_walk_2.png 2
+0 7 textures/animations/enemy_1_walk/enemy_1_walk_3.png 2
+0 8 textures/animations/enemy_1_walk/enemy_1_walk_4.png 2
+
+# Animation templates
+# format: 6 <templateId> <frameDuration> <textureIds...>
+6 1 0.1 5 6 7 8
+
 # Floor default
 4 1 0 0
 

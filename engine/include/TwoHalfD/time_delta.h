@@ -3,11 +3,9 @@
 
 #include <chrono>
 
-namespace TwoHalfD
-{
+namespace TwoHalfD {
 
-class TimeDelta
-{
+class TimeDelta {
   private:
     double m_timeDelta;
     double m_lastDeltaDurationMilli;
@@ -18,12 +16,10 @@ class TimeDelta
   public:
     TimeDelta(double timeDelta, bool isUncapped = false)
         : m_timeDelta(timeDelta), m_lastDeltaDurationMilli(0.01), m_isUncapped(isUncapped),
-          m_lastTimeDeltaIntervalStart(std::chrono::system_clock::now()), m_lastTime((std::chrono::system_clock::now()))
-    {
-    }
+          m_lastTimeDeltaIntervalStart(std::chrono::system_clock::now()), m_lastTime((std::chrono::system_clock::now())) {}
 
     bool timeDeltaPassed();
-    double getLastDeltaDuration();
+    double getLastDeltaDuration() const;
 };
 
 } // namespace TwoHalfD

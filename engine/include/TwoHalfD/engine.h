@@ -25,6 +25,7 @@ class Engine {
 
     // Level data owned by Engine after initialization
     std::unordered_map<int, TextureSignature> m_textures;
+    std::unordered_map<int, AnimationTemplate> m_animationTemplates;
     float m_defaultFloorHeight = 0.f;
     int m_defaultFloorTextureId = -1;
     XYVectorf m_defaultFloorStart{};
@@ -67,6 +68,11 @@ class Engine {
     const std::unordered_map<int, TwoHalfD::SpriteEntity> &getAllSpriteEntities();
     TwoHalfD::EntityManager &getEntityManager();
     void walkTo(int entityId, TwoHalfD::XYVectorf targetPos, float maxHeightDiff = 0.f, float maxDistance = 10000.f);
+
+    void setAnimation(int entityId, int templateId, bool loop = false);
+    void clearAnimation(int entityId);
+    void setAnimationOverlay(int entityId, int templateId, bool loop = false);
+    void clearAnimationOverlay(int entityId);
     std::vector<TwoHalfD::XYVectorf> getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth, float maxHeightDiff,
                                                           float maxDistance);
 
