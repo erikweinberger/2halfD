@@ -1,6 +1,7 @@
 #ifndef ENTITY_MANAGER_H
 #define ENTITY_MANAGER_H
 
+#include "TwoHalfD/types/animation_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include <optional>
 #include <unordered_map>
@@ -21,12 +22,22 @@ class EntityManager {
     void walkTo(int entityId, const TwoHalfD::Path &path);
     void setHeightStart(int entityId, float heightStart);
 
+    void setAnimation(int entityId, int templateId, bool loop = false);
+    void clearAnimation(int entityId);
+    void setAnimationOverlay(int entityId, int templateId, bool loop = false);
+    void clearAnimationOverlay(int entityId);
+
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime);
+
+    void setAnimationTemplates(const std::unordered_map<int, TwoHalfD::AnimationTemplate> &templates);
+    const std::unordered_map<int, TwoHalfD::AnimationTemplate> *getAnimationTemplates() const;
 
   private:
     std::unordered_map<int, TwoHalfD::SpriteEntity> m_entities;
+    const std::unordered_map<int, TwoHalfD::AnimationTemplate> *m_animationTemplates = nullptr;
 
     void _tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update);
+    bool _tickAnimation(TwoHalfD::AnimationState &state, float deltaTime);
 };
 } // namespace TwoHalfD
 

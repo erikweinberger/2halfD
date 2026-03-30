@@ -40,6 +40,7 @@ struct Level {
     std::vector<SpriteEntity> sprites;
     std::unordered_map<int, TwoHalfD::TextureSignature> textures;
     std::unordered_map<int, FloorSection> floorSections;
+    std::unordered_map<int, AnimationTemplate> animationTemplates;
 
     float cameraHeightStart;
     int seed = -1; // BSP seed, -1 means auto find best seed

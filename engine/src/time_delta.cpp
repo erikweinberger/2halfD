@@ -1,13 +1,11 @@
 #include "TwoHalfD/time_delta.h"
 #include <chrono>
 
-bool TwoHalfD::TimeDelta::timeDeltaPassed()
-{
+bool TwoHalfD::TimeDelta::timeDeltaPassed() {
     auto currTime = std::chrono::system_clock::now();
     double currInterval = std::chrono::duration<double, std::milli>(currTime - m_lastTimeDeltaIntervalStart).count();
 
-    if (currInterval > m_timeDelta * 1000 || m_isUncapped)
-    {
+    if (currInterval > m_timeDelta * 1000 || m_isUncapped) {
         m_lastDeltaDurationMilli = currInterval;
         m_lastTimeDeltaIntervalStart = std::chrono::system_clock::now();
         m_lastTime = std::chrono::system_clock::now();
@@ -18,7 +16,6 @@ bool TwoHalfD::TimeDelta::timeDeltaPassed()
     return false;
 }
 
-double TwoHalfD::TimeDelta::getLastDeltaDuration()
-{
+double TwoHalfD::TimeDelta::getLastDeltaDuration() const {
     return m_lastDeltaDurationMilli;
 }

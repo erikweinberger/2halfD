@@ -21,6 +21,7 @@ enum EntityTypes {
     seed,
     floorDefault,
     floorSection,
+    animationTemplate,
 };
 
 class LevelMaker {
@@ -41,6 +42,7 @@ class LevelMaker {
     TwoHalfD::SpriteEntity _makeSpriteEntity(std::string spriteString);
     std::pair<int, XYVectorf> _makeDefaultFloor(std::string floorDefaultString);
     TwoHalfD::FloorSection _makeFloorSection(std::string floorSectionString);
+    TwoHalfD::AnimationTemplate _makeAnimationTemplate(std::string animTemplateString);
 };
 } // namespace TwoHalfD
 
