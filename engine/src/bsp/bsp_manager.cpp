@@ -110,7 +110,7 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
     if (node->front == nullptr && node->back == nullptr) {
 
-        auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
+        auto cmp = [](const auto &a, const auto &b) { return a.first < b.first; };
         std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
 
         for (const auto &entityId : node->spriteIds) {
@@ -163,7 +163,7 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
             commands.push_back(DrawCommand::makeFloorSection(node->floorSection.get()));
         }
 
-        auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
+        auto cmp = [](const auto &a, const auto &b) { return a.first < b.first; };
         std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
 
         for (const auto &entityId : node->spriteIds) {
@@ -173,16 +173,9 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
             spriteOrderedDistance.push({distance, entityId});
         }
 
-        if (!isInfrontOfCamera) {
-            while (!spriteOrderedDistance.empty()) {
-                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
-                spriteOrderedDistance.pop();
-            }
-        } else {
-            while (!spriteOrderedDistance.empty()) {
-                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
-                spriteOrderedDistance.pop();
-            }
+        while (!spriteOrderedDistance.empty()) {
+            commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
+            spriteOrderedDistance.pop();
         }
         return;
     }

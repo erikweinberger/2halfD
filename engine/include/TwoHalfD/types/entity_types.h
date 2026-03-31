@@ -62,7 +62,7 @@ struct SpriteEntity {
 
     std::optional<EntityUpdate> currentUpdate;
     std::optional<AnimationState> currentAnimation;
-    std::optional<AnimationState> animationOverlay;
+    OverlayStack overlays;
 };
 
 } // namespace TwoHalfD

@@ -55,7 +55,14 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
             *entity.currentUpdate);
 
         if (entity.currentAnimation && _tickAnimation(*entity.currentAnimation, deltaTime)) entity.currentAnimation = std::nullopt;
-        if (entity.animationOverlay && _tickAnimation(*entity.animationOverlay, deltaTime)) entity.animationOverlay = std::nullopt;
+
+        // Tick overlays in reverse so removal doesn't skip elements
+        for (int i = static_cast<int>(entity.overlays.count) - 1; i >= 0; --i) {
+            auto &overlay = entity.overlays.overlays[i];
+            if (overlay.active && _tickAnimation(overlay.animState, deltaTime)) {
+                entity.overlays.remove(overlay.overlayId);
+            }
+        }
 
         if (entity.pos.pos.x != prevPos.x || entity.pos.pos.y != prevPos.y) {
             movedEntities.push_back({id, entity.pos.pos});
@@ -85,16 +92,22 @@ void TwoHalfD::EntityManager::clearAnimation(int entityId) {
     it->second.currentAnimation = std::nullopt;
 }
 
-void TwoHalfD::EntityManager::setAnimationOverlay(int entityId, int templateId, bool loop) {
+int TwoHalfD::EntityManager::addOverlay(int entityId, int templateId, float x, float y, float scale, int zOrder, bool loop) {
     auto it = m_entities.find(entityId);
-    if (it == m_entities.end()) return;
-    it->second.animationOverlay = TwoHalfD::AnimationState{templateId, 0, 0.f, loop};
+    if (it == m_entities.end()) return -1;
+    return it->second.overlays.add(templateId, x, y, scale, zOrder, loop);
 }
 
-void TwoHalfD::EntityManager::clearAnimationOverlay(int entityId) {
+void TwoHalfD::EntityManager::removeOverlay(int entityId, int overlayId) {
     auto it = m_entities.find(entityId);
     if (it == m_entities.end()) return;
-    it->second.animationOverlay = std::nullopt;
+    it->second.overlays.remove(overlayId);
+}
+
+void TwoHalfD::EntityManager::clearOverlays(int entityId) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.overlays.clear();
 }
 
 bool TwoHalfD::EntityManager::_tickAnimation(TwoHalfD::AnimationState &state, float deltaTime) {

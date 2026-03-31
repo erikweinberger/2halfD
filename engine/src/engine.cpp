@@ -167,11 +167,14 @@ void TwoHalfD::Engine::setAnimation(int entityId, int templateId, bool loop) {
 void TwoHalfD::Engine::clearAnimation(int entityId) {
     m_entityManager.clearAnimation(entityId);
 }
-void TwoHalfD::Engine::setAnimationOverlay(int entityId, int templateId, bool loop) {
-    m_entityManager.setAnimationOverlay(entityId, templateId, loop);
+int TwoHalfD::Engine::addOverlay(int entityId, int templateId, float x, float y, float scale, int zOrder, bool loop) {
+    return m_entityManager.addOverlay(entityId, templateId, x, y, scale, zOrder, loop);
 }
-void TwoHalfD::Engine::clearAnimationOverlay(int entityId) {
-    m_entityManager.clearAnimationOverlay(entityId);
+void TwoHalfD::Engine::removeOverlay(int entityId, int overlayId) {
+    m_entityManager.removeOverlay(entityId, overlayId);
+}
+void TwoHalfD::Engine::clearOverlays(int entityId) {
+    m_entityManager.clearOverlays(entityId);
 }
 
 std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth,

@@ -263,6 +263,43 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
     sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
     m_renderTexture.draw(sprite);
+
+    // Render overlays (already sorted by zOrder)
+    const auto *templates = m_entityManager->getAnimationTemplates();
+    if (!templates) return;
+
+    const float spriteWidthScreen = spriteHeightScreen * (static_cast<float>(texSize.x) / texSize.y);
+    const float spriteLeft = spriteScreenX - spriteWidthScreen / 2.0f;
+    const float spriteTop = topSpriteScreen;
+
+    for (size_t i = 0; i < spriteEntity.overlays.count; ++i) {
+        const auto &overlay = spriteEntity.overlays.overlays[i];
+        if (!overlay.active) continue;
+
+        auto tmplIt = templates->find(overlay.animState.templateId);
+        if (tmplIt == templates->end() || tmplIt->second.frames.empty()) continue;
+
+        int overlayTexId = tmplIt->second.frames[overlay.animState.frameIndex].textureId;
+        auto overlayTexIt = m_textures->find(overlayTexId);
+        if (overlayTexIt == m_textures->end()) continue;
+
+        const sf::Texture &overlayTex = overlayTexIt->second.texture;
+        const sf::Vector2u overlayTexSize = overlayTex.getSize();
+
+        sf::Sprite overlaySprite;
+        overlaySprite.setTexture(overlayTex);
+        overlaySprite.setOrigin(overlayTexSize.x / 2.0f, overlayTexSize.y / 2.0f);
+
+        float overlayScale = (spriteHeightScreen / overlayTexSize.y) * overlay.scale;
+        overlaySprite.setScale(overlayScale, overlayScale);
+
+        float ox = spriteLeft + overlay.x * spriteWidthScreen;
+        float oy = spriteTop + overlay.y * spriteHeightScreen;
+        overlaySprite.setPosition(ox, oy);
+
+        overlaySprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
+        m_renderTexture.draw(overlaySprite);
+    }
 }
 
 void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorSection, const CameraObject &camera) {
@@ -307,7 +344,7 @@ void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorS
         float perpWorldDistance = dotProduct(cameraVertexVec, n_direction);
         float lateralDist = dotProduct(cameraVertexVec, n_plane);
         float p_xScreenPos = (m_settings.resolution.x / 2.0f) + focalLength * lateralDist / perpWorldDistance;
-        float p_yScreenPos = (m_settings.resolution.y / 2.0f) + focalLength * (camera.cameraHeight - floorSection->height) / perpWorldDistance;
+        float p_yScreenPos = (m_settings.resolution.y / 2.0f) + focalLength * (camera.cameraHeight + camera.cameraHeightStart - floorSection->height) / perpWorldDistance;
         floorShape[i].position = sf::Vector2f(p_xScreenPos, p_yScreenPos);
     }
 

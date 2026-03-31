@@ -54,6 +54,11 @@ void Game::updateGameState() {
         } else if (!entity.currentUpdate) {
             m_engine.clearAnimation(entity.id);
         }
+
+        // Every 3 seconds, add a "shooting" overlay (using walk template 1 as placeholder)
+        if (frameCount % 180 == 0) {
+            m_engine.addOverlay(entity.id, /*templateId=*/2, /*x=*/0.5f, /*y=*/0.5f, /*scale=*/2.f, /*zOrder=*/1, /*loop=*/false);
+        }
     }
     frameCount++;
 }

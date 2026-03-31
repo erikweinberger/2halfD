@@ -24,8 +24,9 @@ class EntityManager {
 
     void setAnimation(int entityId, int templateId, bool loop = false);
     void clearAnimation(int entityId);
-    void setAnimationOverlay(int entityId, int templateId, bool loop = false);
-    void clearAnimationOverlay(int entityId);
+    int addOverlay(int entityId, int templateId, float x = 0.5f, float y = 0.5f, float scale = 1.f, int zOrder = 0, bool loop = false);
+    void removeOverlay(int entityId, int overlayId);
+    void clearOverlays(int entityId);
 
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime);
 

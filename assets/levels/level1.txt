@@ -1,5 +1,5 @@
 # Wall textures
-0 1 textures/pattern_16.png 1
+0 1 textures/brick.png 1
 0 2 textures/pattern_24.png 1
 
 # Sprite Entity textures
@@ -12,9 +12,15 @@
 0 7 textures/animations/enemy_1_walk/enemy_1_walk_3.png 2
 0 8 textures/animations/enemy_1_walk/enemy_1_walk_4.png 2
 
+0 9 textures/animations/gunflash/gun_flash_1.png 2
+0 10 textures/animations/gunflash/gun_flash_2.png 2
+
 # Animation templates
 # format: 6 <templateId> <frameDuration> <textureIds...>
-6 1 0.1 5 6 7 8
+6 1 0.1 5 6 5 7 8 7
+
+6 2 0.1 10 9 10
+
 
 # Floor default
 4 1 0 0
