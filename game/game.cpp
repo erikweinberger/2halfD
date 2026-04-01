@@ -60,6 +60,17 @@ void Game::updateGameState() {
             m_engine.addOverlay(entity.id, /*templateId=*/2, /*x=*/0.5f, /*y=*/0.5f, /*scale=*/2.f, /*zOrder=*/1, /*loop=*/false);
         }
     }
+
+    // Every 5 seconds, spawn effect 500 pixels in front of camera
+    if (frameCount % 300 == 0) {
+        float dir = m_gameState.playerState.playerPos.direction;
+        TwoHalfD::XYVectorf effectPos = {
+            m_gameState.playerState.playerPos.pos.x + 500.f * std::cos(dir),
+            m_gameState.playerState.playerPos.pos.y + 500.f * std::sin(dir)
+        };
+        m_engine.spawnEffect(effectPos, /*templateId=*/2, /*height=*/128, /*scale=*/2.f);
+    }
+
     frameCount++;
 }
 

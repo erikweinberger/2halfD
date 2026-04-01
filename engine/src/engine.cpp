@@ -72,6 +72,12 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         m_entityManager.setHeightStart(entityId, newHeight);
     }
 
+    // Clean up expired effects from BSP, then erase from EntityManager
+    for (int effectId : m_entityManager.getExpiredEffectIds()) {
+        m_bspManager.removeEffect(effectId);
+    }
+    m_entityManager.eraseExpiredEffects();
+
     auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
     m_cameraObject.cameraHeightStart =
         convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_defaultFloorHeight;
@@ -175,6 +181,21 @@ void TwoHalfD::Engine::removeOverlay(int entityId, int overlayId) {
 }
 void TwoHalfD::Engine::clearOverlays(int entityId) {
     m_entityManager.clearOverlays(entityId);
+}
+
+int TwoHalfD::Engine::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, int height, float scale, float heightStart) {
+    if (heightStart < 0.f) {
+        auto *section = m_bspManager.findConvexSection(pos);
+        heightStart = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
+    }
+    int id = m_entityManager.spawnEffect(pos, templateId, height, scale, heightStart);
+    m_bspManager.insertEffect(id, pos);
+    return id;
+}
+
+void TwoHalfD::Engine::removeEffect(int effectId) {
+    m_bspManager.removeEffect(effectId);
+    m_entityManager.removeEffect(effectId);
 }
 
 std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth,

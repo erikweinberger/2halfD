@@ -65,6 +65,15 @@ struct SpriteEntity {
     OverlayStack overlays;
 };
 
+struct AnimationEffect {
+    int id;
+    XYVectorf pos;
+    float heightStart = 0.f;
+    int height = 64;
+    float scale = 1.f;
+    AnimationState animState;
+};
+
 } // namespace TwoHalfD
 
 #endif

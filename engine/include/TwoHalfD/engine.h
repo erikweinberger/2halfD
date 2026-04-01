@@ -74,6 +74,10 @@ class Engine {
     int addOverlay(int entityId, int templateId, float x = 0.5f, float y = 0.5f, float scale = 1.f, int zOrder = 0, bool loop = false);
     void removeOverlay(int entityId, int overlayId);
     void clearOverlays(int entityId);
+
+    int spawnEffect(TwoHalfD::XYVectorf pos, int templateId, int height = 64, float scale = 1.f, float heightStart = -1.f);
+    void removeEffect(int effectId);
+
     std::vector<TwoHalfD::XYVectorf> getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth, float maxHeightDiff,
                                                           float maxDistance);
 

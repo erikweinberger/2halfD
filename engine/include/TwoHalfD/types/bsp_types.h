@@ -32,6 +32,7 @@ struct BSPNode {
     std::unique_ptr<BSPNode> back;
 
     std::unordered_set<int> spriteIds;
+    std::unordered_set<int> effectIds;
     Polygon bounds;
     std::unique_ptr<FloorSection> floorSection = nullptr;
 
@@ -46,7 +47,8 @@ struct DrawCommand {
     enum class Type {
         Segment,
         Sprite,
-        FloorSection
+        FloorSection,
+        Effect
     } type;
 
     union {
@@ -72,6 +74,13 @@ struct DrawCommand {
         DrawCommand cmd;
         cmd.type = Type::FloorSection;
         cmd.floorSectionPtr = ptr;
+        return cmd;
+    }
+
+    static DrawCommand makeEffect(int effectId) {
+        DrawCommand cmd;
+        cmd.type = Type::Effect;
+        cmd.id = effectId;
         return cmd;
     }
 };

@@ -42,6 +42,7 @@ class Renderer {
     void renderBSP(const CameraObject &camera, BSPManager &bsp);
     void renderSegment(Segment segment, const CameraObject &camera);
     void renderSprite(const SpriteEntity &spriteEntity, const CameraObject &camera);
+    void renderEffect(const AnimationEffect &effect, const CameraObject &camera);
     void renderFloorSection(const FloorSection *floorSection, const CameraObject &camera);
     void renderFloor(const CameraObject &camera);
     void renderOverlays(const CameraObject &camera);
