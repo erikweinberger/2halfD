@@ -109,14 +109,7 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
         tex.loadFromFile(m_defaultTextureFilePath);
     }
 
-    switch (type) {
-    case TwoHalfD::EntityTypes::wall:
-        tex.setRepeated(true);
-    case TwoHalfD::EntityTypes::sprite:
-        tex.setRepeated(false);
-    default:
-        break;
-    }
+    tex.setRepeated(true);
 
     return TwoHalfD::TextureSignature{tex, filePath, textureId};
 }

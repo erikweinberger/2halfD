@@ -57,18 +57,16 @@ void Game::updateGameState() {
 
         // Every 3 seconds, add a "shooting" overlay (using walk template 1 as placeholder)
         if (frameCount % 180 == 0) {
-            m_engine.addOverlay(entity.id, /*templateId=*/2, /*x=*/0.5f, /*y=*/0.5f, /*scale=*/2.f, /*zOrder=*/1, /*loop=*/false);
+            m_engine.addOverlay(entity.id, 3, 0.4f, 0.3f, 45, 45, 1, false, 1.f, 1.f);
         }
     }
 
     // Every 5 seconds, spawn effect 500 pixels in front of camera
     if (frameCount % 300 == 0) {
         float dir = m_gameState.playerState.playerPos.direction;
-        TwoHalfD::XYVectorf effectPos = {
-            m_gameState.playerState.playerPos.pos.x + 500.f * std::cos(dir),
-            m_gameState.playerState.playerPos.pos.y + 500.f * std::sin(dir)
-        };
-        m_engine.spawnEffect(effectPos, /*templateId=*/2, /*height=*/128, /*scale=*/2.f);
+        TwoHalfD::XYVectorf effectPos = {m_gameState.playerState.playerPos.pos.x + 500.f * std::cos(dir),
+                                         m_gameState.playerState.playerPos.pos.y + 500.f * std::sin(dir)};
+        // m_engine.spawnEffect(effectPos, /*templateId=*/2, /*height=*/60.f, /*width=*/60.f, /*scaleX=*/1.f, /*scaleY=*/0.5f, /*heightStart=*/30.f);
     }
 
     frameCount++;

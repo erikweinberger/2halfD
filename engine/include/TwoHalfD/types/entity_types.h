@@ -69,8 +69,10 @@ struct AnimationEffect {
     int id;
     XYVectorf pos;
     float heightStart = 0.f;
-    int height = 64;
-    float scale = 1.f;
+    float height = 64.f;   // world units tall
+    float width = 64.f;    // world units wide
+    float scaleX = 1.f;    // texture scale within width (1 = fit exactly)
+    float scaleY = 1.f;    // texture scale within height (1 = fit exactly)
     AnimationState animState;
 };
 

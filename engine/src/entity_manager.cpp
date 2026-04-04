@@ -101,10 +101,10 @@ void TwoHalfD::EntityManager::clearAnimation(int entityId) {
     it->second.currentAnimation = std::nullopt;
 }
 
-int TwoHalfD::EntityManager::addOverlay(int entityId, int templateId, float x, float y, float scale, int zOrder, bool loop) {
+int TwoHalfD::EntityManager::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop, float textureScaleX, float textureScaleY) {
     auto it = m_entities.find(entityId);
     if (it == m_entities.end()) return -1;
-    return it->second.overlays.add(templateId, x, y, scale, zOrder, loop);
+    return it->second.overlays.add(templateId, x, y, width, height, zOrder, loop, textureScaleX, textureScaleY);
 }
 
 void TwoHalfD::EntityManager::removeOverlay(int entityId, int overlayId) {
@@ -119,9 +119,9 @@ void TwoHalfD::EntityManager::clearOverlays(int entityId) {
     it->second.overlays.clear();
 }
 
-int TwoHalfD::EntityManager::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, int height, float scale, float heightStart) {
+int TwoHalfD::EntityManager::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, float height, float width, float scaleX, float scaleY, float heightStart) {
     int id = m_nextEffectId++;
-    m_effects[id] = TwoHalfD::AnimationEffect{id, pos, heightStart, height, scale, TwoHalfD::AnimationState{templateId, 0, 0.f, false}};
+    m_effects[id] = TwoHalfD::AnimationEffect{id, pos, heightStart, height, width, scaleX, scaleY, TwoHalfD::AnimationState{templateId, 0, 0.f, false}};
     return id;
 }
 

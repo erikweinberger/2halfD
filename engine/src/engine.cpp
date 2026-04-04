@@ -173,8 +173,8 @@ void TwoHalfD::Engine::setAnimation(int entityId, int templateId, bool loop) {
 void TwoHalfD::Engine::clearAnimation(int entityId) {
     m_entityManager.clearAnimation(entityId);
 }
-int TwoHalfD::Engine::addOverlay(int entityId, int templateId, float x, float y, float scale, int zOrder, bool loop) {
-    return m_entityManager.addOverlay(entityId, templateId, x, y, scale, zOrder, loop);
+int TwoHalfD::Engine::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop, float textureScaleX, float textureScaleY) {
+    return m_entityManager.addOverlay(entityId, templateId, x, y, width, height, zOrder, loop, textureScaleX, textureScaleY);
 }
 void TwoHalfD::Engine::removeOverlay(int entityId, int overlayId) {
     m_entityManager.removeOverlay(entityId, overlayId);
@@ -183,12 +183,12 @@ void TwoHalfD::Engine::clearOverlays(int entityId) {
     m_entityManager.clearOverlays(entityId);
 }
 
-int TwoHalfD::Engine::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, int height, float scale, float heightStart) {
+int TwoHalfD::Engine::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, float height, float width, float scaleX, float scaleY, float heightStart) {
     if (heightStart < 0.f) {
         auto *section = m_bspManager.findConvexSection(pos);
         heightStart = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
     }
-    int id = m_entityManager.spawnEffect(pos, templateId, height, scale, heightStart);
+    int id = m_entityManager.spawnEffect(pos, templateId, height, width, scaleX, scaleY, heightStart);
     m_bspManager.insertEffect(id, pos);
     return id;
 }

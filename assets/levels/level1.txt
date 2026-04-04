@@ -1,6 +1,6 @@
 # Wall textures
-0 1 textures/brick.png 1
-0 2 textures/pattern_24.png 1
+0 2 textures/brick.png 1
+0 1 textures/stone_1.png 1
 
 # Sprite Entity textures
 0 3 textures/enemy_1.png 2
@@ -15,11 +15,14 @@
 0 9 textures/animations/gunflash/gun_flash_1.png 2
 0 10 textures/animations/gunflash/gun_flash_2.png 2
 
+0 11 textures/animations/debug/debug_multi_30x30.png 2
+
 # Animation templates
 # format: 6 <templateId> <frameDuration> <textureIds...>
 6 1 0.1 5 6 5 7 8 7
 
-6 2 0.1 10 9 10
+6 2 0.1 11 11 11
+6 3 0.1 9 10 9
 
 
 # Floor default
@@ -42,6 +45,4 @@
 1 400 1200 1200 2000 256 2
 
 2 500 500 32 128 3 1.0
-#2 1600 1200 32 128 3 1.0
 2 2800 600 32 128 3 1.0
-#2 1000 1800 32 128 3 1.02

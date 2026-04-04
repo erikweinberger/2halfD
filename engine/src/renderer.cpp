@@ -292,12 +292,16 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
         const sf::Texture &overlayTex = overlayTexIt->second.texture;
         const sf::Vector2u overlayTexSize = overlayTex.getSize();
 
+        int tiledW = static_cast<int>(overlayTexSize.x / overlay.textureScaleX);
+        int tiledH = static_cast<int>(overlayTexSize.y / overlay.textureScaleY);
+
         sf::Sprite overlaySprite;
         overlaySprite.setTexture(overlayTex);
-        overlaySprite.setOrigin(overlayTexSize.x / 2.0f, overlayTexSize.y / 2.0f);
-
-        float overlayScale = (spriteHeightScreen / overlayTexSize.y) * overlay.scale;
-        overlaySprite.setScale(overlayScale, overlayScale);
+        overlaySprite.setTextureRect(sf::IntRect(0, 0, tiledW, tiledH));
+        overlaySprite.setOrigin(tiledW / 2.0f, tiledH / 2.0f);
+        float overlayWidthScreen = focalLength * overlay.width / perpWorldDistance;
+        float overlayHeightScreen = focalLength * overlay.height / perpWorldDistance;
+        overlaySprite.setScale(overlayWidthScreen / tiledW, overlayHeightScreen / tiledH);
 
         float ox = spriteLeft + overlay.x * spriteWidthScreen;
         float oy = spriteTop + overlay.y * spriteHeightScreen;
@@ -328,25 +332,28 @@ void TwoHalfD::Renderer::renderEffect(const TwoHalfD::AnimationEffect &effect, c
     float focalLength = (m_settings.resolution.x / 2.0f) / m_settings.fovScale;
 
     sf::Vector2f toEffect = sf::Vector2f(effect.pos.x, effect.pos.y) - camera.cameraPos.posf;
-    float perpWorldDistance = dotProduct(toEffect, direction);
-    if (perpWorldDistance <= 0) return;
+    float signedPerpWorldDistance = dotProduct(toEffect, direction);
+    if (signedPerpWorldDistance <= 0) return;
 
-    float bottomScreen = focalLength * (camera.cameraHeight + camera.cameraHeightStart - effect.heightStart) / perpWorldDistance +
+    float bottomScreen = focalLength * (camera.cameraHeight + camera.cameraHeightStart - effect.heightStart) / signedPerpWorldDistance +
                          m_settings.resolution.y / 2.0f;
-    float topScreen = focalLength * (camera.cameraHeight + camera.cameraHeightStart - effect.height - effect.heightStart) / perpWorldDistance +
+    float topScreen = focalLength * (camera.cameraHeight + camera.cameraHeightStart - effect.height - effect.heightStart) / signedPerpWorldDistance +
                       m_settings.resolution.y / 2.0f;
     float heightScreen = bottomScreen - topScreen;
-    float screenX = (m_settings.resolution.x / 2.0f) + focalLength * dotProduct(toEffect, n_plane) / perpWorldDistance;
+    float widthScreen = focalLength * effect.width / signedPerpWorldDistance;
+    float screenX = (m_settings.resolution.x / 2.0f) + focalLength * dotProduct(toEffect, n_plane) / signedPerpWorldDistance;
+
+    int tiledW = static_cast<int>(texSize.x / effect.scaleX);
+    int tiledH = static_cast<int>(texSize.y / effect.scaleY);
 
     sf::Sprite sprite;
     sprite.setTexture(tex);
-    sprite.setOrigin(texSize.x / 2.0f, texSize.y / 2.0f);
-
-    float scaleFactor = (heightScreen / texSize.y) * effect.scale;
+    sprite.setTextureRect(sf::IntRect(0, 0, tiledW, tiledH));
+    sprite.setOrigin(tiledW / 2.0f, tiledH / 2.0f);
     sprite.setPosition(screenX, topScreen + heightScreen / 2.0f);
-    sprite.setScale(scaleFactor, scaleFactor);
+    sprite.setScale(widthScreen / tiledW, heightScreen / tiledH);
 
-    float shade = std::min(1.0f, m_settings.shaderScale / perpWorldDistance);
+    float shade = std::min(1.0f, m_settings.shaderScale / signedPerpWorldDistance);
     sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
     m_renderTexture.draw(sprite);
@@ -394,7 +401,8 @@ void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorS
         float perpWorldDistance = dotProduct(cameraVertexVec, n_direction);
         float lateralDist = dotProduct(cameraVertexVec, n_plane);
         float p_xScreenPos = (m_settings.resolution.x / 2.0f) + focalLength * lateralDist / perpWorldDistance;
-        float p_yScreenPos = (m_settings.resolution.y / 2.0f) + focalLength * (camera.cameraHeight + camera.cameraHeightStart - floorSection->height) / perpWorldDistance;
+        float p_yScreenPos = (m_settings.resolution.y / 2.0f) +
+                             focalLength * (camera.cameraHeight + camera.cameraHeightStart - floorSection->height) / perpWorldDistance;
         floorShape[i].position = sf::Vector2f(p_xScreenPos, p_yScreenPos);
     }
 
