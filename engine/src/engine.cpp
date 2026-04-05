@@ -202,3 +202,15 @@ std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD
                                                                         float maxHeightDiff, float maxDistance) {
     return m_bspManager.findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
 }
+
+void TwoHalfD::Engine::addColourOverlay(int id, const TwoHalfD::Polygon &vertices, float height, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    m_bspManager.insertColourOverlay(id, vertices, height, r, g, b, a);
+}
+
+void TwoHalfD::Engine::updateColourOverlay(int id, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    m_bspManager.updateColourOverlay(id, r, g, b, a);
+}
+
+void TwoHalfD::Engine::removeColourOverlay(int id) {
+    m_bspManager.removeColourOverlay(id);
+}

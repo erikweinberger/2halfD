@@ -82,6 +82,10 @@ class Engine {
                                                           float maxDistance);
 
     void render();
+
+    void addColourOverlay(int id, const TwoHalfD::Polygon &vertices, float height, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+    void updateColourOverlay(int id, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+    void removeColourOverlay(int id);
 };
 
 } // namespace TwoHalfD

@@ -36,6 +36,10 @@ class BSPManager {
 
     float insertEffect(int effectId, TwoHalfD::XYVectorf pos);
     void removeEffect(int effectId);
+    // Colour overlays
+    void insertColourOverlay(int id, const Polygon &vertices, float height, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+    void updateColourOverlay(int id, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+    void removeColourOverlay(int id);
 
     // Core functions
     TwoHalfD::BSPNode *findConvexSection(const TwoHalfD::XYVectorf &point);
@@ -73,10 +77,11 @@ class BSPManager {
     int m_seed = -1;
 
     std::unique_ptr<TwoHalfD::BSPNode> m_root;
-    std::unordered_map<int, TwoHalfD::BSPNode *> m_spriteNodeMap; // entityId → BSP node
-    std::unordered_map<int, XYVectorf> m_spritePositions;         // entityId → position (for traverse)
-    std::unordered_map<int, TwoHalfD::BSPNode *> m_effectNodeMap; // effectId → BSP node
-    std::unordered_map<int, XYVectorf> m_effectPositions;         // effectId → position (for traverse)
+    std::unordered_map<int, TwoHalfD::BSPNode *> m_spriteNodeMap;               // entityId → BSP node
+    std::unordered_map<int, std::vector<TwoHalfD::BSPNode *>> m_overlayNodeMap; // overlayId → leaf nodes
+    std::unordered_map<int, XYVectorf> m_spritePositions;                       // entityId → position (for traverse)
+    std::unordered_map<int, TwoHalfD::BSPNode *> m_effectNodeMap;               // effectId → BSP node
+    std::unordered_map<int, XYVectorf> m_effectPositions;                       // effectId → position (for traverse)
     TwoHalfD::BSPGraph m_graph;
     std::vector<TwoHalfD::Segment> m_segments;
     size_t m_segmentID = 0;
@@ -95,6 +100,10 @@ class BSPManager {
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
     float _insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos);
     float _insertEffect(TwoHalfD::BSPNode *node, int effectId, TwoHalfD::XYVectorf pos);
+
+    // Colour overlay helpers
+    void _insertColourOverlayTriangle(BSPNode *node, const Polygon &triangle, int id, float height, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+    static std::vector<Polygon> _triangulate(const Polygon &polygon);
 
     // Core functionality
     TwoHalfD::BSPNode *_findConvexSection(const TwoHalfD::XYVectorf &point, TwoHalfD::BSPNode *node);

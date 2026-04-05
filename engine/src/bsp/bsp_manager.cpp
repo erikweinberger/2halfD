@@ -2,6 +2,7 @@
 #include "TwoHalfD/engine_types.h"
 #include "TwoHalfD/utils/math_util.h"
 #include <SFML/Window/Cursor.hpp>
+#include <algorithm>
 #include <cstddef>
 #include <iostream>
 #include <limits>
@@ -124,7 +125,15 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
     if (node->front == nullptr && node->back == nullptr) {
 
-        struct DistEntry { float dist; int id; bool isEffect; };
+        for (auto &overlay : node->colourOverlays) {
+            commands.push_back(DrawCommand::makeColourOverlay(&overlay));
+        }
+
+        struct DistEntry {
+            float dist;
+            int id;
+            bool isEffect;
+        };
         auto cmp = [](const DistEntry &a, const DistEntry &b) { return a.dist < b.dist; };
         std::priority_queue<DistEntry, std::vector<DistEntry>, decltype(cmp)> orderedDistance(cmp);
 
@@ -186,7 +195,15 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
             commands.push_back(DrawCommand::makeFloorSection(node->floorSection.get()));
         }
 
-        struct DistEntry { float dist; int id; bool isEffect; };
+        for (auto &overlay : node->colourOverlays) {
+            commands.push_back(DrawCommand::makeColourOverlay(&overlay));
+        }
+
+        struct DistEntry {
+            float dist;
+            int id;
+            bool isEffect;
+        };
         auto cmp = [](const DistEntry &a, const DistEntry &b) { return a.dist < b.dist; };
         std::priority_queue<DistEntry, std::vector<DistEntry>, decltype(cmp)> orderedDistance(cmp);
 
@@ -712,4 +729,148 @@ TwoHalfD::BSPNode *TwoHalfD::BSPManager::_findConvexSection(const TwoHalfD::XYVe
     } else {
         return _findConvexSection(point, node->back.get());
     }
+}
+
+// --- Colour overlay ---
+
+std::vector<TwoHalfD::Polygon> TwoHalfD::BSPManager::_triangulate(const Polygon &polygon) {
+    // Ear-clipping triangulation for a simple polygon (convex or concave, no holes).
+    std::vector<TwoHalfD::Polygon> triangles;
+    if (polygon.size() < 3) return triangles;
+
+    // Work on an index list
+    std::vector<size_t> indices(polygon.size());
+    for (size_t i = 0; i < polygon.size(); ++i)
+        indices[i] = i;
+
+    auto cross2d = [](const XYVectorf &o, const XYVectorf &a, const XYVectorf &b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); };
+
+    auto pointInTriangle = [&](const XYVectorf &p, const XYVectorf &a, const XYVectorf &b, const XYVectorf &c) {
+        float d1 = cross2d(p, a, b);
+        float d2 = cross2d(p, b, c);
+        float d3 = cross2d(p, c, a);
+        bool hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+        bool hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+        return !(hasNeg && hasPos);
+    };
+
+    // Determine winding (positive area = CCW)
+    float area = 0.f;
+    for (size_t i = 0; i < polygon.size(); ++i) {
+        const auto &a = polygon[i];
+        const auto &b = polygon[(i + 1) % polygon.size()];
+        area += (a.x * b.y - b.x * a.y);
+    }
+    bool isCCW = area > 0.f;
+
+    size_t remaining = indices.size();
+    size_t attempts = 0;
+    size_t i = 0;
+    while (remaining > 3 && attempts < remaining * remaining) {
+        size_t prev = indices[(i + remaining - 1) % remaining];
+        size_t curr = indices[i % remaining];
+        size_t next = indices[(i + 1) % remaining];
+
+        const XYVectorf &A = polygon[prev];
+        const XYVectorf &B = polygon[curr];
+        const XYVectorf &C = polygon[next];
+
+        float cross = cross2d(A, B, C);
+        bool isEar = isCCW ? (cross > 0.f) : (cross < 0.f);
+
+        if (isEar) {
+            // Check no other vertex is inside this triangle
+            for (size_t j = 0; j < remaining && isEar; ++j) {
+                size_t idx = indices[j];
+                if (idx == prev || idx == curr || idx == next) continue;
+                if (pointInTriangle(polygon[idx], A, B, C)) isEar = false;
+            }
+        }
+
+        if (isEar) {
+            triangles.push_back({A, B, C});
+            indices.erase(indices.begin() + static_cast<long>(i % remaining));
+            --remaining;
+            attempts = 0;
+        } else {
+            ++i;
+            ++attempts;
+        }
+    }
+
+    if (remaining == 3) {
+        triangles.push_back({polygon[indices[0]], polygon[indices[1]], polygon[indices[2]]});
+    }
+
+    return triangles;
+}
+
+void TwoHalfD::BSPManager::_insertColourOverlayTriangle(BSPNode *node, const Polygon &triangle, int id, float height, uint8_t r, uint8_t g, uint8_t b,
+                                                        uint8_t a) {
+    if (node == nullptr || triangle.size() < 3) return;
+
+    if (node->front == nullptr && node->back == nullptr) {
+        float effectiveHeight = height;
+        if (node->floorSection != nullptr)
+            effectiveHeight = std::max(height, node->floorSection->height);
+        node->colourOverlays.push_back({triangle, id, effectiveHeight, r, g, b, a});
+        m_overlayNodeMap[id].push_back(node);
+        return;
+    }
+
+    // Classify vertices against the splitter
+    bool anyFront = false, anyBack = false;
+    for (const auto &v : triangle) {
+        if (isInfront(v - node->splitterP0, node->splitterVec)) anyFront = true;
+        else anyBack = true;
+    }
+
+    Segment splitter;
+    splitter.v1 = node->splitterP0;
+    splitter.v2 = node->splitterP1;
+    splitter.wall = nullptr;
+    splitter.floorSection = nullptr;
+
+    if (anyFront && anyBack) {
+        auto [frontPoly, backPoly] = _splitConvexShape(triangle, splitter);
+        if (frontPoly.size() >= 3) _insertColourOverlayTriangle(node->front.get(), frontPoly, id, height, r, g, b, a);
+        if (backPoly.size() >= 3) _insertColourOverlayTriangle(node->back.get(), backPoly, id, height, r, g, b, a);
+    } else if (anyFront) {
+        _insertColourOverlayTriangle(node->front.get(), triangle, id, height, r, g, b, a);
+    } else {
+        _insertColourOverlayTriangle(node->back.get(), triangle, id, height, r, g, b, a);
+    }
+}
+
+void TwoHalfD::BSPManager::insertColourOverlay(int id, const Polygon &vertices, float height, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    if (m_root == nullptr) return;
+    auto triangles = _triangulate(vertices);
+    for (const auto &tri : triangles) {
+        _insertColourOverlayTriangle(m_root.get(), tri, id, height, r, g, b, a);
+    }
+}
+
+void TwoHalfD::BSPManager::updateColourOverlay(int id, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    auto it = m_overlayNodeMap.find(id);
+    if (it == m_overlayNodeMap.end()) return;
+    for (BSPNode *node : it->second) {
+        for (auto &overlay : node->colourOverlays) {
+            if (overlay.id == id) {
+                overlay.r = r;
+                overlay.g = g;
+                overlay.b = b;
+                overlay.a = a;
+            }
+        }
+    }
+}
+
+void TwoHalfD::BSPManager::removeColourOverlay(int id) {
+    auto it = m_overlayNodeMap.find(id);
+    if (it == m_overlayNodeMap.end()) return;
+    for (BSPNode *node : it->second) {
+        auto &overlays = node->colourOverlays;
+        overlays.erase(std::remove_if(overlays.begin(), overlays.end(), [id](const FloorColourOverlay &o) { return o.id == id; }), overlays.end());
+    }
+    m_overlayNodeMap.erase(it);
 }
