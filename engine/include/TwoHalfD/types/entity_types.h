@@ -25,6 +25,8 @@ struct Wall {
     int textureId;
     float height;
     float wallHeightStart = 0.f;
+    float scaleX = 1.f; // fraction of wall one texture copy fills horizontally
+    float scaleY = 1.f; // fraction of wall one texture copy fills vertically
 };
 
 struct FloorSection {
@@ -56,7 +58,8 @@ struct SpriteEntity {
     float radius;
     int height;
     int textureId;
-    float scale;
+    float scaleX = 1.f; // fraction of sprite area one texture copy fills horizontally
+    float scaleY = 1.f; // fraction of sprite area one texture copy fills vertically
     float heightStart = 0.f;
     float speed = 5.f;
 

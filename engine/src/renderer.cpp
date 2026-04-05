@@ -197,8 +197,6 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
     m_perspectiveShader.setUniform("bottomLeft", quad[1].position);
     m_perspectiveShader.setUniform("bottomRight", quad[2].position);
     m_perspectiveShader.setUniform("topRight", quad[3].position);
-    m_perspectiveShader.setUniform("texSize", sf::Vector2f(static_cast<float>(texSize.x), static_cast<float>(texSize.y)));
-    m_perspectiveShader.setUniform("wallLen", wallLen);
     m_perspectiveShader.setUniform("startRatio", wallRatioStart);
     m_perspectiveShader.setUniform("endRatio", wallRatioEnd);
     m_perspectiveShader.setUniform("leftDepth", 1.0f / singedPerpWorldDistanceStart);
@@ -207,6 +205,8 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
     m_perspectiveShader.setUniform("shaderScale", m_settings.shaderScale);
     m_perspectiveShader.setUniform("wallHeightFloorHeighDiff", m_defaultFloorHeight - wall->wallHeightStart);
     m_perspectiveShader.setUniform("wallHeight", wall->height);
+    m_perspectiveShader.setUniform("scaleX", wall->scaleX);
+    m_perspectiveShader.setUniform("scaleY", wall->scaleY);
 
     m_renderTexture.draw(quad, states);
 }
@@ -234,9 +234,13 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
     const sf::Texture &tex = it->second.texture;
     const sf::Vector2u texSize = tex.getSize();
 
+    int tiledW = static_cast<int>(texSize.x / spriteEntity.scaleX);
+    int tiledH = static_cast<int>(texSize.y / spriteEntity.scaleY);
+
     sf::Sprite sprite;
     sprite.setTexture(tex);
-    sprite.setOrigin(texSize.x / 2.0f, texSize.y / 2.0f);
+    sprite.setTextureRect(sf::IntRect(0, 0, tiledW, tiledH));
+    sprite.setOrigin(tiledW / 2.0f, tiledH / 2.0f);
 
     float cameraDirRad = camera.cameraPos.direction;
     sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
@@ -264,7 +268,7 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
     const float spriteScreenX = (m_settings.resolution.x / 2.0f) + focalLength * dotProduct(toSpriteVec, n_plane) / perpWorldDistance;
 
     sprite.setPosition(spriteScreenX, topSpriteScreen + spriteHeightScreen / 2.0f);
-    sprite.setScale(spriteHeightScreen / texSize.y, spriteHeightScreen / texSize.y);
+    sprite.setScale(spriteHeightScreen / tiledH, spriteHeightScreen / tiledH);
     float shade = std::min(1.0f, m_settings.shaderScale / perpWorldDistance);
     sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));

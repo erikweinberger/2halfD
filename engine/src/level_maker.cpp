@@ -121,8 +121,10 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString) {
     float endX = 0, endY = 0;
     float height = 0;
     int textureId = 0;
+    float scaleX = 1.f;
+    float scaleY = 1.f;
 
-    for (int i = 0; i <= 6 && std::getline(ss, word, ' '); ++i) {
+    for (int i = 0; i <= 8 && std::getline(ss, word, ' '); ++i) {
         switch (i) {
         case 0:
             break;
@@ -144,6 +146,12 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString) {
         case 6:
             textureId = std::stoi(word);
             break;
+        case 7:
+            scaleX = std::stof(word);
+            break;
+        case 8:
+            scaleY = std::stof(word);
+            break;
         default:
             break;
         }
@@ -153,7 +161,7 @@ TwoHalfD::Wall TwoHalfD::LevelMaker::_makeWall(std::string wallString) {
         std::cerr << "Texture not loaded (TextureId: " << textureId << ")\n";
     }
 
-    return TwoHalfD::Wall{{startX, startY}, {endX, endY}, m_entityId++, textureId, height};
+    return TwoHalfD::Wall{{startX, startY}, {endX, endY}, m_entityId++, textureId, height, 0.f, scaleX, scaleY};
 }
 
 TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string spriteString) {
@@ -162,11 +170,12 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
     int radius;
     int height;
     int textureId;
-    float scale = 1.0;
+    float scaleX = 1.0;
+    float scaleY = 1.0;
 
     std::string word;
     std::stringstream ss(spriteString);
-    for (int i = 0; i <= 6 && std::getline(ss, word, ' '); ++i) {
+    for (int i = 0; i <= 7 && std::getline(ss, word, ' '); ++i) {
         switch (i) {
         case 0:
             break;
@@ -175,14 +184,22 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
             break;
         case 2:
             posY = std::stof(word);
+            break;
         case 3:
             radius = std::stoi(word);
+            break;
         case 4:
             height = std::stoi(word);
+            break;
         case 5:
             textureId = std::stoi(word);
+            break;
         case 6:
-            scale = std::stof(word);
+            scaleX = std::stof(word);
+            break;
+        case 7:
+            scaleY = std::stof(word);
+            break;
         default:
             break;
         }
@@ -191,7 +208,7 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
         std::cerr << "No valid texture for spriteEntity at: (" << posX << " , " << posY << ")\n";
     }
 
-    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scale, 0.f, 5.f, std::nullopt};
+    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scaleX, scaleY, 0.f, 5.f, std::nullopt};
 }
 
 std::pair<int, TwoHalfD::XYVectorf> TwoHalfD::LevelMaker::_makeDefaultFloor(std::string floorString) {
