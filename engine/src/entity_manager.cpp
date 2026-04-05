@@ -55,10 +55,26 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
             *entity.currentUpdate);
 
         if (entity.currentAnimation && _tickAnimation(*entity.currentAnimation, deltaTime)) entity.currentAnimation = std::nullopt;
-        if (entity.animationOverlay && _tickAnimation(*entity.animationOverlay, deltaTime)) entity.animationOverlay = std::nullopt;
+
+        // Tick overlays in reverse so removal doesn't skip elements
+        for (int i = static_cast<int>(entity.overlays.count) - 1; i >= 0; --i) {
+            auto &overlay = entity.overlays.overlays[i];
+            if (overlay.active && _tickAnimation(overlay.animState, deltaTime)) {
+                entity.overlays.remove(overlay.overlayId);
+            }
+        }
 
         if (entity.pos.pos.x != prevPos.x || entity.pos.pos.y != prevPos.y) {
             movedEntities.push_back({id, entity.pos.pos});
+        }
+    }
+
+    // Tick animation effects — collect expired IDs but don't erase yet
+    // (caller needs to clean up BSP first)
+    m_expiredEffectIds.clear();
+    for (auto &[id, effect] : m_effects) {
+        if (_tickAnimation(effect.animState, deltaTime)) {
+            m_expiredEffectIds.push_back(id);
         }
     }
 
@@ -85,16 +101,54 @@ void TwoHalfD::EntityManager::clearAnimation(int entityId) {
     it->second.currentAnimation = std::nullopt;
 }
 
-void TwoHalfD::EntityManager::setAnimationOverlay(int entityId, int templateId, bool loop) {
+int TwoHalfD::EntityManager::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop, float textureScaleX, float textureScaleY) {
     auto it = m_entities.find(entityId);
-    if (it == m_entities.end()) return;
-    it->second.animationOverlay = TwoHalfD::AnimationState{templateId, 0, 0.f, loop};
+    if (it == m_entities.end()) return -1;
+    return it->second.overlays.add(templateId, x, y, width, height, zOrder, loop, textureScaleX, textureScaleY);
 }
 
-void TwoHalfD::EntityManager::clearAnimationOverlay(int entityId) {
+void TwoHalfD::EntityManager::removeOverlay(int entityId, int overlayId) {
     auto it = m_entities.find(entityId);
     if (it == m_entities.end()) return;
-    it->second.animationOverlay = std::nullopt;
+    it->second.overlays.remove(overlayId);
+}
+
+void TwoHalfD::EntityManager::clearOverlays(int entityId) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.overlays.clear();
+}
+
+int TwoHalfD::EntityManager::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, float height, float width, float scaleX, float scaleY, float heightStart) {
+    int id = m_nextEffectId++;
+    m_effects[id] = TwoHalfD::AnimationEffect{id, pos, heightStart, height, width, scaleX, scaleY, TwoHalfD::AnimationState{templateId, 0, 0.f, false}};
+    return id;
+}
+
+void TwoHalfD::EntityManager::removeEffect(int effectId) {
+    m_effects.erase(effectId);
+}
+
+void TwoHalfD::EntityManager::setEffectHeightStart(int effectId, float heightStart) {
+    auto it = m_effects.find(effectId);
+    if (it != m_effects.end()) {
+        it->second.heightStart = heightStart;
+    }
+}
+
+const std::unordered_map<int, TwoHalfD::AnimationEffect> &TwoHalfD::EntityManager::getAllEffects() const {
+    return m_effects;
+}
+
+const std::vector<int> &TwoHalfD::EntityManager::getExpiredEffectIds() const {
+    return m_expiredEffectIds;
+}
+
+void TwoHalfD::EntityManager::eraseExpiredEffects() {
+    for (int id : m_expiredEffectIds) {
+        m_effects.erase(id);
+    }
+    m_expiredEffectIds.clear();
 }
 
 bool TwoHalfD::EntityManager::_tickAnimation(TwoHalfD::AnimationState &state, float deltaTime) {

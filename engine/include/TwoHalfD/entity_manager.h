@@ -24,8 +24,16 @@ class EntityManager {
 
     void setAnimation(int entityId, int templateId, bool loop = false);
     void clearAnimation(int entityId);
-    void setAnimationOverlay(int entityId, int templateId, bool loop = false);
-    void clearAnimationOverlay(int entityId);
+    int addOverlay(int entityId, int templateId, float x = 0.5f, float y = 0.5f, float width = 64.f, float height = 64.f, int zOrder = 0, bool loop = false, float textureScaleX = 1.f, float textureScaleY = 1.f);
+    void removeOverlay(int entityId, int overlayId);
+    void clearOverlays(int entityId);
+
+    int spawnEffect(TwoHalfD::XYVectorf pos, int templateId, float height = 64.f, float width = 64.f, float scaleX = 1.f, float scaleY = 1.f, float heightStart = -1.f);
+    void removeEffect(int effectId);
+    void setEffectHeightStart(int effectId, float heightStart);
+    const std::unordered_map<int, TwoHalfD::AnimationEffect> &getAllEffects() const;
+    const std::vector<int> &getExpiredEffectIds() const;
+    void eraseExpiredEffects();
 
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime);
 
@@ -34,6 +42,9 @@ class EntityManager {
 
   private:
     std::unordered_map<int, TwoHalfD::SpriteEntity> m_entities;
+    std::unordered_map<int, TwoHalfD::AnimationEffect> m_effects;
+    std::vector<int> m_expiredEffectIds;
+    int m_nextEffectId = 0;
     const std::unordered_map<int, TwoHalfD::AnimationTemplate> *m_animationTemplates = nullptr;
 
     void _tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update);

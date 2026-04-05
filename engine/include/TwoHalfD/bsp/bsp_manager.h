@@ -34,6 +34,9 @@ class BSPManager {
     std::unordered_map<int, float> insertSprites(const std::unordered_map<int, SpriteEntity> &entities);
     float moveSprite(int entityId, TwoHalfD::XYVectorf newPos);
 
+    float insertEffect(int effectId, TwoHalfD::XYVectorf pos);
+    void removeEffect(int effectId);
+
     // Core functions
     TwoHalfD::BSPNode *findConvexSection(const TwoHalfD::XYVectorf &point);
 
@@ -72,6 +75,8 @@ class BSPManager {
     std::unique_ptr<TwoHalfD::BSPNode> m_root;
     std::unordered_map<int, TwoHalfD::BSPNode *> m_spriteNodeMap; // entityId → BSP node
     std::unordered_map<int, XYVectorf> m_spritePositions;         // entityId → position (for traverse)
+    std::unordered_map<int, TwoHalfD::BSPNode *> m_effectNodeMap; // effectId → BSP node
+    std::unordered_map<int, XYVectorf> m_effectPositions;         // effectId → position (for traverse)
     TwoHalfD::BSPGraph m_graph;
     std::vector<TwoHalfD::Segment> m_segments;
     size_t m_segmentID = 0;
@@ -89,6 +94,7 @@ class BSPManager {
     // Construction
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
     float _insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos);
+    float _insertEffect(TwoHalfD::BSPNode *node, int effectId, TwoHalfD::XYVectorf pos);
 
     // Core functionality
     TwoHalfD::BSPNode *_findConvexSection(const TwoHalfD::XYVectorf &point, TwoHalfD::BSPNode *node);

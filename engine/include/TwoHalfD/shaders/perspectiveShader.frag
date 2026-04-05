@@ -13,6 +13,8 @@ uniform vec2 resolution;
 uniform float shaderScale;
 uniform float wallHeightFloorHeighDiff;
 uniform float wallHeight;
+uniform float scaleX;
+uniform float scaleY;
 
 void main() {
     vec2 pixelCord = gl_FragCoord.xy;
@@ -31,18 +33,20 @@ void main() {
     float worldPos_over_z = (startRatio * leftDepth) * (1.0 - n_xCord) + 
                             (endRatio * rightDepth) * n_xCord;
     float worldPos = worldPos_over_z * z;
-    float texX = mod(worldPos * wallLen, texSize.x) / texSize.x;
-    
+    float texX = worldPos / scaleX;
+
     float topY = topLeft.y * (1.0 - n_xCord) + topRight.y * n_xCord;
     float bottomY = bottomLeft.y * (1.0 - n_xCord) + bottomRight.y * n_xCord;
-    
-    float texY = (pixelCord.y - topY) / (bottomY - topY);
 
-    if ((1. - texY) * wallHeight < wallHeightFloorHeighDiff) {
+    float rawTexY = (pixelCord.y - topY) / (bottomY - topY);
+
+    if ((1. - rawTexY) * wallHeight < wallHeightFloorHeighDiff) {
         discard;
         return;
     }
-    
+
+    float texY = rawTexY / scaleY;
+
     vec2 texCord = vec2(texX, texY);
     vec4 pixel = texture2D(texture, texCord);
 

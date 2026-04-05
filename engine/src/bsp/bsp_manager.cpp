@@ -78,6 +78,20 @@ float TwoHalfD::BSPManager::moveSprite(int entityId, TwoHalfD::XYVectorf newPos)
     return _insertSprite(m_root.get(), entityId, newPos);
 }
 
+float TwoHalfD::BSPManager::insertEffect(int effectId, TwoHalfD::XYVectorf pos) {
+    m_effectPositions[effectId] = pos;
+    return _insertEffect(m_root.get(), effectId, pos);
+}
+
+void TwoHalfD::BSPManager::removeEffect(int effectId) {
+    auto nodeIt = m_effectNodeMap.find(effectId);
+    if (nodeIt != m_effectNodeMap.end()) {
+        nodeIt->second->effectIds.erase(effectId);
+        m_effectNodeMap.erase(nodeIt);
+    }
+    m_effectPositions.erase(effectId);
+}
+
 TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
     return m_segments[id];
 }
@@ -110,27 +124,36 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
     if (node->front == nullptr && node->back == nullptr) {
 
-        auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
-        std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
+        struct DistEntry { float dist; int id; bool isEffect; };
+        auto cmp = [](const DistEntry &a, const DistEntry &b) { return a.dist < b.dist; };
+        std::priority_queue<DistEntry, std::vector<DistEntry>, decltype(cmp)> orderedDistance(cmp);
 
         for (const auto &entityId : node->spriteIds) {
             auto posIt = m_spritePositions.find(entityId);
             if (posIt == m_spritePositions.end()) continue;
             float distance = (posIt->second - cameraPos.pos).length();
-            spriteOrderedDistance.push({distance, entityId});
+            orderedDistance.push({distance, entityId, false});
+        }
+        for (const auto &effectId : node->effectIds) {
+            auto posIt = m_effectPositions.find(effectId);
+            if (posIt == m_effectPositions.end()) continue;
+            float distance = (posIt->second - cameraPos.pos).length();
+            orderedDistance.push({distance, effectId, true});
         }
 
         if (!isInfrontOfCamera) {
-            while (!spriteOrderedDistance.empty()) {
-                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
-                spriteOrderedDistance.pop();
+            while (!orderedDistance.empty()) {
+                const auto &top = orderedDistance.top();
+                commands.push_back(top.isEffect ? DrawCommand::makeEffect(top.id) : DrawCommand::makeSprite(top.id));
+                orderedDistance.pop();
             }
             commands.push_back(DrawCommand::makeSegment(static_cast<int>(node->segmentID)));
         } else {
             commands.push_back(DrawCommand::makeSegment(static_cast<int>(node->segmentID)));
-            while (!spriteOrderedDistance.empty()) {
-                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
-                spriteOrderedDistance.pop();
+            while (!orderedDistance.empty()) {
+                const auto &top = orderedDistance.top();
+                commands.push_back(top.isEffect ? DrawCommand::makeEffect(top.id) : DrawCommand::makeSprite(top.id));
+                orderedDistance.pop();
             }
         }
         return;
@@ -163,26 +186,27 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
             commands.push_back(DrawCommand::makeFloorSection(node->floorSection.get()));
         }
 
-        auto cmp = [](const auto &a, const auto &b) { return a.first > b.first; };
-        std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, decltype(cmp)> spriteOrderedDistance(cmp);
+        struct DistEntry { float dist; int id; bool isEffect; };
+        auto cmp = [](const DistEntry &a, const DistEntry &b) { return a.dist < b.dist; };
+        std::priority_queue<DistEntry, std::vector<DistEntry>, decltype(cmp)> orderedDistance(cmp);
 
         for (const auto &entityId : node->spriteIds) {
             auto posIt = m_spritePositions.find(entityId);
             if (posIt == m_spritePositions.end()) continue;
             float distance = (posIt->second - cameraPos.pos).length();
-            spriteOrderedDistance.push({distance, entityId});
+            orderedDistance.push({distance, entityId, false});
+        }
+        for (const auto &effectId : node->effectIds) {
+            auto posIt = m_effectPositions.find(effectId);
+            if (posIt == m_effectPositions.end()) continue;
+            float distance = (posIt->second - cameraPos.pos).length();
+            orderedDistance.push({distance, effectId, true});
         }
 
-        if (!isInfrontOfCamera) {
-            while (!spriteOrderedDistance.empty()) {
-                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
-                spriteOrderedDistance.pop();
-            }
-        } else {
-            while (!spriteOrderedDistance.empty()) {
-                commands.push_back(DrawCommand::makeSprite(spriteOrderedDistance.top().second));
-                spriteOrderedDistance.pop();
-            }
+        while (!orderedDistance.empty()) {
+            const auto &top = orderedDistance.top();
+            commands.push_back(top.isEffect ? DrawCommand::makeEffect(top.id) : DrawCommand::makeSprite(top.id));
+            orderedDistance.pop();
         }
         return;
     }
@@ -566,6 +590,30 @@ float TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, int entityId,
         return _insertSprite(node->front.get(), entityId, pos);
     } else {
         return _insertSprite(node->back.get(), entityId, pos);
+    }
+}
+
+float TwoHalfD::BSPManager::_insertEffect(TwoHalfD::BSPNode *node, int effectId, TwoHalfD::XYVectorf pos) {
+    if (node == nullptr) return 0.f;
+
+    if (node->front == nullptr && node->back == nullptr) {
+        float height = 0.f;
+        if (node->floorSection != nullptr) {
+            height = node->floorSection->height;
+        } else if (m_defaultFloorTextureId != -1) {
+            height = m_defaultFloorHeight;
+        }
+        node->effectIds.insert(effectId);
+        m_effectNodeMap[effectId] = node;
+        return height;
+    }
+
+    float isInfrontOfSplit = isInfront(pos - node->splitterP0, node->splitterVec);
+
+    if (isInfrontOfSplit > std::numeric_limits<float>::epsilon()) {
+        return _insertEffect(node->front.get(), effectId, pos);
+    } else {
+        return _insertEffect(node->back.get(), effectId, pos);
     }
 }
 

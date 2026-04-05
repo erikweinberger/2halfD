@@ -1,9 +1,13 @@
 #ifndef TWOHALFD_ANIMATION_TYPES_H
 #define TWOHALFD_ANIMATION_TYPES_H
 
+#include <array>
+#include <cstddef>
 #include <vector>
 
 namespace TwoHalfD {
+
+inline constexpr size_t MAX_OVERLAYS = 10;
 
 struct AnimationFrame {
     int textureId;
@@ -21,6 +25,32 @@ struct AnimationState {
     float elapsedTime = 0.f; // time into current frame
     bool loop = false;
 };
+
+struct OverlayInstance {
+    AnimationState animState;
+    float x = 0.5f;      // 0-1 relative to sprite width, anchor point (0=left, 1=right)
+    float y = 0.5f;      // 0-1 relative to sprite height, anchor point (0=top, 1=bottom)
+    float width = 64.f;  // world units
+    float height = 64.f; // world units
+    float textureScaleX = 1.f; // fraction of area one texture copy fills (0.5 = tiles 2x)
+    float textureScaleY = 1.f;
+    int zOrder = 0;      // lower = drawn first (behind)
+    int overlayId = -1;  // stable ID for external reference
+    bool active = false; // whether this slot is in use
+};
+
+struct OverlayStack {
+    std::array<OverlayInstance, MAX_OVERLAYS> overlays{};
+    size_t count = 0;
+    int nextId = 0;
+
+    // Returns stable overlay ID (or -1 on failure)
+    int add(int templateId, float x, float y, float width, float height, int zOrder, bool loop, float textureScaleX = 1.f, float textureScaleY = 1.f);
+    void remove(int overlayId);
+    void clear();
+    void sortByZOrder();
+};
+
 } // namespace TwoHalfD
 
 #endif

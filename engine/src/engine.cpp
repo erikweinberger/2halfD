@@ -72,6 +72,12 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         m_entityManager.setHeightStart(entityId, newHeight);
     }
 
+    // Clean up expired effects from BSP, then erase from EntityManager
+    for (int effectId : m_entityManager.getExpiredEffectIds()) {
+        m_bspManager.removeEffect(effectId);
+    }
+    m_entityManager.eraseExpiredEffects();
+
     auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
     m_cameraObject.cameraHeightStart =
         convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_defaultFloorHeight;
@@ -167,11 +173,29 @@ void TwoHalfD::Engine::setAnimation(int entityId, int templateId, bool loop) {
 void TwoHalfD::Engine::clearAnimation(int entityId) {
     m_entityManager.clearAnimation(entityId);
 }
-void TwoHalfD::Engine::setAnimationOverlay(int entityId, int templateId, bool loop) {
-    m_entityManager.setAnimationOverlay(entityId, templateId, loop);
+int TwoHalfD::Engine::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop, float textureScaleX, float textureScaleY) {
+    return m_entityManager.addOverlay(entityId, templateId, x, y, width, height, zOrder, loop, textureScaleX, textureScaleY);
 }
-void TwoHalfD::Engine::clearAnimationOverlay(int entityId) {
-    m_entityManager.clearAnimationOverlay(entityId);
+void TwoHalfD::Engine::removeOverlay(int entityId, int overlayId) {
+    m_entityManager.removeOverlay(entityId, overlayId);
+}
+void TwoHalfD::Engine::clearOverlays(int entityId) {
+    m_entityManager.clearOverlays(entityId);
+}
+
+int TwoHalfD::Engine::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, float height, float width, float scaleX, float scaleY, float heightStart) {
+    if (heightStart < 0.f) {
+        auto *section = m_bspManager.findConvexSection(pos);
+        heightStart = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
+    }
+    int id = m_entityManager.spawnEffect(pos, templateId, height, width, scaleX, scaleY, heightStart);
+    m_bspManager.insertEffect(id, pos);
+    return id;
+}
+
+void TwoHalfD::Engine::removeEffect(int effectId) {
+    m_bspManager.removeEffect(effectId);
+    m_entityManager.removeEffect(effectId);
 }
 
 std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth,
