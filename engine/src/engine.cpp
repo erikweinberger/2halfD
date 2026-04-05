@@ -9,36 +9,29 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
     m_window.setMouseCursorVisible(false);
 
-    // Parse level file into temporary Level struct
     TwoHalfD::Level level = m_levelMaker.parseLevelFile(levelFilePath);
 
-    // Distribute data to subsystems
     m_textures = std::move(level.textures);
     m_defaultFloorHeight = level.defaultFloorHeight;
     m_defaultFloorTextureId = level.defaultFloorTextureId;
     m_defaultFloorStart = level.defaultFloorStart;
 
-    // Animation templates
     m_animationTemplates = std::move(level.animationTemplates);
     m_entityManager.setAnimationTemplates(m_animationTemplates);
 
-    // EntityManager takes sprites
     for (auto &sprite : level.sprites) {
         m_entityManager.addEntity(std::move(sprite));
     }
 
-    // BSPManager takes walls and floor sections
     m_bspManager.init(std::move(level.walls), std::move(level.floorSections), m_defaultFloorHeight, m_defaultFloorTextureId, level.seed);
     m_bspManager.buildBSPTree();
     m_bspManager.buildGraph();
 
-    // Insert sprites into BSP and update their heightStarts
     auto heightStarts = m_bspManager.insertSprites(m_entityManager.getAllEntities());
     for (const auto &[entityId, heightStart] : heightStarts) {
         m_entityManager.setHeightStart(entityId, heightStart);
     }
 
-    // Set up renderer data sources
     m_renderer.setData(&m_textures, &m_entityManager, m_defaultFloorHeight, m_defaultFloorTextureId, m_defaultFloorStart);
 }
 
@@ -59,9 +52,10 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         const XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
         sf::Vector2i mousePosition = sf::Mouse::getPosition(m_window);
 
-        if (m_window.hasFocus() && (m_engineSettings.windowDim.x - mousePosition.x < 0 || mousePosition.x < 0 ||
-                                    m_engineSettings.windowDim.y - mousePosition.y < 0 || mousePosition.y < 0)) {
+        if (m_window.hasFocus() && (mousePosition.x < 0 || mousePosition.x >= (int)size.x ||
+                                    mousePosition.y < 0 || mousePosition.y >= (int)size.y)) {
             sf::Mouse::setPosition({middleScreen.x, middleScreen.y}, m_window);
+            m_inputManager.notifyWarp();
         }
     }
 
@@ -72,7 +66,6 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         m_entityManager.setHeightStart(entityId, newHeight);
     }
 
-    // Clean up expired effects from BSP, then erase from EntityManager
     for (int effectId : m_entityManager.getExpiredEffectIds()) {
         m_bspManager.removeEffect(effectId);
     }

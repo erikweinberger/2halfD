@@ -15,6 +15,7 @@ class InputManager {
 
     std::span<const Event> pollEvents(EngineState &engineState);
     void clearFrameInputs();
+    void notifyWarp();
     XYVector getMouseDeltaFrame() const;
 
   private:
@@ -24,6 +25,7 @@ class InputManager {
     EngineContext m_context;
     std::array<Event, 512> m_inputArray{};
     int m_currentInput{0};
+    bool m_warpPending{false};
 };
 
 } // namespace TwoHalfD

@@ -29,14 +29,14 @@ std::span<const TwoHalfD::Event> TwoHalfD::InputManager::pollEvents(EngineState 
         }
         case sf::Event::MouseMoved: {
             XYVector mouseWinPos = {event.mouseMove.x, event.mouseMove.y};
-            auto size = m_window.getSize();
-            const XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
 
             m_context.MouseDelta = m_context.prevMousePosition - mouseWinPos;
             m_context.prevMousePosition = m_context.currentMousePosition;
-            m_context.currentMousePosition = {event.mouseMove.x, event.mouseMove.y};
-            if (std::abs(m_context.MouseDelta.x) > 0.8 * middleScreen.x || std::abs(m_context.MouseDelta.y) > 0.8 * middleScreen.y) {
-                m_context.prevMousePosition = m_context.currentMousePosition;
+            m_context.currentMousePosition = mouseWinPos;
+
+            if (m_warpPending) {
+                m_warpPending = false;
+                m_context.prevMousePosition = mouseWinPos;
                 break;
             }
 
@@ -53,6 +53,10 @@ std::span<const TwoHalfD::Event> TwoHalfD::InputManager::pollEvents(EngineState 
 
 void TwoHalfD::InputManager::clearFrameInputs() {
     m_currentInput = 0;
+}
+
+void TwoHalfD::InputManager::notifyWarp() {
+    m_warpPending = true;
 }
 
 TwoHalfD::XYVector TwoHalfD::InputManager::getMouseDeltaFrame() const {
