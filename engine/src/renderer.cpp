@@ -92,6 +92,10 @@ void TwoHalfD::Renderer::renderBSP(const CameraObject &camera, BSPManager &bsp) 
             if (it != effects.end()) renderEffect(it->second, camera);
             break;
         }
+        case TwoHalfD::DrawCommand::Type::ColourOverlay: {
+            renderColourOverlay(command.colourOverlayPtr, camera);
+            break;
+        }
         default:
             break;
         }
@@ -426,6 +430,54 @@ void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorS
     m_floorShader.setUniform("distanceCutoff", 3000.0f);
     m_floorShader.setUniform("shaderScale", m_settings.shaderScale);
 
+    m_renderTexture.draw(floorShape, states);
+}
+
+void TwoHalfD::Renderer::renderColourOverlay(const TwoHalfD::FloorColourOverlay *overlay, const CameraObject &camera) {
+    float focalLength = (m_settings.resolution.x / 2.0f) / m_settings.fovScale;
+    XYVectorf n_direction{std::cos(camera.cameraPos.direction), std::sin(camera.cameraPos.direction)};
+    XYVectorf n_plane{-n_direction.y, n_direction.x};
+    const float NEAR_CLIP = 100.0f;
+
+    std::vector<XYVectorf> vertices{};
+    size_t n = overlay->vertices.size();
+    vertices.reserve(n);
+
+    for (size_t i{}; i < n; ++i) {
+        const XYVectorf &curr = overlay->vertices[i];
+        const XYVectorf &next = overlay->vertices[(i + 1) % n];
+
+        float dotCurr = dotProduct(curr - camera.cameraPos.posf, n_direction);
+        float dotNext = dotProduct(next - camera.cameraPos.posf, n_direction);
+
+        bool currInFront = dotCurr > NEAR_CLIP;
+        bool nextInFront = dotNext > NEAR_CLIP;
+
+        if (currInFront) vertices.push_back(curr);
+
+        if (currInFront != nextInFront) {
+            float t = (NEAR_CLIP - dotCurr) / (dotNext - dotCurr);
+            XYVectorf intersectionPoint = curr + t * (next - curr);
+            vertices.push_back(intersectionPoint);
+        }
+    }
+
+    if (vertices.size() < 3) return;
+
+    sf::VertexArray floorShape(sf::PrimitiveType::TriangleFan, vertices.size());
+    sf::Color colour(overlay->r, overlay->g, overlay->b, overlay->a);
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        XYVectorf cameraVertexVec = vertices[i] - camera.cameraPos.posf;
+        float perpWorldDistance = dotProduct(cameraVertexVec, n_direction);
+        float lateralDist = dotProduct(cameraVertexVec, n_plane);
+        float p_xScreenPos = (m_settings.resolution.x / 2.0f) + focalLength * lateralDist / perpWorldDistance;
+        float p_yScreenPos = (m_settings.resolution.y / 2.0f) + focalLength * (camera.cameraHeight - overlay->height) / perpWorldDistance;
+        floorShape[i].position = sf::Vector2f(p_xScreenPos, p_yScreenPos);
+        floorShape[i].color = colour;
+    }
+
+    sf::RenderStates states;
+    states.blendMode = sf::BlendAlpha;
     m_renderTexture.draw(floorShape, states);
 }
 

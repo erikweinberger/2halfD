@@ -38,6 +38,13 @@ struct FloorSection {
     bool isCCW;
 };
 
+struct FloorColourOverlay {
+    Polygon vertices;
+    int id;
+    float height;
+    uint8_t r, g, b, a;
+};
+
 struct WalkToUpdate {
     TwoHalfD::XYVectorf targetPos;
     TwoHalfD::Path path;

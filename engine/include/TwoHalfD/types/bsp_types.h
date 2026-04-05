@@ -35,6 +35,7 @@ struct BSPNode {
     std::unordered_set<int> effectIds;
     Polygon bounds;
     std::unique_ptr<FloorSection> floorSection = nullptr;
+    std::vector<FloorColourOverlay> colourOverlays;
 
     XYVectorf splitterP0;
     XYVectorf splitterP1;
@@ -48,12 +49,14 @@ struct DrawCommand {
         Segment,
         Sprite,
         FloorSection,
-        Effect
+        Effect,
+        ColourOverlay
     } type;
 
     union {
-        int id;                        // For Segment or Sprite
-        FloorSection *floorSectionPtr; // For FloorSection
+        int id;                               // For Segment or Sprite
+        FloorSection *floorSectionPtr;        // For FloorSection
+        FloorColourOverlay *colourOverlayPtr; // For ColourOverlay
     };
 
     static DrawCommand makeSegment(int segId) {
@@ -81,6 +84,13 @@ struct DrawCommand {
         DrawCommand cmd;
         cmd.type = Type::Effect;
         cmd.id = effectId;
+        return cmd;
+    }
+
+    static DrawCommand makeColourOverlay(FloorColourOverlay *ptr) {
+        DrawCommand cmd;
+        cmd.type = Type::ColourOverlay;
+        cmd.colourOverlayPtr = ptr;
         return cmd;
     }
 };

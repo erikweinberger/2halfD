@@ -2,14 +2,21 @@
 #include "TwoHalfD/engine.h"
 #include "TwoHalfD/engine_types.h"
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <numbers>
 
 namespace fs = std::filesystem;
 
+static constexpr int OVERLAY_ID = 1;
+static const TwoHalfD::Polygon OVERLAY_POLYGON = {
+    {100.f, 100.f}, {400.f, 100.f}, {400.f, 250.f},
+    {250.f, 250.f}, {250.f, 500.f}, {100.f, 500.f}};
+
 void Game::run() {
     fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level1.txt";
     m_engine.loadLevel(levelFile);
+    m_engine.addColourOverlay(OVERLAY_ID, OVERLAY_POLYGON, 0.f, 255, 0, 0, 128);
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
            m_engine.getState() == TwoHalfD::EngineState::paused) {
         if (m_engine.gameDeltaTimePassed()) {
@@ -22,8 +29,21 @@ void Game::run() {
 
 // Game Logic
 int frameCount = 0;
+bool overlayVisible = true;
+auto overlayToggleTime = std::chrono::steady_clock::now();
 
 void Game::updateGameState() {
+    auto now = std::chrono::steady_clock::now();
+    float elapsed = std::chrono::duration<float>(now - overlayToggleTime).count();
+    if (elapsed >= 2.f) {
+        overlayToggleTime = now;
+        overlayVisible = !overlayVisible;
+        if (overlayVisible)
+            m_engine.addColourOverlay(OVERLAY_ID, OVERLAY_POLYGON, 0.f, 255, 0, 0, 128);
+        else
+            m_engine.removeColourOverlay(OVERLAY_ID);
+    }
+
     float x = 0.f, y = 0.f;
 
     const auto &moveDir = m_gameState.playerState.moveDir;
@@ -55,13 +75,11 @@ void Game::updateGameState() {
             m_engine.clearAnimation(entity.id);
         }
 
-        // Every 3 seconds, add a "shooting" overlay (using walk template 1 as placeholder)
         if (frameCount % 180 == 0) {
             m_engine.addOverlay(entity.id, 3, 0.4f, 0.3f, 45, 45, 1, false, 1.f, 1.f);
         }
     }
 
-    // Every 5 seconds, spawn effect 500 pixels in front of camera
     if (frameCount % 300 == 0) {
         float dir = m_gameState.playerState.playerPos.direction;
         TwoHalfD::XYVectorf effectPos = {m_gameState.playerState.playerPos.pos.x + 500.f * std::cos(dir),
