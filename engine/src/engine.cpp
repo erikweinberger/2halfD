@@ -153,10 +153,10 @@ void TwoHalfD::Engine::render() {
     m_renderer.render(m_cameraObject, m_bspManager);
 }
 
-void TwoHalfD::Engine::walkTo(const int entityId, const TwoHalfD::XYVectorf targetPos, float maxHeightDiff, float maxDistance) {
+void TwoHalfD::Engine::walkTo(const int entityId, const TwoHalfD::XYVectorf targetPos, float maxHeightDiff, float maxStepDown, float maxDistance) {
     auto entity = m_entityManager.getEntity(entityId);
     if (!entity) return;
-    auto path = getPathfindingPoints(entity->pos.pos, targetPos, entity->radius, maxHeightDiff, maxDistance);
+    auto path = getPathfindingPoints(entity->pos.pos, targetPos, entity->radius, maxHeightDiff, maxStepDown, maxDistance);
     m_entityManager.walkTo(entityId, path);
 }
 
@@ -192,8 +192,8 @@ void TwoHalfD::Engine::removeEffect(int effectId) {
 }
 
 std::vector<TwoHalfD::XYVectorf> TwoHalfD::Engine::getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth,
-                                                                        float maxHeightDiff, float maxDistance) {
-    return m_bspManager.findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
+                                                                        float maxHeightDiff, float maxStepDown, float maxDistance) {
+    return m_bspManager.findPath(start, end, entityWidth, maxHeightDiff, maxStepDown, maxDistance);
 }
 
 void TwoHalfD::Engine::addColourOverlay(int id, const TwoHalfD::Polygon &vertices, float height, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {

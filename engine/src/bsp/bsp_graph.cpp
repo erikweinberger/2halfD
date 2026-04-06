@@ -56,7 +56,7 @@ int TwoHalfD::BSPGraph::getNodeIndex(const BSPNode *node) const {
 }
 
 std::vector<TwoHalfD::XYVectorf> TwoHalfD::BSPGraph::findPath(const XYVectorf &start, const XYVectorf &end, float entityWidth, float maxHeightDiff,
-                                                              float maxDistance) const {
+                                                              float maxStepDown, float maxDistance) const {
     int startNode = findNodeForPoint(start);
     int endNode = findNodeForPoint(end);
     if (startNode == -1 || endNode == -1) return {};
@@ -96,6 +96,7 @@ std::vector<TwoHalfD::XYVectorf> TwoHalfD::BSPGraph::findPath(const XYVectorf &s
         for (const auto &edge : m_nodes[current].edges) {
             if (edge.portalWidth < entityWidth) continue;
             if (edge.heightDiff < -maxHeightDiff) continue; // too high to step up
+            if (maxStepDown > 0.f && edge.heightDiff > maxStepDown) continue; // too far to step down
 
             float stepCost =
                 (m_nodes[current].centroid - edge.portalMidpoint).length() + (edge.portalMidpoint - m_nodes[edge.targetNodeIndex].centroid).length();

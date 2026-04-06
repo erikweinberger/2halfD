@@ -66,7 +66,7 @@ class BSPManager {
                                                                                     float cameraHeightStart);
 
     TwoHalfD::Path findPath(const TwoHalfD::XYVectorf &start, const TwoHalfD::XYVectorf &end, float entityWidth, float maxHeightDiff,
-                            float maxDistance);
+                            float maxStepDown, float maxDistance);
 
   private:
     // Owned level geometry

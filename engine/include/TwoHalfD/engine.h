@@ -67,7 +67,7 @@ class Engine {
     const std::vector<TwoHalfD::Wall> &getAllWalls();
     const std::unordered_map<int, TwoHalfD::SpriteEntity> &getAllSpriteEntities();
     TwoHalfD::EntityManager &getEntityManager();
-    void walkTo(int entityId, TwoHalfD::XYVectorf targetPos, float maxHeightDiff = 0.f, float maxDistance = 10000.f);
+    void walkTo(int entityId, TwoHalfD::XYVectorf targetPos, float maxHeightDiff = 0.f, float maxStepDown = 0.f, float maxDistance = 10000.f);
 
     void setAnimation(int entityId, int templateId, bool loop = false);
     void clearAnimation(int entityId);
@@ -79,7 +79,7 @@ class Engine {
     void removeEffect(int effectId);
 
     std::vector<TwoHalfD::XYVectorf> getPathfindingPoints(TwoHalfD::XYVectorf start, TwoHalfD::XYVectorf end, float entityWidth, float maxHeightDiff,
-                                                          float maxDistance);
+                                                          float maxStepDown, float maxDistance);
 
     void render();
 

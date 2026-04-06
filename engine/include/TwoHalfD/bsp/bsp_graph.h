@@ -46,7 +46,7 @@ class BSPGraph {
         return m_nodes;
     }
 
-    std::vector<XYVectorf> findPath(const XYVectorf &start, const XYVectorf &end, float entityWidth, float maxHeightDiff, float maxDistance) const;
+    std::vector<XYVectorf> findPath(const XYVectorf &start, const XYVectorf &end, float entityWidth, float maxHeightDiff, float maxStepDown, float maxDistance) const;
 
   private:
     std::vector<BSPGraphNode> m_nodes;
