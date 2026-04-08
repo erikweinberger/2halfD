@@ -1,3 +1,4 @@
+#include "TwoHalfD/types/entity_types.h"
 #include "TwoHalfD/types/math_types.h"
 #include <TwoHalfD/engine.h>
 
@@ -52,18 +53,16 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         const XYVector middleScreen = {(int)size.x / 2, (int)size.y / 2};
         sf::Vector2i mousePosition = sf::Mouse::getPosition(m_window);
 
-        if (m_window.hasFocus() && (mousePosition.x < 0 || mousePosition.x >= (int)size.x ||
-                                    mousePosition.y < 0 || mousePosition.y >= (int)size.y)) {
+        if (m_window.hasFocus() && (mousePosition.x < 0 || mousePosition.x >= (int)size.x || mousePosition.y < 0 || mousePosition.y >= (int)size.y)) {
             sf::Mouse::setPosition({middleScreen.x, middleScreen.y}, m_window);
             m_inputManager.notifyWarp();
         }
     }
 
     float deltaTime = static_cast<float>(m_engineClocks.getGameDeltaTime());
-    auto movedEntities = m_entityManager.update(deltaTime);
+    auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings);
     for (const auto &[entityId, newPos] : movedEntities) {
-        float newHeight = m_bspManager.moveSprite(entityId, newPos);
-        m_entityManager.setHeightStart(entityId, newHeight);
+        m_bspManager.moveSprite(entityId, newPos);
     }
 
     for (int effectId : m_entityManager.getExpiredEffectIds()) {
@@ -72,8 +71,25 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     m_entityManager.eraseExpiredEffects();
 
     auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
-    m_cameraObject.cameraHeightStart =
+    m_cameraObject.cameraFloorHeight =
         convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_defaultFloorHeight;
+
+    if (m_cameraObject.cameraFloorHeight < m_cameraObject.cameraHeightStart) {
+        float gravity = m_cameraObject.gravityOverride.value_or(m_engineSettings.gravity);
+        float maxFallSpeed = m_cameraObject.maxFallSpeedOverride.value_or(m_engineSettings.maxFallSpeed);
+        m_cameraObject.velocity.z -= gravity;
+        if (-m_cameraObject.velocity.z > maxFallSpeed) {
+            m_cameraObject.velocity.z = -maxFallSpeed;
+        }
+        m_cameraObject.cameraHeightStart += m_cameraObject.velocity.z;
+        if (m_cameraObject.cameraHeightStart <= m_cameraObject.cameraFloorHeight) {
+            m_cameraObject.cameraHeightStart = m_cameraObject.cameraFloorHeight;
+            m_cameraObject.velocity.z = 0.f;
+        }
+    } else {
+        m_cameraObject.cameraHeightStart = m_cameraObject.cameraFloorHeight;
+        m_cameraObject.velocity.z = 0.f;
+    }
 }
 
 bool TwoHalfD::Engine::gameDeltaTimePassed() {
@@ -89,6 +105,11 @@ void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos) {
 }
 
 TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate) {
+    bool isFalling = m_cameraObject.cameraFloorHeight < m_cameraObject.cameraHeightStart;
+    if (isFalling && !m_cameraObject.canMoveWhileFallingOverride.value_or(m_engineSettings.canMoveWhileFalling)) {
+        return m_cameraObject.cameraPos;
+    }
+
     TwoHalfD::Position prevPos = m_cameraObject.cameraPos;
     m_cameraObject.cameraPos += posUpdate;
     TwoHalfD::XYVectorf moveVec{posUpdate.pos.x, posUpdate.pos.y};
@@ -166,7 +187,8 @@ void TwoHalfD::Engine::setAnimation(int entityId, int templateId, bool loop) {
 void TwoHalfD::Engine::clearAnimation(int entityId) {
     m_entityManager.clearAnimation(entityId);
 }
-int TwoHalfD::Engine::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop, float textureScaleX, float textureScaleY) {
+int TwoHalfD::Engine::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop,
+                                 float textureScaleX, float textureScaleY) {
     return m_entityManager.addOverlay(entityId, templateId, x, y, width, height, zOrder, loop, textureScaleX, textureScaleY);
 }
 void TwoHalfD::Engine::removeOverlay(int entityId, int overlayId) {

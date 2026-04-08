@@ -23,13 +23,6 @@ const std::unordered_map<int, TwoHalfD::SpriteEntity> &TwoHalfD::EntityManager::
     return m_entities;
 }
 
-void TwoHalfD::EntityManager::setHeightStart(int entityId, float heightStart) {
-    auto it = m_entities.find(entityId);
-    if (it != m_entities.end()) {
-        it->second.heightStart = heightStart;
-    }
-}
-
 void TwoHalfD::EntityManager::walkTo(int entityId, const TwoHalfD::Path &path) {
     if (path.empty()) return;
     auto it = m_entities.find(entityId);
@@ -37,26 +30,56 @@ void TwoHalfD::EntityManager::walkTo(int entityId, const TwoHalfD::Path &path) {
     it->second.currentUpdate = TwoHalfD::WalkToUpdate{path.back(), path, 1};
 }
 
-std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update([[maybe_unused]] float deltaTime) {
+void TwoHalfD::EntityManager::setHeightStart(int entityId, float heightStart) {
+    auto it = m_entities.find(entityId);
+    if (it != m_entities.end()) {
+        it->second.heightStart = heightStart;
+    }
+}
+
+void TwoHalfD::EntityManager::setFloorHeight(int entityId, float floorHeight) {
+    auto it = m_entities.find(entityId);
+    if (it != m_entities.end()) {
+        it->second.floorHeight = floorHeight;
+    }
+}
+
+std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update(float deltaTime, const EngineSettings &engineSettings) {
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> movedEntities;
 
     for (auto &[id, entity] : m_entities) {
         if (!entity.currentUpdate) continue;
 
         TwoHalfD::XYVectorf prevPos = entity.pos.pos;
+        bool isFalling = false;
 
-        std::visit(
-            [&](auto &update) {
-                using T = std::decay_t<decltype(update)>;
-                if constexpr (std::is_same_v<T, TwoHalfD::WalkToUpdate>) {
-                    _tickWalkTo(entity, update);
-                }
-            },
-            *entity.currentUpdate);
+        if (entity.floorHeight < entity.heightStart) {
+            isFalling = true;
+            float gravity = entity.gravityOverride.value_or(engineSettings.gravity);
+            float maxFallSpeed = entity.maxFallSpeedOverride.value_or(engineSettings.maxFallSpeed);
+            entity.velocity.z -= gravity;
+            if (-entity.velocity.z > maxFallSpeed) {
+                entity.velocity.z = -maxFallSpeed;
+            }
+            entity.heightStart += entity.velocity.z;
+            if (entity.heightStart <= entity.floorHeight) {
+                entity.heightStart = entity.floorHeight;
+                entity.velocity.z = 0.f;
+            }
+        }
+        if (!isFalling || entity.canMoveWhileFallingOverride.value_or(engineSettings.canMoveWhileFalling)) {
+            std::visit(
+                [&](auto &update) {
+                    using T = std::decay_t<decltype(update)>;
+                    if constexpr (std::is_same_v<T, TwoHalfD::WalkToUpdate>) {
+                        _tickWalkTo(entity, update);
+                    }
+                },
+                *entity.currentUpdate);
+        }
 
         if (entity.currentAnimation && _tickAnimation(*entity.currentAnimation, deltaTime)) entity.currentAnimation = std::nullopt;
 
-        // Tick overlays in reverse so removal doesn't skip elements
         for (int i = static_cast<int>(entity.overlays.count) - 1; i >= 0; --i) {
             auto &overlay = entity.overlays.overlays[i];
             if (overlay.active && _tickAnimation(overlay.animState, deltaTime)) {
@@ -69,8 +92,6 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
         }
     }
 
-    // Tick animation effects — collect expired IDs but don't erase yet
-    // (caller needs to clean up BSP first)
     m_expiredEffectIds.clear();
     for (auto &[id, effect] : m_effects) {
         if (_tickAnimation(effect.animState, deltaTime)) {
@@ -101,7 +122,8 @@ void TwoHalfD::EntityManager::clearAnimation(int entityId) {
     it->second.currentAnimation = std::nullopt;
 }
 
-int TwoHalfD::EntityManager::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop, float textureScaleX, float textureScaleY) {
+int TwoHalfD::EntityManager::addOverlay(int entityId, int templateId, float x, float y, float width, float height, int zOrder, bool loop,
+                                        float textureScaleX, float textureScaleY) {
     auto it = m_entities.find(entityId);
     if (it == m_entities.end()) return -1;
     return it->second.overlays.add(templateId, x, y, width, height, zOrder, loop, textureScaleX, textureScaleY);
@@ -119,9 +141,11 @@ void TwoHalfD::EntityManager::clearOverlays(int entityId) {
     it->second.overlays.clear();
 }
 
-int TwoHalfD::EntityManager::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, float height, float width, float scaleX, float scaleY, float heightStart) {
+int TwoHalfD::EntityManager::spawnEffect(TwoHalfD::XYVectorf pos, int templateId, float height, float width, float scaleX, float scaleY,
+                                         float heightStart) {
     int id = m_nextEffectId++;
-    m_effects[id] = TwoHalfD::AnimationEffect{id, pos, heightStart, height, width, scaleX, scaleY, TwoHalfD::AnimationState{templateId, 0, 0.f, false}};
+    m_effects[id] =
+        TwoHalfD::AnimationEffect{id, pos, heightStart, height, width, scaleX, scaleY, TwoHalfD::AnimationState{templateId, 0, 0.f, false}};
     return id;
 }
 

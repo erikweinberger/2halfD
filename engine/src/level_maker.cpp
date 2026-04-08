@@ -84,10 +84,9 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
     std::stringstream ss(textureString);
     std::string filePath;
     sf::Texture tex;
-    int type;
     int textureId{0};
 
-    for (int i = 0; i <= 3 && std::getline(ss, word, ' '); ++i) {
+    for (int i = 0; i <= 2 && std::getline(ss, word, ' '); ++i) {
         switch (i) {
         case 0:
             break;
@@ -96,9 +95,6 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
             break;
         case 2:
             filePath = word;
-            break;
-        case 3:
-            type = std::stoi(word);
             break;
         default:
             break;
@@ -208,7 +204,7 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
         std::cerr << "No valid texture for spriteEntity at: (" << posX << " , " << posY << ")\n";
     }
 
-    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scaleX, scaleY, 0.f, 5.f, std::nullopt};
+    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scaleX, scaleY, 0.f, 5.f, 0.f, {}, std::nullopt, std::nullopt, {}, std::nullopt, std::nullopt, std::nullopt};
 }
 
 std::pair<int, TwoHalfD::XYVectorf> TwoHalfD::LevelMaker::_makeDefaultFloor(std::string floorString) {
