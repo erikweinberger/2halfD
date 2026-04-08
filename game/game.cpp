@@ -9,9 +9,7 @@
 namespace fs = std::filesystem;
 
 static constexpr int OVERLAY_ID = 1;
-static const TwoHalfD::Polygon OVERLAY_POLYGON = {
-    {100.f, 100.f}, {400.f, 100.f}, {400.f, 250.f},
-    {250.f, 250.f}, {250.f, 500.f}, {100.f, 500.f}};
+static const TwoHalfD::Polygon OVERLAY_POLYGON = {{100.f, 100.f}, {400.f, 100.f}, {400.f, 250.f}, {250.f, 250.f}, {250.f, 500.f}, {100.f, 500.f}};
 
 void Game::run() {
     fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level1.txt";
@@ -38,10 +36,8 @@ void Game::updateGameState() {
     if (elapsed >= 2.f) {
         overlayToggleTime = now;
         overlayVisible = !overlayVisible;
-        if (overlayVisible)
-            m_engine.addColourOverlay(OVERLAY_ID, OVERLAY_POLYGON, 0.f, 255, 0, 0, 128);
-        else
-            m_engine.removeColourOverlay(OVERLAY_ID);
+        if (overlayVisible) m_engine.addColourOverlay(OVERLAY_ID, OVERLAY_POLYGON, 0.f, 255, 0, 0, 128);
+        else m_engine.removeColourOverlay(OVERLAY_ID);
     }
 
     float x = 0.f, y = 0.f;
@@ -69,7 +65,7 @@ void Game::updateGameState() {
 
     for (const auto &[id, entity] : sprites) {
         if (frameCount % 60 == 0) {
-            m_engine.walkTo(entity.id, m_gameState.playerState.playerPos.pos, 25.f, 10000.f);
+            m_engine.walkTo(entity.id, m_gameState.playerState.playerPos.pos, 25.f, 600.f, 10000.f);
             m_engine.setAnimation(entity.id, 1, true);
         } else if (!entity.currentUpdate) {
             m_engine.clearAnimation(entity.id);

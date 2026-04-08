@@ -70,19 +70,29 @@ struct SpriteEntity {
     float heightStart = 0.f;
     float speed = 5.f;
 
+    float floorHeight = 0.f; // updated by BSPManager on insert/move
+
+    struct Velocity {
+        float x = 0.f, y = 0.f, z = 0.f;
+    } velocity;
+
     std::optional<EntityUpdate> currentUpdate;
     std::optional<AnimationState> currentAnimation;
     OverlayStack overlays;
+
+    std::optional<float> gravityOverride;
+    std::optional<float> maxFallSpeedOverride;
+    std::optional<bool> canMoveWhileFallingOverride;
 };
 
 struct AnimationEffect {
     int id;
     XYVectorf pos;
     float heightStart = 0.f;
-    float height = 64.f;   // world units tall
-    float width = 64.f;    // world units wide
-    float scaleX = 1.f;    // texture scale within width (1 = fit exactly)
-    float scaleY = 1.f;    // texture scale within height (1 = fit exactly)
+    float height = 64.f; // world units tall
+    float width = 64.f;  // world units wide
+    float scaleX = 1.f;  // texture scale within width (1 = fit exactly)
+    float scaleY = 1.f;  // texture scale within height (1 = fit exactly)
     AnimationState animState;
 };
 

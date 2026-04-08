@@ -11,7 +11,7 @@ namespace TwoHalfD {
 
 class InputManager {
   public:
-    InputManager(sf::RenderWindow &window, const EngineSettings &settings);
+    InputManager(sf::RenderWindow &window);
 
     std::span<const Event> pollEvents(EngineState &engineState);
     void clearFrameInputs();
@@ -20,7 +20,6 @@ class InputManager {
 
   private:
     sf::RenderWindow &m_window;
-    const EngineSettings &m_settings;
 
     EngineContext m_context;
     std::array<Event, 512> m_inputArray{};

@@ -182,9 +182,6 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
     }
 
     const sf::Texture &tex = it->second.texture;
-    sf::Vector2u texSize = tex.getSize();
-
-    const float wallLen = distanceBetweenPoints(wall->start, wall->end);
 
     sf::VertexArray quad(sf::Quads, 4);
 

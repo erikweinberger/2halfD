@@ -32,6 +32,10 @@ struct EngineSettings {
     bool cameraCollision = true;
     float heightClipping = 10.f; // How much difference in floor height is allowed before clipping occurs
 
+    float gravity = 0.01f;
+    float maxFallSpeed = 15.f;
+    bool canMoveWhileFalling = false;
+
     EngineSettings() = default;
 };
 
@@ -57,11 +61,20 @@ struct EngineContext {
 };
 
 struct CameraObject {
-    Position cameraPos{300, 700, 3 * std::numbers::pi_v<float> / 2};
+    Position cameraPos{500, 500, 3 * std::numbers::pi_v<float> / 2};
     float cameraHeight{100.f};
     float cameraRadius{64};
 
     float cameraHeightStart{0.0f};
+    float cameraFloorHeight{0.0f};
+
+    struct Velocity {
+        float z = 0.f;
+    } velocity;
+
+    std::optional<float> gravityOverride;
+    std::optional<float> maxFallSpeedOverride;
+    std::optional<bool> canMoveWhileFallingOverride = false;
 };
 
 struct RenderZBuffer {

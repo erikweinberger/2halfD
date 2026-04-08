@@ -3,8 +3,8 @@
 #include <SFML/Window/Mouse.hpp>
 #include <cmath>
 
-TwoHalfD::InputManager::InputManager(sf::RenderWindow &window, const EngineSettings &settings)
-    : m_window(window), m_settings(settings) {}
+TwoHalfD::InputManager::InputManager(sf::RenderWindow &window)
+    : m_window(window) {}
 
 std::span<const TwoHalfD::Event> TwoHalfD::InputManager::pollEvents(EngineState &engineState) {
     sf::Event event;

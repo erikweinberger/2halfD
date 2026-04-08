@@ -245,8 +245,8 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 }
 
 TwoHalfD::Path TwoHalfD::BSPManager::findPath(const TwoHalfD::XYVectorf &start, const TwoHalfD::XYVectorf &end, float entityWidth,
-                                              float maxHeightDiff, float maxDistance) {
-    auto path = m_graph.findPath(start, end, entityWidth, maxHeightDiff, maxDistance);
+                                              float maxHeightDiff, float maxStepDown, float maxDistance) {
+    auto path = m_graph.findPath(start, end, entityWidth, maxHeightDiff, maxStepDown, maxDistance);
     if (path.size() <= 2) return path;
     return _smoothPath(path, entityWidth, maxHeightDiff);
 }
