@@ -68,6 +68,7 @@ struct SpriteEntity {
     float scaleX = 1.f; // fraction of sprite area one texture copy fills horizontally
     float scaleY = 1.f; // fraction of sprite area one texture copy fills vertically
     float heightStart = 0.f;
+    float perimeterFloorHeight = 0.f;
     float speed = 5.f;
 
     float floorHeight = 0.f; // updated by BSPManager on insert/move

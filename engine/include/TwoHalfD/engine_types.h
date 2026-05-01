@@ -61,7 +61,7 @@ struct EngineContext {
 };
 
 struct CameraObject {
-    Position cameraPos{500, 500, 3 * std::numbers::pi_v<float> / 2};
+    Position cameraPos{200, 1000, 3 * std::numbers::pi_v<float> / 2};
     float cameraHeight{100.f};
     float cameraRadius{64};
 
@@ -75,10 +75,6 @@ struct CameraObject {
     std::optional<float> gravityOverride;
     std::optional<float> maxFallSpeedOverride;
     std::optional<bool> canMoveWhileFallingOverride = false;
-};
-
-struct RenderZBuffer {
-    std::vector<float> nearestWallRayDist;
 };
 
 enum class EngineState {

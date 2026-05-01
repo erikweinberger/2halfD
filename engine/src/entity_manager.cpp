@@ -44,6 +44,13 @@ void TwoHalfD::EntityManager::setFloorHeight(int entityId, float floorHeight) {
     }
 }
 
+void TwoHalfD::EntityManager::setPerimeterFloorHeight(int entityId, float perimeterFloorHeight) {
+    auto it = m_entities.find(entityId);
+    if (it != m_entities.end()) {
+        it->second.perimeterFloorHeight = perimeterFloorHeight;
+    }
+}
+
 std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update(float deltaTime, const EngineSettings &engineSettings) {
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> movedEntities;
 
@@ -52,8 +59,7 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
 
         TwoHalfD::XYVectorf prevPos = entity.pos.pos;
         bool isFalling = false;
-
-        if (entity.floorHeight < entity.heightStart) {
+        if (entity.floorHeight < entity.heightStart && entity.perimeterFloorHeight < entity.heightStart) {
             isFalling = true;
             float gravity = entity.gravityOverride.value_or(engineSettings.gravity);
             float maxFallSpeed = entity.maxFallSpeedOverride.value_or(engineSettings.maxFallSpeed);

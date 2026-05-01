@@ -5,6 +5,7 @@
 #include <SFML/Window/Mouse.hpp>
 #include <cmath>
 #include <span>
+#include <variant>
 
 void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
@@ -31,6 +32,7 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     auto heightStarts = m_bspManager.insertSprites(m_entityManager.getAllEntities());
     for (const auto &[entityId, heightStart] : heightStarts) {
         m_entityManager.setHeightStart(entityId, heightStart);
+        m_entityManager.setFloorHeight(entityId, heightStart);
     }
 
     m_renderer.setData(&m_textures, &m_entityManager, m_defaultFloorHeight, m_defaultFloorTextureId, m_defaultFloorStart);
@@ -62,7 +64,18 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     float deltaTime = static_cast<float>(m_engineClocks.getGameDeltaTime());
     auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings);
     for (const auto &[entityId, newPos] : movedEntities) {
-        m_bspManager.moveSprite(entityId, newPos);
+        float leafFloorHeight = m_bspManager.moveSprite(entityId, newPos);
+
+        auto entity = m_entityManager.getEntity(entityId);
+        if (entity && entity->currentUpdate && std::holds_alternative<TwoHalfD::WalkToUpdate>(*entity->currentUpdate)) {
+            auto &walkTo = std::get<TwoHalfD::WalkToUpdate>(*entity->currentUpdate);
+            if (walkTo.nextPathIndex >= walkTo.path.size()) continue;
+            auto n_moveDir = (walkTo.path[walkTo.nextPathIndex] - newPos).normalized();
+            auto *section = m_bspManager.findConvexSection(newPos - n_moveDir * entity->radius);
+            float perimeterFloorHeight = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
+            m_entityManager.setPerimeterFloorHeight(entityId, perimeterFloorHeight);
+            m_entityManager.setFloorHeight(entityId, leafFloorHeight);
+        }
     }
 
     for (int effectId : m_entityManager.getExpiredEffectIds()) {
