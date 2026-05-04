@@ -44,10 +44,10 @@ void TwoHalfD::EntityManager::setFloorHeight(int entityId, float floorHeight) {
     }
 }
 
-void TwoHalfD::EntityManager::setPerimeterFloorHeight(int entityId, float perimeterFloorHeight) {
+void TwoHalfD::EntityManager::setPerimeterFloorHeight(int entityId, int perimeterPointIndex, float perimeterFloorHeight) {
     auto it = m_entities.find(entityId);
     if (it != m_entities.end()) {
-        it->second.perimeterFloorHeight = perimeterFloorHeight;
+        it->second.perimeterPoints[perimeterPointIndex].floorHeight = perimeterFloorHeight;
     }
 }
 
@@ -59,7 +59,9 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
 
         TwoHalfD::XYVectorf prevPos = entity.pos.pos;
         bool isFalling = false;
-        if (entity.floorHeight < entity.heightStart && entity.perimeterFloorHeight < entity.heightStart) {
+        if (entity.floorHeight < entity.heightStart &&
+            std::all_of(entity.perimeterPoints.begin(), entity.perimeterPoints.end(),
+                        [&](const TwoHalfD::PerimeterPoint &point) { return point.floorHeight < entity.heightStart; })) {
             isFalling = true;
             float gravity = entity.gravityOverride.value_or(engineSettings.gravity);
             float maxFallSpeed = entity.maxFallSpeedOverride.value_or(engineSettings.maxFallSpeed);
@@ -68,7 +70,9 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
                 entity.velocity.z = -maxFallSpeed;
             }
             entity.heightStart += entity.velocity.z;
-            if (entity.heightStart <= entity.floorHeight) {
+            if (entity.heightStart <= entity.floorHeight ||
+                std::any_of(entity.perimeterPoints.begin(), entity.perimeterPoints.end(),
+                            [&](const TwoHalfD::PerimeterPoint &point) { return entity.heightStart <= point.floorHeight; })) {
                 entity.heightStart = entity.floorHeight;
                 entity.velocity.z = 0.f;
             }

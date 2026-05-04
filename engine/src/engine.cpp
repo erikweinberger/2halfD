@@ -67,14 +67,14 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         float leafFloorHeight = m_bspManager.moveSprite(entityId, newPos);
 
         auto entity = m_entityManager.getEntity(entityId);
-        if (entity && entity->currentUpdate && std::holds_alternative<TwoHalfD::WalkToUpdate>(*entity->currentUpdate)) {
-            auto &walkTo = std::get<TwoHalfD::WalkToUpdate>(*entity->currentUpdate);
-            if (walkTo.nextPathIndex >= walkTo.path.size()) continue;
-            auto n_moveDir = (walkTo.path[walkTo.nextPathIndex] - newPos).normalized();
-            auto *section = m_bspManager.findConvexSection(newPos - n_moveDir * entity->radius);
-            float perimeterFloorHeight = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
-            m_entityManager.setPerimeterFloorHeight(entityId, perimeterFloorHeight);
+        if (entity) {
             m_entityManager.setFloorHeight(entityId, leafFloorHeight);
+            for (size_t i = 0; i < entity->perimeterPoints.size(); ++i) {
+                auto perimeterSection = m_bspManager.findConvexSection(newPos + entity->perimeterPoints[i].offset);
+                auto floorHeight =
+                    (perimeterSection && perimeterSection->floorSection) ? perimeterSection->floorSection->height : m_defaultFloorHeight;
+                m_entityManager.setPerimeterFloorHeight(entityId, i, floorHeight);
+            }
         }
     }
 

@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <variant>
+#include <array>
 #include <vector>
 
 namespace TwoHalfD {
@@ -59,6 +60,11 @@ struct IdleUpdate {};
 
 using EntityUpdate = std::variant<WalkToUpdate, AttackUpdate, IdleUpdate>;
 
+struct PerimeterPoint {
+    TwoHalfD::XYVectorf offset;
+    float floorHeight = 0.f;
+};
+
 struct SpriteEntity {
     int id;
     TwoHalfD::Position pos;
@@ -68,7 +74,12 @@ struct SpriteEntity {
     float scaleX = 1.f; // fraction of sprite area one texture copy fills horizontally
     float scaleY = 1.f; // fraction of sprite area one texture copy fills vertically
     float heightStart = 0.f;
-    float perimeterFloorHeight = 0.f;
+    std::array<PerimeterPoint, 4> perimeterPoints = {}; // initialized via initPerimeterPoints()
+
+    void initPerimeterPoints() {
+        perimeterPoints = {PerimeterPoint{{radius, 0}}, PerimeterPoint{{-radius, 0}}, PerimeterPoint{{0, radius}}, PerimeterPoint{{0, -radius}}};
+    }
+
     float speed = 5.f;
 
     float floorHeight = 0.f; // updated by BSPManager on insert/move

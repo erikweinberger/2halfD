@@ -204,7 +204,9 @@ TwoHalfD::SpriteEntity TwoHalfD::LevelMaker::_makeSpriteEntity(std::string sprit
         std::cerr << "No valid texture for spriteEntity at: (" << posX << " , " << posY << ")\n";
     }
 
-    return TwoHalfD::SpriteEntity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scaleX, scaleY, 0.f, 0.f, 5.f, 0.f, {}, std::nullopt, std::nullopt, {}, std::nullopt, std::nullopt, std::nullopt};
+    TwoHalfD::SpriteEntity entity{m_entityId++, {posX, posY}, static_cast<float>(radius), height, textureId, scaleX, scaleY};
+    entity.initPerimeterPoints();
+    return entity;
 }
 
 std::pair<int, TwoHalfD::XYVectorf> TwoHalfD::LevelMaker::_makeDefaultFloor(std::string floorString) {

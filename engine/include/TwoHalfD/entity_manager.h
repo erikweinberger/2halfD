@@ -23,7 +23,7 @@ class EntityManager {
     void walkTo(int entityId, const TwoHalfD::Path &path);
     void setHeightStart(int entityId, float heightStart);
     void setFloorHeight(int entityId, float floorHeight);
-    void setPerimeterFloorHeight(int entityId, float perimeterFloorHeight);
+    void setPerimeterFloorHeight(int entityId, int perimeterPointIndex, float perimeterFloorHeight);
 
     void setAnimation(int entityId, int templateId, bool loop = false);
     void clearAnimation(int entityId);
