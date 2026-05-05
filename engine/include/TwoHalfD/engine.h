@@ -49,6 +49,7 @@ class Engine {
 
         m_window.setVerticalSyncEnabled(false);
         m_window.setFramerateLimit(0);
+        m_cameraObject.initPerimeterPoints(m_cameraObject.cameraRadius);
         m_engineState = EngineState::initialised;
     }
 

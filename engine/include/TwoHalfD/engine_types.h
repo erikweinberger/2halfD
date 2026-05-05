@@ -61,12 +61,14 @@ struct EngineContext {
 };
 
 struct CameraObject {
-    Position cameraPos{200, 1000, 3 * std::numbers::pi_v<float> / 2};
+    Position cameraPos{400, 400, 3 * std::numbers::pi_v<float> / 2};
     float cameraHeight{100.f};
     float cameraRadius{64};
 
     float cameraHeightStart{0.0f};
     float cameraFloorHeight{0.0f};
+
+    std::vector<PerimeterPoint> perimeterPoints;
 
     struct Velocity {
         float z = 0.f;
@@ -75,6 +77,17 @@ struct CameraObject {
     std::optional<float> gravityOverride;
     std::optional<float> maxFallSpeedOverride;
     std::optional<bool> canMoveWhileFallingOverride = false;
+
+    void initPerimeterPoints(float radius) {
+        float d = (radius + 1.f) * 0.7071f; // radius * cos(45)
+        float r = radius + 1.f;
+        perimeterPoints = {
+            PerimeterPoint{{r, 0}},  PerimeterPoint{{-r, 0}},
+            PerimeterPoint{{0, r}},  PerimeterPoint{{0, -r}},
+            PerimeterPoint{{d, d}},  PerimeterPoint{{-d, d}},
+            PerimeterPoint{{d, -d}}, PerimeterPoint{{-d, -d}},
+        };
+    }
 };
 
 enum class EngineState {

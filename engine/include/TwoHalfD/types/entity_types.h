@@ -74,10 +74,16 @@ struct SpriteEntity {
     float scaleX = 1.f; // fraction of sprite area one texture copy fills horizontally
     float scaleY = 1.f; // fraction of sprite area one texture copy fills vertically
     float heightStart = 0.f;
-    std::array<PerimeterPoint, 4> perimeterPoints = {}; // initialized via initPerimeterPoints()
+    std::array<PerimeterPoint, 8> perimeterPoints = {};
 
     void initPerimeterPoints() {
-        perimeterPoints = {PerimeterPoint{{radius, 0}}, PerimeterPoint{{-radius, 0}}, PerimeterPoint{{0, radius}}, PerimeterPoint{{0, -radius}}};
+        float d = radius * 0.7071f;
+        perimeterPoints = {
+            PerimeterPoint{{radius, 0}},  PerimeterPoint{{-radius, 0}},
+            PerimeterPoint{{0, radius}},  PerimeterPoint{{0, -radius}},
+            PerimeterPoint{{d, d}},       PerimeterPoint{{-d, d}},
+            PerimeterPoint{{d, -d}},      PerimeterPoint{{-d, -d}},
+        };
     }
 
     float speed = 5.f;
