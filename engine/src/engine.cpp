@@ -109,7 +109,7 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
             m_cameraObject.cameraHeightStart = maxPerimeterFloor;
             m_cameraObject.velocity.z = 0.f;
         }
-    } else if (maxPerimeterFloor > m_cameraObject.cameraHeightStart) {
+    } else {
         m_cameraObject.cameraHeightStart = maxPerimeterFloor;
         m_cameraObject.velocity.z = 0.f;
     }
