@@ -5,6 +5,7 @@
 #include <SFML/Window/Mouse.hpp>
 #include <cmath>
 #include <span>
+#include <variant>
 
 void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
@@ -31,6 +32,7 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     auto heightStarts = m_bspManager.insertSprites(m_entityManager.getAllEntities());
     for (const auto &[entityId, heightStart] : heightStarts) {
         m_entityManager.setHeightStart(entityId, heightStart);
+        m_entityManager.setFloorHeight(entityId, heightStart);
     }
 
     m_renderer.setData(&m_textures, &m_entityManager, m_defaultFloorHeight, m_defaultFloorTextureId, m_defaultFloorStart);
@@ -62,7 +64,18 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     float deltaTime = static_cast<float>(m_engineClocks.getGameDeltaTime());
     auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings);
     for (const auto &[entityId, newPos] : movedEntities) {
-        m_bspManager.moveSprite(entityId, newPos);
+        float leafFloorHeight = m_bspManager.moveSprite(entityId, newPos);
+
+        auto entity = m_entityManager.getEntity(entityId);
+        if (entity) {
+            m_entityManager.setFloorHeight(entityId, leafFloorHeight);
+            for (size_t i = 0; i < entity->perimeterPoints.size(); ++i) {
+                auto perimeterSection = m_bspManager.findConvexSection(newPos + entity->perimeterPoints[i].offset);
+                auto floorHeight =
+                    (perimeterSection && perimeterSection->floorSection) ? perimeterSection->floorSection->height : m_defaultFloorHeight;
+                m_entityManager.setPerimeterFloorHeight(entityId, i, floorHeight);
+            }
+        }
     }
 
     for (int effectId : m_entityManager.getExpiredEffectIds()) {
@@ -74,7 +87,17 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     m_cameraObject.cameraFloorHeight =
         convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_defaultFloorHeight;
 
-    if (m_cameraObject.cameraFloorHeight < m_cameraObject.cameraHeightStart) {
+    for (size_t i = 0; i < m_cameraObject.perimeterPoints.size(); ++i) {
+        auto *section = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos + m_cameraObject.perimeterPoints[i].offset);
+        m_cameraObject.perimeterPoints[i].floorHeight = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
+    }
+
+    float maxPerimeterFloor =
+        std::max_element(m_cameraObject.perimeterPoints.begin(), m_cameraObject.perimeterPoints.end(), [](const auto &p1, const auto &p2) {
+            return p1.floorHeight < p2.floorHeight;
+        })->floorHeight;
+
+    if (maxPerimeterFloor < m_cameraObject.cameraHeightStart) {
         float gravity = m_cameraObject.gravityOverride.value_or(m_engineSettings.gravity);
         float maxFallSpeed = m_cameraObject.maxFallSpeedOverride.value_or(m_engineSettings.maxFallSpeed);
         m_cameraObject.velocity.z -= gravity;
@@ -82,12 +105,12 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
             m_cameraObject.velocity.z = -maxFallSpeed;
         }
         m_cameraObject.cameraHeightStart += m_cameraObject.velocity.z;
-        if (m_cameraObject.cameraHeightStart <= m_cameraObject.cameraFloorHeight) {
-            m_cameraObject.cameraHeightStart = m_cameraObject.cameraFloorHeight;
+        if (m_cameraObject.cameraHeightStart <= maxPerimeterFloor) {
+            m_cameraObject.cameraHeightStart = maxPerimeterFloor;
             m_cameraObject.velocity.z = 0.f;
         }
     } else {
-        m_cameraObject.cameraHeightStart = m_cameraObject.cameraFloorHeight;
+        m_cameraObject.cameraHeightStart = maxPerimeterFloor;
         m_cameraObject.velocity.z = 0.f;
     }
 }
@@ -105,7 +128,11 @@ void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos) {
 }
 
 TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate) {
-    bool isFalling = m_cameraObject.cameraFloorHeight < m_cameraObject.cameraHeightStart;
+    float maxFloor = m_cameraObject.cameraFloorHeight;
+    for (const auto &point : m_cameraObject.perimeterPoints) {
+        maxFloor = std::max(maxFloor, point.floorHeight);
+    }
+    bool isFalling = maxFloor < m_cameraObject.cameraHeightStart;
     if (isFalling && !m_cameraObject.canMoveWhileFallingOverride.value_or(m_engineSettings.canMoveWhileFalling)) {
         return m_cameraObject.cameraPos;
     }

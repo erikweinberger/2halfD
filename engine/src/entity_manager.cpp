@@ -44,6 +44,13 @@ void TwoHalfD::EntityManager::setFloorHeight(int entityId, float floorHeight) {
     }
 }
 
+void TwoHalfD::EntityManager::setPerimeterFloorHeight(int entityId, int perimeterPointIndex, float perimeterFloorHeight) {
+    auto it = m_entities.find(entityId);
+    if (it != m_entities.end()) {
+        it->second.perimeterPoints[perimeterPointIndex].floorHeight = perimeterFloorHeight;
+    }
+}
+
 std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update(float deltaTime, const EngineSettings &engineSettings) {
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> movedEntities;
 
@@ -53,7 +60,11 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
         TwoHalfD::XYVectorf prevPos = entity.pos.pos;
         bool isFalling = false;
 
-        if (entity.floorHeight < entity.heightStart) {
+        auto maxIt = std::max_element(entity.perimeterPoints.begin(), entity.perimeterPoints.end(),
+                                       [](const auto &a, const auto &b) { return a.floorHeight < b.floorHeight; });
+        float maxPerimeterFloor = std::max(entity.floorHeight, maxIt->floorHeight);
+
+        if (maxPerimeterFloor < entity.heightStart) {
             isFalling = true;
             float gravity = entity.gravityOverride.value_or(engineSettings.gravity);
             float maxFallSpeed = entity.maxFallSpeedOverride.value_or(engineSettings.maxFallSpeed);
@@ -62,10 +73,13 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
                 entity.velocity.z = -maxFallSpeed;
             }
             entity.heightStart += entity.velocity.z;
-            if (entity.heightStart <= entity.floorHeight) {
-                entity.heightStart = entity.floorHeight;
+            if (entity.heightStart <= maxPerimeterFloor) {
+                entity.heightStart = maxPerimeterFloor;
                 entity.velocity.z = 0.f;
             }
+        } else if (maxPerimeterFloor > entity.heightStart) {
+            entity.heightStart = maxPerimeterFloor;
+            entity.velocity.z = 0.f;
         }
         if (!isFalling || entity.canMoveWhileFallingOverride.value_or(engineSettings.canMoveWhileFalling)) {
             std::visit(

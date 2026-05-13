@@ -30,8 +30,6 @@ class Renderer {
     sf::RenderTexture m_renderTexture;
     sf::Shader m_perspectiveShader;
     sf::Shader m_floorShader;
-    RenderZBuffer m_renderZBuffer{};
-
     // Data sources (non-owning)
     const std::unordered_map<int, TextureSignature> *m_textures = nullptr;
     const EntityManager *m_entityManager = nullptr;

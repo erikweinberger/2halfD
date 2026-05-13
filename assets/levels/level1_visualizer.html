@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Level 1 Visualizer</title>
+<style>
+  body { margin: 0; background: #1a1a1a; color: #ccc; font-family: monospace; }
+  #controls { padding: 8px; background: #222; border-bottom: 1px solid #444; }
+  #controls label { margin-right: 16px; }
+  #info { position: fixed; bottom: 0; left: 0; padding: 8px; background: #222; border-top: 1px solid #444; font-size: 13px; z-index: 10; }
+  canvas { display: block; cursor: crosshair; }
+</style>
+</head>
+<body>
+<div id="controls">
+  <label><input type="checkbox" id="showWalls" checked> Walls</label>
+  <label><input type="checkbox" id="showFloors" checked> Floor Sections</label>
+  <label><input type="checkbox" id="showSprites" checked> Sprites</label>
+  <label><input type="checkbox" id="showCamera" checked> Camera</label>
+  <label><input type="checkbox" id="showGrid" checked> Grid</label>
+</div>
+<canvas id="c"></canvas>
+<div id="info">Mouse: (0, 0)</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+
+// Level data parsed from level1.txt
+const walls = [
+  {x1:0, y1:0, x2:3200, y2:0, h:256, tex:1},
+  {x1:3200, y1:0, x2:3200, y2:2400, h:256, tex:2},
+  {x1:3200, y1:2400, x2:0, y2:2400, h:256, tex:1},
+  {x1:0, y1:2400, x2:0, y2:0, h:256, tex:2},
+  {x1:800, y1:800, x2:2400, y2:800, h:256, tex:1},
+  {x1:2400, y1:800, x2:2400, y2:1600, h:256, tex:1},
+  {x1:2400, y1:1600, x2:800, y2:1600, h:256, tex:1},
+  {x1:800, y1:1600, x2:800, y2:800, h:256, tex:1},
+  {x1:1200, y1:400, x2:2000, y2:400, h:256, tex:2},
+  {x1:400, y1:1200, x2:1200, y2:2000, h:256, tex:2},
+];
+
+const floorSections = [
+  {texId:2, texStartX:0, texStartY:0, height:500, vertices:[{x:256,y:256},{x:256,y:512},{x:512,y:512},{x:768,y:384},{x:512,y:256}]},
+  {texId:2, texStartX:100, texStartY:100, height:90, vertices:[{x:1024,y:512},{x:1580,y:512},{x:1580,y:256}]},
+];
+
+const sprites = [
+  {x:400, y:500, radius:32, height:128, texId:3},
+];
+
+const camera = {x:200, y:200};
+
+// View state
+let offsetX = 50, offsetY = 50;
+let scale = 0.25;
+let dragging = false, dragStartX, dragStartY, dragOffsetX, dragOffsetY;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - canvas.offsetTop;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function worldToScreen(wx, wy) {
+  return [wx * scale + offsetX, wy * scale + offsetY];
+}
+
+function screenToWorld(sx, sy) {
+  return [(sx - offsetX) / scale, (sy - offsetY) / scale];
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const show = {
+    walls: document.getElementById('showWalls').checked,
+    floors: document.getElementById('showFloors').checked,
+    sprites: document.getElementById('showSprites').checked,
+    camera: document.getElementById('showCamera').checked,
+    grid: document.getElementById('showGrid').checked,
+  };
+
+  // Grid
+  if (show.grid) {
+    const [wx0, wy0] = screenToWorld(0, 0);
+    const [wx1, wy1] = screenToWorld(canvas.width, canvas.height);
+
+    // Choose grid spacing based on zoom
+    let gridStep = 100;
+    if (scale < 0.1) gridStep = 500;
+    else if (scale < 0.3) gridStep = 200;
+    else if (scale > 1.5) gridStep = 50;
+
+    const startX = Math.floor(wx0 / gridStep) * gridStep;
+    const startY = Math.floor(wy0 / gridStep) * gridStep;
+
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 0.5;
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#555';
+
+    for (let x = startX; x <= wx1; x += gridStep) {
+      const [sx] = worldToScreen(x, 0);
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, canvas.height);
+      ctx.stroke();
+      ctx.fillText(x.toString(), sx + 2, 12);
+    }
+    for (let y = startY; y <= wy1; y += gridStep) {
+      const [, sy] = worldToScreen(0, y);
+      ctx.beginPath();
+      ctx.moveTo(0, sy);
+      ctx.lineTo(canvas.width, sy);
+      ctx.stroke();
+      ctx.fillText(y.toString(), 2, sy - 2);
+    }
+  }
+
+  // Floor sections
+  if (show.floors) {
+    for (const floor of floorSections) {
+      ctx.beginPath();
+      const [sx0, sy0] = worldToScreen(floor.vertices[0].x, floor.vertices[0].y);
+      ctx.moveTo(sx0, sy0);
+      for (let i = 1; i < floor.vertices.length; i++) {
+        const [sx, sy] = worldToScreen(floor.vertices[i].x, floor.vertices[i].y);
+        ctx.lineTo(sx, sy);
+      }
+      ctx.closePath();
+      const alpha = Math.min(floor.height / 500, 1) * 0.4 + 0.1;
+      ctx.fillStyle = `rgba(100, 180, 255, ${alpha})`;
+      ctx.fill();
+      ctx.strokeStyle = '#4a9eff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Label with height
+      let cx = 0, cy = 0;
+      for (const v of floor.vertices) { cx += v.x; cy += v.y; }
+      cx /= floor.vertices.length; cy /= floor.vertices.length;
+      const [lx, ly] = worldToScreen(cx, cy);
+      ctx.fillStyle = '#4a9eff';
+      ctx.font = '12px monospace';
+      ctx.fillText(`h=${floor.height}`, lx - 20, ly + 4);
+    }
+  }
+
+  // Walls
+  if (show.walls) {
+    for (const wall of walls) {
+      const [sx1, sy1] = worldToScreen(wall.x1, wall.y1);
+      const [sx2, sy2] = worldToScreen(wall.x2, wall.y2);
+      ctx.beginPath();
+      ctx.moveTo(sx1, sy1);
+      ctx.lineTo(sx2, sy2);
+      ctx.strokeStyle = wall.tex === 1 ? '#ff6644' : '#ffaa22';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Wall height label at midpoint
+      const mx = (sx1 + sx2) / 2, my = (sy1 + sy2) / 2;
+      ctx.fillStyle = '#888';
+      ctx.font = '10px monospace';
+      ctx.fillText(`h=${wall.h}`, mx + 4, my - 4);
+    }
+  }
+
+  // Sprites
+  if (show.sprites) {
+    for (const sprite of sprites) {
+      const [sx, sy] = worldToScreen(sprite.x, sprite.y);
+      const sr = sprite.radius * scale;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 255, 100, 0.3)';
+      ctx.fill();
+      ctx.strokeStyle = '#00ff64';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#00ff64';
+      ctx.font = '11px monospace';
+      ctx.fillText(`sprite(${sprite.x},${sprite.y}) r=${sprite.radius}`, sx + sr + 4, sy + 4);
+    }
+  }
+
+  // Camera
+  if (show.camera) {
+    const [sx, sy] = worldToScreen(camera.x, camera.y);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff44ff';
+    ctx.fill();
+    ctx.fillStyle = '#ff44ff';
+    ctx.font = '11px monospace';
+    ctx.fillText(`cam(${camera.x},${camera.y})`, sx + 8, sy + 4);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// Pan
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  dragOffsetX = offsetX;
+  dragOffsetY = offsetY;
+});
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const [wx, wy] = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+  info.textContent = `Mouse: (${Math.round(wx)}, ${Math.round(wy)})`;
+
+  if (dragging) {
+    offsetX = dragOffsetX + (e.clientX - dragStartX);
+    offsetY = dragOffsetY + (e.clientY - dragStartY);
+  }
+});
+canvas.addEventListener('mouseup', () => dragging = false);
+canvas.addEventListener('mouseleave', () => dragging = false);
+
+// Zoom
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const [wx, wy] = screenToWorld(mx, my);
+
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  scale *= factor;
+  scale = Math.max(0.02, Math.min(5, scale));
+
+  offsetX = mx - wx * scale;
+  offsetY = my - wy * scale;
+}, {passive: false});
+
+// Toggle redraw
+document.querySelectorAll('#controls input').forEach(el => el.addEventListener('change', () => {}));
+
+draw();
+</script>
+</body>
+</html>
