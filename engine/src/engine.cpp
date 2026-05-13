@@ -92,10 +92,10 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         m_cameraObject.perimeterPoints[i].floorHeight = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
     }
 
-    float maxPerimeterFloor = m_cameraObject.cameraFloorHeight;
-    for (const auto &point : m_cameraObject.perimeterPoints) {
-        maxPerimeterFloor = std::max(maxPerimeterFloor, point.floorHeight);
-    }
+    float maxPerimeterFloor =
+        std::max_element(m_cameraObject.perimeterPoints.begin(), m_cameraObject.perimeterPoints.end(), [](const auto &p1, const auto &p2) {
+            return p1.floorHeight < p2.floorHeight;
+        })->floorHeight;
 
     if (maxPerimeterFloor < m_cameraObject.cameraHeightStart) {
         float gravity = m_cameraObject.gravityOverride.value_or(m_engineSettings.gravity);
