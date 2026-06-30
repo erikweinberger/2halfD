@@ -34,6 +34,7 @@ struct BSPNode {
     std::unordered_set<int> spriteIds;
     std::unordered_set<int> effectIds;
     Polygon bounds;
+    std::vector<const TwoHalfD::Segment *> boundingSegments;
     std::unique_ptr<FloorSection> floorSection = nullptr;
     std::vector<FloorColourOverlay> colourOverlays;
 

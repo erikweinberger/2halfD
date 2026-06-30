@@ -1,5 +1,6 @@
 #include "TwoHalfD/bsp/bsp_manager.h"
 #include "TwoHalfD/engine_types.h"
+#include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/utils/math_util.h"
 #include <SFML/Window/Cursor.hpp>
 #include <algorithm>
@@ -64,13 +65,13 @@ std::unordered_map<int, float> TwoHalfD::BSPManager::insertSprites(const std::un
     std::unordered_map<int, float> heightStarts;
     for (const auto &[entityId, entity] : entities) {
         m_spritePositions[entityId] = entity.pos.pos;
-        float h = _insertSprite(m_root.get(), entityId, entity.pos.pos);
-        heightStarts[entityId] = h;
+        auto insertNode = _insertSprite(m_root.get(), entityId, entity.pos.pos);
+        heightStarts[entityId] = (insertNode && insertNode->floorSection) ? 0.f : insertNode->floorSection->height;
     }
     return heightStarts;
 }
 
-float TwoHalfD::BSPManager::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
+const TwoHalfD::BSPNode *TwoHalfD::BSPManager::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
     auto nodeIt = m_spriteNodeMap.find(entityId);
     if (nodeIt != m_spriteNodeMap.end()) {
         nodeIt->second->spriteIds.erase(entityId);
@@ -477,6 +478,16 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
     } else if (saveSegments) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
         node->back->bounds = backBounds;
+        std::vector<const Segment *> boundingSegments;
+        size_t n = backBounds.size();
+        for (size_t i{}; i < n; ++i) {
+            for (const auto &segment : m_segments) {
+                if (segmentsOverlap(segment.v1, segment.v2, backBounds[i], backBounds[(i + 1) % n])) {
+                    boundingSegments.push_back(&segment);
+                }
+            }
+        }
+
         auto floorSectionIt = m_floorSections.find(backSectionFloorId);
         if (floorSectionIt != m_floorSections.end() && backSectionFloorId != -1) {
             auto floorSection = TwoHalfD::FloorSection{backBounds,
@@ -585,20 +596,14 @@ TwoHalfD::BSPManager::_splitSpace(TwoHalfD::BSPNode *node, const std::vector<Two
     return {frontSegs, backSegs};
 }
 
-float TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos) {
-    if (node == nullptr) return 0.f;
+const TwoHalfD::BSPNode *TwoHalfD::BSPManager::_insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos) {
+    if (node == nullptr) return nullptr;
 
     // If this is a leaf node, add the sprite here
     if (node->front == nullptr && node->back == nullptr) {
-        float spriteHeight = 0.f;
-        if (node->floorSection != nullptr) {
-            spriteHeight = node->floorSection->height;
-        } else if (m_defaultFloorTextureId != -1) {
-            spriteHeight = m_defaultFloorHeight;
-        }
         node->spriteIds.insert(entityId);
         m_spriteNodeMap[entityId] = node;
-        return spriteHeight;
+        return node;
     }
 
     float isInfrontOfSplit = isInfront(pos - node->splitterP0, node->splitterVec);
@@ -811,8 +816,7 @@ void TwoHalfD::BSPManager::_insertColourOverlayTriangle(BSPNode *node, const Pol
 
     if (node->front == nullptr && node->back == nullptr) {
         float effectiveHeight = height;
-        if (node->floorSection != nullptr)
-            effectiveHeight = std::max(height, node->floorSection->height);
+        if (node->floorSection != nullptr) effectiveHeight = std::max(height, node->floorSection->height);
         node->colourOverlays.push_back({triangle, id, effectiveHeight, r, g, b, a});
         m_overlayNodeMap[id].push_back(node);
         return;

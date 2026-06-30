@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Segment Overlap Math</title>
+    <style>
+        body { font-family: system-ui; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+        canvas { border: 1px solid #ccc; display: block; margin: 20px auto; }
+        .step { background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; }
+        .step h3 { margin-top: 0; }
+        code { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; }
+        .controls { text-align: center; margin: 10px 0; }
+        button { margin: 0 4px; padding: 6px 12px; cursor: pointer; }
+        #result { text-align: center; font-size: 1.2em; font-weight: bold; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Collinear Segment Overlap</h1>
+    <p>Given two segments that lie on the same infinite line, do they actually share any points?</p>
+
+    <h2>Interactive Demo</h2>
+    <p>Drag the endpoints to move segments. Green = overlapping, Red = no overlap.</p>
+    <canvas id="canvas" width="700" height="200"></canvas>
+    <div id="result"></div>
+    <div class="controls">
+        <button onclick="resetOverlapping()">Reset (Overlapping)</button>
+        <button onclick="resetSeparate()">Reset (Separate)</button>
+    </div>
+
+    <h2>The Math</h2>
+
+    <div class="step">
+        <h3>Step 1: Project onto a shared axis</h3>
+        <p>Both segments are collinear — they lie on the same infinite line. We pick the direction of the first segment as our 1D axis:</p>
+        <p><code>dir = normalize(v2 - v1)</code></p>
+        <p>This gives us a unit vector along the shared line. Now we can describe any point on this line as a single number (its signed distance from <code>v1</code> along <code>dir</code>).</p>
+    </div>
+
+    <div class="step">
+        <h3>Step 2: Convert 2D points to 1D positions</h3>
+        <p>Using the dot product, we project each endpoint onto <code>dir</code> relative to <code>v1</code>:</p>
+        <ul>
+            <li><code>a0 = 0</code> (v1 is our origin)</li>
+            <li><code>a1 = dot(v2 - v1, dir)</code> = length of first segment</li>
+            <li><code>b0 = dot(u1 - v1, dir)</code> = where u1 sits on the axis</li>
+            <li><code>b1 = dot(u2 - v1, dir)</code> = where u2 sits on the axis</li>
+        </ul>
+        <p>The dot product <code>dot(P - v1, dir)</code> gives the signed distance from v1 to P along the line. This collapses the 2D problem into 1D interval overlap.</p>
+    </div>
+
+    <div class="step">
+        <h3>Step 3: Normalize intervals</h3>
+        <p>Segments can point in either direction, so ensure <code>a0 &le; a1</code> and <code>b0 &le; b1</code> by swapping if needed.</p>
+    </div>
+
+    <div class="step">
+        <h3>Step 4: 1D interval overlap test</h3>
+        <p>Two intervals <code>[a0, a1]</code> and <code>[b0, b1]</code> overlap if and only if:</p>
+        <p style="text-align:center; font-size:1.2em;"><code>b0 &lt; a1 AND a0 &lt; b1</code></p>
+        <p>Intuition: they do NOT overlap only if one is entirely to the left or right of the other (<code>b1 &le; a0</code> or <code>a1 &le; b0</code>). The overlap condition is the negation of that.</p>
+    </div>
+
+    <canvas id="canvas1d" width="700" height="120"></canvas>
+    <p style="text-align:center; color:#666; font-size:0.9em;">1D projection of the segments above</p>
+
+    <h2>Why dot product works as projection</h2>
+    <div class="step">
+        <p><code>dot(P - v1, dir) = |P - v1| * cos(angle)</code></p>
+        <p>When P is on the same line as dir, the angle is 0 or 180 degrees, so this gives the signed distance along the line. It's like reading the position on a ruler laid along the shared line, with v1 as the zero mark.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const canvas1d = document.getElementById('canvas1d');
+        const ctx1d = canvas1d.getContext('2d');
+
+        // Segment endpoints (draggable)
+        let points = {
+            v1: { x: 100, y: 100 },
+            v2: { x: 350, y: 100 },
+            u1: { x: 250, y: 100 },
+            u2: { x: 500, y: 100 }
+        };
+
+        let dragging = null;
+        const RADIUS = 8;
+
+        function resetOverlapping() {
+            points = { v1: { x: 100, y: 100 }, v2: { x: 350, y: 100 }, u1: { x: 250, y: 100 }, u2: { x: 500, y: 100 } };
+            draw();
+        }
+
+        function resetSeparate() {
+            points = { v1: { x: 100, y: 100 }, v2: { x: 250, y: 100 }, u1: { x: 350, y: 100 }, u2: { x: 500, y: 100 } };
+            draw();
+        }
+
+        function segmentsOverlap() {
+            const dx = points.v2.x - points.v1.x;
+            const dy = points.v2.y - points.v1.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 0.001) return false;
+            const dirX = dx / len, dirY = dy / len;
+
+            let a0 = 0;
+            let a1 = (points.v2.x - points.v1.x) * dirX + (points.v2.y - points.v1.y) * dirY;
+            let b0 = (points.u1.x - points.v1.x) * dirX + (points.u1.y - points.v1.y) * dirY;
+            let b1 = (points.u2.x - points.v1.x) * dirX + (points.u2.y - points.v1.y) * dirY;
+
+            if (a0 > a1) [a0, a1] = [a1, a0];
+            if (b0 > b1) [b0, b1] = [b1, b0];
+
+            return { overlaps: b0 < a1 && a0 < b1, a0, a1, b0, b1 };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const result = segmentsOverlap();
+            const color = result.overlaps ? '#2a9d2a' : '#d44';
+
+            // Draw segments
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#2266cc';
+            ctx.beginPath();
+            ctx.moveTo(points.v1.x, points.v1.y);
+            ctx.lineTo(points.v2.x, points.v2.y);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#cc6622';
+            ctx.beginPath();
+            ctx.moveTo(points.u1.x, points.u1.y);
+            ctx.lineTo(points.u2.x, points.u2.y);
+            ctx.stroke();
+
+            // Draw endpoints
+            for (const [name, p] of Object.entries(points)) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = name.startsWith('v') ? '#2266cc' : '#cc6622';
+                ctx.fill();
+                ctx.fillStyle = '#333';
+                ctx.font = '12px monospace';
+                ctx.fillText(name, p.x - 8, p.y - 14);
+            }
+
+            // Result
+            document.getElementById('result').textContent = result.overlaps ? 'OVERLAPPING' : 'NO OVERLAP';
+            document.getElementById('result').style.color = color;
+
+            // Draw 1D projection
+            ctx1d.clearRect(0, 0, canvas1d.width, canvas1d.height);
+            const margin = 50;
+            const w = canvas1d.width - margin * 2;
+            const allVals = [result.a0, result.a1, result.b0, result.b1];
+            const min = Math.min(...allVals) - 20;
+            const max = Math.max(...allVals) + 20;
+            const scale = (v) => margin + (v - min) / (max - min) * w;
+            const y = 60;
+
+            // Axis
+            ctx1d.strokeStyle = '#999';
+            ctx1d.lineWidth = 1;
+            ctx1d.beginPath();
+            ctx1d.moveTo(margin, y);
+            ctx1d.lineTo(canvas1d.width - margin, y);
+            ctx1d.stroke();
+
+            // Interval A
+            ctx1d.lineWidth = 6;
+            ctx1d.strokeStyle = '#2266cc';
+            ctx1d.beginPath();
+            ctx1d.moveTo(scale(result.a0), y - 8);
+            ctx1d.lineTo(scale(result.a1), y - 8);
+            ctx1d.stroke();
+
+            // Interval B
+            ctx1d.strokeStyle = '#cc6622';
+            ctx1d.beginPath();
+            ctx1d.moveTo(scale(result.b0), y + 8);
+            ctx1d.lineTo(scale(result.b1), y + 8);
+            ctx1d.stroke();
+
+            // Labels
+            ctx1d.font = '11px monospace';
+            ctx1d.fillStyle = '#2266cc';
+            ctx1d.fillText(`a0=${result.a0.toFixed(0)}`, scale(result.a0) - 15, y - 18);
+            ctx1d.fillText(`a1=${result.a1.toFixed(0)}`, scale(result.a1) - 15, y - 18);
+            ctx1d.fillStyle = '#cc6622';
+            ctx1d.fillText(`b0=${result.b0.toFixed(0)}`, scale(result.b0) - 15, y + 30);
+            ctx1d.fillText(`b1=${result.b1.toFixed(0)}`, scale(result.b1) - 15, y + 30);
+
+            // Overlap region
+            if (result.overlaps) {
+                const oStart = Math.max(result.a0, result.b0);
+                const oEnd = Math.min(result.a1, result.b1);
+                ctx1d.fillStyle = 'rgba(42, 157, 42, 0.3)';
+                ctx1d.fillRect(scale(oStart), y - 15, scale(oEnd) - scale(oStart), 30);
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            for (const [name, p] of Object.entries(points)) {
+                if (Math.hypot(mx - p.x, my - p.y) < RADIUS + 4) {
+                    dragging = name;
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            const rect = canvas.getBoundingClientRect();
+            points[dragging].x = e.clientX - rect.left;
+            points[dragging].y = e.clientY - rect.top;
+            draw();
+        });
+
+        canvas.addEventListener('mouseup', () => { dragging = null; });
+        canvas.addEventListener('mouseleave', () => { dragging = null; });
+
+        draw();
+    </script>
+</body>
+</html>

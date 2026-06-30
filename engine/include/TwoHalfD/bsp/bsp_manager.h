@@ -3,6 +3,7 @@
 
 #include "TwoHalfD/bsp/bsp_graph.h"
 #include "TwoHalfD/engine_types.h"
+#include "TwoHalfD/types/bsp_types.h"
 #include <cstddef>
 #include <memory>
 #include <queue>
@@ -32,7 +33,7 @@ class BSPManager {
     void buildBSPTree();
     void buildGraph();
     std::unordered_map<int, float> insertSprites(const std::unordered_map<int, SpriteEntity> &entities);
-    float moveSprite(int entityId, TwoHalfD::XYVectorf newPos);
+    const TwoHalfD::BSPNode *moveSprite(int entityId, TwoHalfD::XYVectorf newPos);
 
     float insertEffect(int effectId, TwoHalfD::XYVectorf pos);
     void removeEffect(int effectId);
@@ -98,7 +99,7 @@ class BSPManager {
 
     // Construction
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
-    float _insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos);
+    const TwoHalfD::BSPNode *_insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos);
     float _insertEffect(TwoHalfD::BSPNode *node, int effectId, TwoHalfD::XYVectorf pos);
 
     // Colour overlay helpers
