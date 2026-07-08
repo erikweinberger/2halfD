@@ -2,6 +2,7 @@
 #define BSP_TYPES_H
 
 #include "TwoHalfD/types/entity_types.h"
+#include "TwoHalfD/types/math_types.h"
 
 #include <memory>
 #include <unordered_set>
@@ -27,13 +28,21 @@ struct Segment {
     }
 };
 
+struct PolygonSegment {
+    TwoHalfD::XYVectorf vertex;
+    const TwoHalfD::Segment *segment;
+};
+
+using PolygonSegments = std::vector<PolygonSegment>;
+
 struct BSPNode {
     std::unique_ptr<BSPNode> front;
     std::unique_ptr<BSPNode> back;
 
     std::unordered_set<int> spriteIds;
     std::unordered_set<int> effectIds;
-    Polygon bounds;
+    TwoHalfD::PolygonSegments bounds;
+    std::vector<const TwoHalfD::Segment *> boundingSegments;
     std::unique_ptr<FloorSection> floorSection = nullptr;
     std::vector<FloorColourOverlay> colourOverlays;
 

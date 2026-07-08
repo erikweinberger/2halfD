@@ -64,18 +64,7 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     float deltaTime = static_cast<float>(m_engineClocks.getGameDeltaTime());
     auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings);
     for (const auto &[entityId, newPos] : movedEntities) {
-        float leafFloorHeight = m_bspManager.moveSprite(entityId, newPos);
-
-        auto entity = m_entityManager.getEntity(entityId);
-        if (entity) {
-            m_entityManager.setFloorHeight(entityId, leafFloorHeight);
-            for (size_t i = 0; i < entity->perimeterPoints.size(); ++i) {
-                auto perimeterSection = m_bspManager.findConvexSection(newPos + entity->perimeterPoints[i].offset);
-                auto floorHeight =
-                    (perimeterSection && perimeterSection->floorSection) ? perimeterSection->floorSection->height : m_defaultFloorHeight;
-                m_entityManager.setPerimeterFloorHeight(entityId, i, floorHeight);
-            }
-        }
+        moveSprite(entityId, newPos);
     }
 
     for (int effectId : m_entityManager.getExpiredEffectIds()) {
@@ -255,4 +244,15 @@ void TwoHalfD::Engine::updateColourOverlay(int id, uint8_t r, uint8_t g, uint8_t
 
 void TwoHalfD::Engine::removeColourOverlay(int id) {
     m_bspManager.removeColourOverlay(id);
+}
+
+void TwoHalfD::Engine::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
+    auto entity = m_entityManager.getEntity(entityId);
+    m_bspManager.moveSprite(entityId, newPos);
+
+    for (const auto &perimeterPoint : entity->perimeterPoints) {
+        auto perimeterSection = m_bspManager.findConvexSection(newPos + perimeterPoint.offset);
+        float floorHeight = (perimeterSection && perimeterSection->floorSection) ? perimeterSection->floorSection->height : m_defaultFloorHeight;
+        m_entityManager.setPerimeterFloorHeight(entityId, &perimeterPoint - &entity->perimeterPoints[0], floorHeight);
+    }
 }
