@@ -5,11 +5,11 @@
 #include "TwoHalfD/types/math_types.h"
 
 #include <SFML/Graphics/Texture.hpp>
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <string>
 #include <variant>
-#include <array>
 #include <vector>
 
 namespace TwoHalfD {
@@ -75,24 +75,12 @@ struct SpriteEntity {
     float scaleY = 1.f; // fraction of sprite area one texture copy fills vertically
     float heightStart = 0.f;
     std::array<PerimeterPoint, 8> perimeterPoints = {};
-
-    void initPerimeterPoints() {
-        float d = radius * 0.7071f;
-        perimeterPoints = {
-            PerimeterPoint{{radius, 0}},  PerimeterPoint{{-radius, 0}},
-            PerimeterPoint{{0, radius}},  PerimeterPoint{{0, -radius}},
-            PerimeterPoint{{d, d}},       PerimeterPoint{{-d, d}},
-            PerimeterPoint{{d, -d}},      PerimeterPoint{{-d, -d}},
-        };
-    }
-
     float speed = 5.f;
-
-    float floorHeight = 0.f; // updated by BSPManager on insert/move
+    float floorHeight = 0.f;
 
     struct Velocity {
         float x = 0.f, y = 0.f, z = 0.f;
-    } velocity;
+    } velocity = {0.f, 0.f, 0.f};
 
     std::optional<EntityUpdate> currentUpdate;
     std::optional<AnimationState> currentAnimation;
@@ -101,6 +89,21 @@ struct SpriteEntity {
     std::optional<float> gravityOverride;
     std::optional<float> maxFallSpeedOverride;
     std::optional<bool> canMoveWhileFallingOverride;
+
+    void initPerimeterPoints() {
+        float d = radius * 0.7071f;
+        perimeterPoints = {
+            PerimeterPoint{{radius, 0}}, PerimeterPoint{{-radius, 0}}, PerimeterPoint{{0, radius}}, PerimeterPoint{{0, -radius}},
+            PerimeterPoint{{d, d}},      PerimeterPoint{{-d, d}},      PerimeterPoint{{d, -d}},     PerimeterPoint{{-d, -d}},
+        };
+    }
+
+    SpriteEntity(int id, TwoHalfD::Position pos, float radius, int height, int textureId, float scaleX = 1.f, float scaleY = 1.f)
+        : id(id), pos(pos), radius(radius), height(height), textureId(textureId), scaleX(scaleX), scaleY(scaleY) {
+        initPerimeterPoints();
+    }
+
+    SpriteEntity() = default;
 };
 
 struct AnimationEffect {

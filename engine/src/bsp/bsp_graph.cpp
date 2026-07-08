@@ -1,4 +1,5 @@
 #include "TwoHalfD/bsp/bsp_graph.h"
+#include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/utils/math_util.h"
 
 #include <algorithm>
@@ -28,15 +29,15 @@ void TwoHalfD::BSPGraph::setDoor(int nodeA, int nodeB, int doorId) {
 
 int TwoHalfD::BSPGraph::findNodeForPoint(const XYVectorf &point) const {
     for (int i{}; i < static_cast<int>(m_nodes.size()); ++i) {
-        const Polygon &bounds = m_nodes[i].bspNode->bounds;
+        const PolygonSegments &bounds = m_nodes[i].bspNode->bounds;
         int n = static_cast<int>(bounds.size());
         if (n < 3) continue;
 
         float firstSign = 0.f;
         bool inside = true;
         for (int j{}; j < n; ++j) {
-            XYVectorf edge = bounds[(j + 1) % n] - bounds[j];
-            XYVectorf toPoint = point - bounds[j];
+            XYVectorf edge = bounds[(j + 1) % n].vertex - bounds[j].vertex;
+            XYVectorf toPoint = point - bounds[j].vertex;
             float cross = crossProduct2d(edge, toPoint);
             if (j == 0) {
                 firstSign = (cross >= 0.f) ? 1.f : -1.f;
@@ -95,7 +96,7 @@ std::vector<TwoHalfD::XYVectorf> TwoHalfD::BSPGraph::findPath(const XYVectorf &s
 
         for (const auto &edge : m_nodes[current].edges) {
             if (edge.portalWidth < entityWidth) continue;
-            if (edge.heightDiff < -maxHeightDiff) continue; // too high to step up
+            if (edge.heightDiff < -maxHeightDiff) continue;                   // too high to step up
             if (maxStepDown > 0.f && edge.heightDiff > maxStepDown) continue; // too far to step down
 
             float stepCost =
@@ -126,8 +127,8 @@ void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight)
 
         XYVectorf centroid{0.f, 0.f};
         for (const auto &v : node->bounds) {
-            centroid.x += v.x;
-            centroid.y += v.y;
+            centroid.x += v.vertex.x;
+            centroid.y += v.vertex.y;
         }
         if (!node->bounds.empty()) {
             float inv = 1.f / static_cast<float>(node->bounds.size());
@@ -152,11 +153,11 @@ void TwoHalfD::BSPGraph::_collectLeavesTouchingSplitter(BSPNode *node, const XYV
     if (node == nullptr) return;
 
     if (node->front == nullptr && node->back == nullptr) {
-        const Polygon &bounds = node->bounds;
+        const PolygonSegments &bounds = node->bounds;
         int n = static_cast<int>(bounds.size());
         for (int i{}; i < n; ++i) {
-            const XYVectorf &v1 = bounds[i];
-            const XYVectorf &v2 = bounds[(i + 1) % n];
+            const XYVectorf &v1 = bounds[i].vertex;
+            const XYVectorf &v2 = bounds[(i + 1) % n].vertex;
 
             float d1 = std::abs(crossProduct2d(v1 - splitterP0, splitterDir));
             float d2 = std::abs(crossProduct2d(v2 - splitterP0, splitterDir));

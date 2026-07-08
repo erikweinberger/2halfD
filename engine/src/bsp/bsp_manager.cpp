@@ -1,6 +1,6 @@
 #include "TwoHalfD/bsp/bsp_manager.h"
-#include "TwoHalfD/engine_types.h"
 #include "TwoHalfD/types/bsp_types.h"
+#include "TwoHalfD/types/math_types.h"
 #include "TwoHalfD/utils/math_util.h"
 #include <SFML/Window/Cursor.hpp>
 #include <algorithm>
@@ -10,6 +10,7 @@
 #include <memory>
 #include <queue>
 #include <random>
+#include <ranges>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -51,7 +52,9 @@ void TwoHalfD::BSPManager::buildBSPTree() {
         }
     }
 
-    TwoHalfD::Polygon initialBounds = _getInitialBounds(segments);
+    auto initialBoundsVertexes = _getInitialBounds(segments);
+    auto initialBoundsView = initialBoundsVertexes | std::views::transform([](XYVectorf vertex) { return PolygonSegment(vertex, nullptr); });
+    auto initialBounds = PolygonSegments(initialBoundsView.begin(), initialBoundsView.end());
 
     std::mt19937 rng(seed);
     std::shuffle(segments.begin(), segments.end(), rng);
@@ -384,7 +387,10 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
 
     TwoHalfD::OptimalCostPartitioning cost{0, 0, 0};
     TwoHalfD::BSPNode rootNode;
-    TwoHalfD::Polygon initialBounds = _getInitialBounds(segments);
+    auto initialBoundsVertexes = _getInitialBounds(segments);
+    auto initialBoundsView = initialBoundsVertexes | std::views::transform([](XYVectorf v) { return PolygonSegment(v, nullptr); });
+    auto initialBounds = PolygonSegments(initialBoundsView.begin(), initialBoundsView.end());
+
     _buildBSPTree(&rootNode, segments, initialBounds, -1, cost, false);
 
     float score = std::abs(cost.numBack - cost.numFront) + (cost.splitCount * m_splitWeight);
@@ -403,7 +409,7 @@ std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> TwoHalfD::BSPMa
                                                                                                       float cameraHeightStart) {
     auto intersectedSegments = findSegmentIntersection(pos, radius);
 
-    std::vector<std::pair<TwoHalfD::XYVectorf, TwoHalfD::XYVectorf>> result;
+    std::vector<std::pair<XYVectorf, XYVectorf>> result;
     for (const auto &segment : intersectedSegments) {
         if (segment.isWall()) {
             result.push_back({segment.v1, segment.v2});
@@ -424,13 +430,14 @@ TwoHalfD::BSPNode *TwoHalfD::BSPManager::findConvexSection(const TwoHalfD::XYVec
  * Private functions
  * =============================================================================================================================
  */
-void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds,
+void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, PolygonSegments bounds,
                                          int floorSectionId, struct OptimalCostPartitioning &cost, bool saveSegments) {
     if (inputSegments.size() == 0) {
         return;
     }
     const auto &splitterSeg = inputSegments[0];
     auto [frontBounds, backBounds] = _splitConvexShape(bounds, splitterSeg);
+
     int frontSectionFloorId = floorSectionId;
     int backSectionFloorId = floorSectionId;
     if (splitterSeg.isFloorBoundary() && splitterSeg.floorSection->isCCW) {
@@ -482,15 +489,18 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         size_t n = backBounds.size();
         for (size_t i{}; i < n; ++i) {
             for (const auto &segment : m_segments) {
-                if (segmentsOverlap(segment.v1, segment.v2, backBounds[i], backBounds[(i + 1) % n])) {
+                if (segmentsOverlap(segment.v1, segment.v2, backBounds[i].vertex, backBounds[(i + 1) % n].vertex)) {
                     boundingSegments.push_back(&segment);
                 }
             }
         }
 
+        auto backboundsVertexView = backBounds | std::views::transform([](PolygonSegment bb) { return bb.vertex; });
+        auto backBoundsVertex = Polygon(backboundsVertexView.begin(), backboundsVertexView.end());
+
         auto floorSectionIt = m_floorSections.find(backSectionFloorId);
         if (floorSectionIt != m_floorSections.end() && backSectionFloorId != -1) {
-            auto floorSection = TwoHalfD::FloorSection{backBounds,
+            auto floorSection = TwoHalfD::FloorSection{backBoundsVertex,
                                                        floorSectionIt->second.floorTextureStart,
                                                        floorSectionId,
                                                        floorSectionIt->second.textureId,
@@ -510,7 +520,9 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
 
         auto floorSectionIt = m_floorSections.find(frontSectionFloorId);
         if (floorSectionIt != m_floorSections.end() && frontSectionFloorId != -1) {
-            auto floorSection = TwoHalfD::FloorSection{frontBounds,
+            auto frontBoundsVertexView = frontBounds | std::views::transform([](PolygonSegment vS) { return vS.vertex; });
+            auto frontBoundsVertex = Polygon(frontBoundsVertexView.begin(), frontBoundsVertexView.end());
+            auto floorSection = TwoHalfD::FloorSection{frontBoundsVertex,
                                                        floorSectionIt->second.floorTextureStart,
                                                        floorSectionId,
                                                        floorSectionIt->second.textureId,
@@ -639,7 +651,30 @@ float TwoHalfD::BSPManager::_insertEffect(TwoHalfD::BSPNode *node, int effectId,
     }
 }
 
-std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> TwoHalfD::BSPManager::_splitConvexShape(const std::vector<TwoHalfD::XYVectorf> &vertices,
+std::pair<TwoHalfD::PolygonSegments, TwoHalfD::PolygonSegments> TwoHalfD::BSPManager::_splitConvexShape(const TwoHalfD::PolygonSegments &vertices,
+                                                                                                        const TwoHalfD::Segment &splitter) {
+    TwoHalfD::PolygonSegments frontVertices;
+    TwoHalfD::PolygonSegments backVertices;
+
+    for (size_t i{}; i < vertices.size(); ++i) {
+        const auto &currVert = vertices[i];
+        const auto &nextVert = vertices[(i + 1) % vertices.size()];
+        bool sideCurr = isInfront(currVert.vertex - splitter.v1, splitter.v2 - splitter.v1);
+        bool sideNext = isInfront(nextVert.vertex - splitter.v1, splitter.v2 - splitter.v1);
+
+        if (sideCurr) frontVertices.push_back({currVert.vertex, nullptr});
+        if (!sideCurr) backVertices.push_back({currVert.vertex, nullptr});
+        if ((sideCurr && !sideNext) || (!sideCurr && sideNext)) {
+            XYVectorf ip = computeLineIntersection(currVert.vertex, nextVert.vertex, splitter.v1, splitter.v2);
+            frontVertices.push_back({ip, &splitter});
+            backVertices.push_back({ip, &splitter});
+        }
+    }
+
+    return {{frontVertices}, {backVertices}};
+}
+
+std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> TwoHalfD::BSPManager::_splitConvexShape(const TwoHalfD::Polygon &vertices,
                                                                                         const TwoHalfD::Segment &splitter) {
     TwoHalfD::Polygon frontVertices;
     TwoHalfD::Polygon backVertices;
@@ -652,21 +687,19 @@ std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> TwoHalfD::BSPManager::_splitConv
 
         if (sideCurr) frontVertices.push_back(currVert);
         if (!sideCurr) backVertices.push_back(currVert);
-
         if ((sideCurr && !sideNext) || (!sideCurr && sideNext)) {
             XYVectorf ip = computeLineIntersection(currVert, nextVert, splitter.v1, splitter.v2);
-            frontVertices.push_back(ip);
-            backVertices.push_back(ip);
+            frontVertices.push_back({ip});
+            backVertices.push_back({ip});
         }
     }
 
-    return {{frontVertices}, {backVertices}};
+    return {frontVertices, backVertices};
 }
 
 void TwoHalfD::BSPManager::_addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node) {
     m_segments.push_back(std::move(segment));
     node->segmentID = m_segmentID;
-
     ++m_segmentID;
 }
 

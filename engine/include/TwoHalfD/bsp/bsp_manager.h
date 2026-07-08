@@ -4,6 +4,7 @@
 #include "TwoHalfD/bsp/bsp_graph.h"
 #include "TwoHalfD/engine_types.h"
 #include "TwoHalfD/types/bsp_types.h"
+#include "TwoHalfD/types/math_types.h"
 #include <cstddef>
 #include <memory>
 #include <queue>
@@ -90,7 +91,7 @@ class BSPManager {
     int m_startSeed = 0;
     int m_endSeed = 20000;
 
-    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds, int floorSectionId,
+    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, PolygonSegments bounds, int floorSectionId,
                        struct OptimalCostPartitioning &cost, bool saveSegments = true);
     std::pair<std::vector<TwoHalfD::Segment>, std::vector<TwoHalfD::Segment>> _splitSpace(TwoHalfD::BSPNode *node,
                                                                                           const std::vector<TwoHalfD::Segment> &inputSegments,
@@ -113,7 +114,9 @@ class BSPManager {
     float _findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments);
 
     // Find bounding box of a set of segments
-    std::pair<Polygon, Polygon> _splitConvexShape(const Polygon &vertices, const TwoHalfD::Segment &splitter);
+    std::pair<PolygonSegments, PolygonSegments> _splitConvexShape(const PolygonSegments &vertices, const TwoHalfD::Segment &splitter);
+
+    std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> _splitConvexShape(const Polygon &vertices, const TwoHalfD::Segment &splitter);
     TwoHalfD::Polygon _getInitialBounds(const std::vector<TwoHalfD::Segment> &segments);
 
     // Collision
