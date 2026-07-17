@@ -54,10 +54,11 @@ class BSPManager {
                   const TwoHalfD::Position &cameraPos, const TwoHalfD::XYVectorf &cameraDir);
 
     // Getters
-    TwoHalfD::Segment &getSegment(int id);
+    const TwoHalfD::Segment &getSegment(int id) const;
     TwoHalfD::BSPGraph &getGraph();
     const std::vector<Wall> &getWalls() const;
     const std::unordered_map<int, FloorSection> &getFloorSections() const;
+    const BSPNode *getLeafNode(int nodeId) const;
 
     // BSP optimization
     int findBestPartitioning();
@@ -74,6 +75,8 @@ class BSPManager {
     // Owned level geometry
     std::vector<Wall> m_walls;
     std::unordered_map<int, FloorSection> m_floorSections;
+    std::vector<TwoHalfD::BSPNode *> m_leafNodes;
+    int m_leafNodeCounter = 0;
     float m_defaultFloorHeight = 0.f;
     int m_defaultFloorTextureId = -1;
     int m_seed = -1;
@@ -91,7 +94,7 @@ class BSPManager {
     int m_startSeed = 0;
     int m_endSeed = 20000;
 
-    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, PolygonSegments bounds, int floorSectionId,
+    void _buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds, int floorSectionId,
                        struct OptimalCostPartitioning &cost, bool saveSegments = true);
     std::pair<std::vector<TwoHalfD::Segment>, std::vector<TwoHalfD::Segment>> _splitSpace(TwoHalfD::BSPNode *node,
                                                                                           const std::vector<TwoHalfD::Segment> &inputSegments,
@@ -102,6 +105,7 @@ class BSPManager {
     void _addSegment(TwoHalfD::Segment &&segment, TwoHalfD::BSPNode *node);
     const TwoHalfD::BSPNode *_insertSprite(TwoHalfD::BSPNode *node, int entityId, TwoHalfD::XYVectorf pos);
     float _insertEffect(TwoHalfD::BSPNode *node, int effectId, TwoHalfD::XYVectorf pos);
+    std::vector<int> _extractBoundingSegmentIds(const TwoHalfD::Polygon &boundingPolygon);
 
     // Colour overlay helpers
     void _insertColourOverlayTriangle(BSPNode *node, const Polygon &triangle, int id, float height, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
@@ -114,8 +118,6 @@ class BSPManager {
     float _findIndividualPartitioning(int seed, std::vector<TwoHalfD::Segment> segments);
 
     // Find bounding box of a set of segments
-    std::pair<PolygonSegments, PolygonSegments> _splitConvexShape(const PolygonSegments &vertices, const TwoHalfD::Segment &splitter);
-
     std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> _splitConvexShape(const Polygon &vertices, const TwoHalfD::Segment &splitter);
     TwoHalfD::Polygon _getInitialBounds(const std::vector<TwoHalfD::Segment> &segments);
 

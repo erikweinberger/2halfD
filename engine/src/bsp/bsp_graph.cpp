@@ -29,15 +29,15 @@ void TwoHalfD::BSPGraph::setDoor(int nodeA, int nodeB, int doorId) {
 
 int TwoHalfD::BSPGraph::findNodeForPoint(const XYVectorf &point) const {
     for (int i{}; i < static_cast<int>(m_nodes.size()); ++i) {
-        const PolygonSegments &bounds = m_nodes[i].bspNode->bounds;
+        const Polygon &bounds = m_nodes[i].bspNode->boundingPolygon;
         int n = static_cast<int>(bounds.size());
         if (n < 3) continue;
 
         float firstSign = 0.f;
         bool inside = true;
         for (int j{}; j < n; ++j) {
-            XYVectorf edge = bounds[(j + 1) % n].vertex - bounds[j].vertex;
-            XYVectorf toPoint = point - bounds[j].vertex;
+            XYVectorf edge = bounds[(j + 1) % n] - bounds[j];
+            XYVectorf toPoint = point - bounds[j];
             float cross = crossProduct2d(edge, toPoint);
             if (j == 0) {
                 firstSign = (cross >= 0.f) ? 1.f : -1.f;
@@ -126,12 +126,12 @@ void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight)
         graphNode.bspNode = node;
 
         XYVectorf centroid{0.f, 0.f};
-        for (const auto &v : node->bounds) {
-            centroid.x += v.vertex.x;
-            centroid.y += v.vertex.y;
+        for (const auto &v : node->boundingPolygon) {
+            centroid.x += v.x;
+            centroid.y += v.y;
         }
-        if (!node->bounds.empty()) {
-            float inv = 1.f / static_cast<float>(node->bounds.size());
+        if (!node->boundingPolygon.empty()) {
+            float inv = 1.f / static_cast<float>(node->boundingPolygon.size());
             centroid.x *= inv;
             centroid.y *= inv;
         }
@@ -153,11 +153,11 @@ void TwoHalfD::BSPGraph::_collectLeavesTouchingSplitter(BSPNode *node, const XYV
     if (node == nullptr) return;
 
     if (node->front == nullptr && node->back == nullptr) {
-        const PolygonSegments &bounds = node->bounds;
+        const Polygon &bounds = node->boundingPolygon;
         int n = static_cast<int>(bounds.size());
         for (int i{}; i < n; ++i) {
-            const XYVectorf &v1 = bounds[i].vertex;
-            const XYVectorf &v2 = bounds[(i + 1) % n].vertex;
+            const XYVectorf &v1 = bounds[i];
+            const XYVectorf &v2 = bounds[(i + 1) % n];
 
             float d1 = std::abs(crossProduct2d(v1 - splitterP0, splitterDir));
             float d2 = std::abs(crossProduct2d(v2 - splitterP0, splitterDir));
