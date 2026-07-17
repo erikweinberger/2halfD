@@ -63,6 +63,7 @@ using EntityUpdate = std::variant<WalkToUpdate, AttackUpdate, IdleUpdate>;
 struct PerimeterPoint {
     TwoHalfD::XYVectorf offset;
     float floorHeight = 0.f;
+    int nodeId = -1;
 };
 
 struct SpriteEntity {

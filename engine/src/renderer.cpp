@@ -1,4 +1,8 @@
 #include "TwoHalfD/renderer.h"
+#include "TwoHalfD/bsp/bsp_manager.h"
+#include "TwoHalfD/engine_types.h"
+#include "TwoHalfD/types/entity_types.h"
+#include "TwoHalfD/types/input_types.h"
 #include "TwoHalfD/utils/math_util.h"
 
 #include <SFML/Graphics/BlendMode.hpp>
@@ -14,7 +18,9 @@
 #include <SFML/System/Vector2.hpp>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
+#include <sys/_types/_u_int32_t.h>
 #include <thread>
 
 TwoHalfD::Renderer::Renderer(sf::RenderWindow &window, const EngineSettings &settings, EngineClocks &clocks)
@@ -37,6 +43,13 @@ TwoHalfD::Renderer::Renderer(sf::RenderWindow &window, const EngineSettings &set
         std::cerr << "Failed to load floor shader!" << std::endl;
         std::exit(1);
     }
+    std::string fontPath = static_cast<std::string>(ASSETS_DIR) + "/fonts/JetBrainsMono-2/fonts/ttf/JetBrainsMono-Regular.ttf";
+    if (!m_debugSettings.debugFont.loadFromFile(fontPath)) {
+        std::cerr << "Failed to load font!" << std::endl;
+        std::exit(1);
+    }
+    m_debugSettings.debugColor = sf::Color(0, 255, 0, 255);
+    m_debugSettings.fontSize = std::min(std::max(m_window.getSize().y / 40, m_debugSettings.minFontSize), m_debugSettings.maxFontSize);
 }
 
 void TwoHalfD::Renderer::setData(const std::unordered_map<int, TextureSignature> *textures, const EntityManager *entityManager,
@@ -56,6 +69,7 @@ void TwoHalfD::Renderer::render(const CameraObject &camera, BSPManager &bsp) {
     m_renderTexture.clear(sf::Color::Transparent);
     renderBSP(camera, bsp);
     renderOverlays(camera);
+    renderDebugOverlays(camera, std::nullopt, bsp);
 
     m_renderTexture.display();
     sf::Sprite sprite(m_renderTexture.getTexture());
@@ -71,6 +85,11 @@ void TwoHalfD::Renderer::renderBSP(const CameraObject &camera, BSPManager &bsp) 
     auto &drawnCommands = bspTraversal.first;
 
     renderFloor(camera);
+    m_debugSettings.numSpritesRenderedFrame = 0u;
+    m_debugSettings.numSegmentsRenderedFrame = 0u;
+    m_debugSettings.numFloorSectionsRenderedFrame = 0u;
+    m_debugSettings.numColourOverlaysRenderedFrame = 0u;
+    m_debugSettings.numEffectsRenderedFrame = 0u;
     for (const auto &command : drawnCommands) {
         switch (command.type) {
         case TwoHalfD::DrawCommand::Type::Segment: {
@@ -102,7 +121,7 @@ void TwoHalfD::Renderer::renderBSP(const CameraObject &camera, BSPManager &bsp) 
     }
 }
 
-void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraObject &camera) {
+void TwoHalfD::Renderer::renderSegment(const TwoHalfD::Segment &segment, const CameraObject &camera) {
     const float NEAR_CLIP = 50.0f;
 
     auto wallB = segment.isWall() ? *segment.wall : TwoHalfD::Wall(segment.v1, segment.v2, 1, 1, segment.floorSection->height, 0);
@@ -210,6 +229,7 @@ void TwoHalfD::Renderer::renderSegment(TwoHalfD::Segment segment, const CameraOb
     m_perspectiveShader.setUniform("scaleY", wall->scaleY);
 
     m_renderTexture.draw(quad, states);
+    ++m_debugSettings.numSegmentsRenderedFrame;
 }
 
 void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity, const CameraObject &camera) {
@@ -274,6 +294,7 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
     sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
     m_renderTexture.draw(sprite);
+    ++m_debugSettings.numSpritesRenderedFrame;
 
     // Render overlays (already sorted by zOrder)
     const auto *templates = m_entityManager->getAnimationTemplates();
@@ -314,6 +335,7 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
 
         overlaySprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
         m_renderTexture.draw(overlaySprite);
+        ++m_debugSettings.numEffectsRenderedFrame;
     }
 }
 
@@ -362,6 +384,7 @@ void TwoHalfD::Renderer::renderEffect(const TwoHalfD::AnimationEffect &effect, c
     sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
     m_renderTexture.draw(sprite);
+    ++m_debugSettings.numEffectsRenderedFrame;
 }
 
 void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorSection, const CameraObject &camera) {
@@ -428,6 +451,7 @@ void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorS
     m_floorShader.setUniform("shaderScale", m_settings.shaderScale);
 
     m_renderTexture.draw(floorShape, states);
+    ++m_debugSettings.numFloorSectionsRenderedFrame;
 }
 
 void TwoHalfD::Renderer::renderColourOverlay(const TwoHalfD::FloorColourOverlay *overlay, const CameraObject &camera) {
@@ -476,6 +500,7 @@ void TwoHalfD::Renderer::renderColourOverlay(const TwoHalfD::FloorColourOverlay 
     sf::RenderStates states;
     states.blendMode = sf::BlendAlpha;
     m_renderTexture.draw(floorShape, states);
+    ++m_debugSettings.numColourOverlaysRenderedFrame;
 }
 
 void TwoHalfD::Renderer::renderFloor(const CameraObject &camera) {
@@ -518,28 +543,131 @@ void TwoHalfD::Renderer::renderFloor(const CameraObject &camera) {
 }
 
 void TwoHalfD::Renderer::renderOverlays(const CameraObject &camera) {
-    static bool loaded = false;
-    static sf::Font font;
-    if (!loaded) {
-        font.loadFromFile(fs::path(ASSETS_DIR) / "fonts" / "RasterForgeRegular-JpBgm.ttf");
-        loaded = true;
+    // static bool loaded = false;
+    // static sf::Font font;
+    // if (!loaded) {
+    //     font.loadFromFile(fs::path(ASSETS_DIR) / "fonts" / "RasterForgeRegular-JpBgm.ttf");
+    //     loaded = true;
+    // }
+
+    // sf::Text text;
+    // text.setFont(font);
+    // std::string fpsString = "Fps: " + std::to_string(static_cast<int>(std::round(m_clocks.getAverageGraphicsFps())));
+    // text.setString(fpsString);
+    // text.setCharacterSize(24);
+    // text.setFillColor(sf::Color::Yellow);
+    // text.setPosition(m_settings.resolution.x - 120, m_settings.resolution.y - 50);
+    // m_renderTexture.draw(text);
+
+    // sf::Text text1;
+    // text1.setFont(font);
+    // std::string position = "(" + std::to_string(camera.cameraPos.pos.x) + ", " + std::to_string(camera.cameraPos.pos.y) + ")";
+    // text1.setString(position);
+    // text1.setCharacterSize(24);
+    // text1.setFillColor(sf::Color::Yellow);
+    // text1.setPosition(50, m_settings.resolution.y - 50);
+    // m_renderTexture.draw(text1);
+    // renderDebugOverlays(camera, std::nullopt);
+}
+
+void TwoHalfD::Renderer::renderDebugOverlays(const TwoHalfD::CameraObject &camera, const std::optional<TwoHalfD::SpriteEntity> &spriteEntity,
+                                             const BSPManager &bsp) {
+    /* Display fps (both graphics and game)
+     Position
+     info about the nodes the boundary points are in (it should provide a way to visualize the bsp tree and the nodes the camera is in)
+     if another sprite entity is selected it should also come up
+    */
+
+    sf::Text fpsObjectRenderedText;
+    fpsObjectRenderedText.setFont(m_debugSettings.debugFont);
+    std::string fpsString = std::format("FPS: {:<5d} SEG: {:<4d} SPR: {:<4d} FLR: {:<4d} CLO: {:<4d} EFC: {:<4d}",
+                                        static_cast<int>(std::round(m_clocks.getAverageGraphicsFps())), m_debugSettings.numSegmentsRenderedFrame,
+                                        m_debugSettings.numSpritesRenderedFrame, m_debugSettings.numFloorSectionsRenderedFrame,
+                                        m_debugSettings.numColourOverlaysRenderedFrame, m_debugSettings.numEffectsRenderedFrame);
+    fpsObjectRenderedText.setString(fpsString);
+    fpsObjectRenderedText.setFillColor(m_debugSettings.debugColor);
+    fpsObjectRenderedText.setCharacterSize(m_debugSettings.fontSize);
+    fpsObjectRenderedText.setPosition(10, 10);
+    m_renderTexture.draw(fpsObjectRenderedText);
+
+    std::unordered_set<int> uniqueNodeIds;
+
+    sf::Text cameraInfoText;
+    cameraInfoText.setFont(m_debugSettings.debugFont);
+    std::string cameraInfoString =
+        std::format("CamPos: ({:.2f}, {:.2f}) Dir: {:.2f} Height: {:.2f} Node ID: {:<3d}", camera.cameraPos.pos.x, camera.cameraPos.pos.y,
+                    camera.cameraPos.direction, camera.cameraHeight + camera.cameraHeightStart, camera.nodeId);
+    cameraInfoText.setString(cameraInfoString);
+    cameraInfoText.setFillColor(m_debugSettings.debugColor);
+    cameraInfoText.setCharacterSize(m_debugSettings.fontSize);
+    cameraInfoText.setPosition(10, 10 + m_debugSettings.fontSize + 5);
+    m_renderTexture.draw(cameraInfoText);
+    uniqueNodeIds.insert(camera.nodeId);
+
+    sf::Text nodeInfoText;
+    for (size_t i = 0; i < camera.perimeterPoints.size(); ++i) {
+        const auto &boundaryPoint = camera.perimeterPoints[i];
+        nodeInfoText.setFont(m_debugSettings.debugFont);
+        std::string nodeInfoString =
+            std::format("Boundary Point {:<2d}): ({:.2f}, {:.2f}) Node ID: {:<3d}", i, camera.cameraPos.pos.x + boundaryPoint.offset.x,
+                        camera.cameraPos.pos.y + boundaryPoint.offset.y, boundaryPoint.nodeId);
+        nodeInfoText.setString(nodeInfoString);
+        nodeInfoText.setFillColor(m_debugSettings.debugColor);
+        nodeInfoText.setCharacterSize(m_debugSettings.fontSize);
+        nodeInfoText.setPosition(10, 10 + m_debugSettings.fontSize * (i + 1) + 5 + m_debugSettings.fontSize + 5);
+        m_renderTexture.draw(nodeInfoText);
+        uniqueNodeIds.insert(boundaryPoint.nodeId);
     }
 
-    sf::Text text;
-    text.setFont(font);
-    std::string fpsString = "Fps: " + std::to_string(static_cast<int>(std::round(m_clocks.getAverageGraphicsFps())));
-    text.setString(fpsString);
-    text.setCharacterSize(24);
-    text.setFillColor(sf::Color::Yellow);
-    text.setPosition(m_settings.resolution.x - 120, m_settings.resolution.y - 50);
-    m_renderTexture.draw(text);
+    u_int32_t lineNumber = 0;
+    for (const auto &nodeId : uniqueNodeIds) {
+        const auto *node = bsp.getLeafNode(nodeId);
+        if (node) {
+            std::string nodeInfoString = std::format("Node ID: {:<3d}", node->leafNodeId);
+            nodeInfoText.setString(nodeInfoString);
+            nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
+                                     10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 + m_debugSettings.fontSize + 5);
+            m_renderTexture.draw(nodeInfoText);
+            ++lineNumber;
 
-    sf::Text text1;
-    text1.setFont(font);
-    std::string position = "(" + std::to_string(camera.cameraPos.pos.x) + ", " + std::to_string(camera.cameraPos.pos.y) + ")";
-    text1.setString(position);
-    text1.setCharacterSize(24);
-    text1.setFillColor(sf::Color::Yellow);
-    text1.setPosition(50, m_settings.resolution.y - 50);
-    m_renderTexture.draw(text1);
+            size_t boundCount = node->boundingPolygon.size();
+            nodeInfoString = "Bounds " + std::to_string(boundCount) + ": ";
+            size_t lengthBound = 40;
+            for (size_t i{0}; i < boundCount; ++i) {
+                const auto &boundVertex = node->boundingPolygon[i];
+                nodeInfoString += std::format("({:.2f}, {:.2f})", boundVertex.x, boundVertex.y);
+                if (nodeInfoString.length() > lengthBound) {
+                    nodeInfoText.setString(nodeInfoString);
+                    nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
+                                             10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 +
+                                                 m_debugSettings.fontSize + 5);
+                    m_renderTexture.draw(nodeInfoText);
+                    nodeInfoString = "";
+                    ++lineNumber;
+                }
+            }
+            nodeInfoText.setString(nodeInfoString);
+            nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
+                                     10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 + m_debugSettings.fontSize + 5);
+            m_renderTexture.draw(nodeInfoText);
+            ++lineNumber;
+
+            for (size_t i = 0; i < node->boundingSegmentIds.size(); ++i) {
+                const auto &segment = bsp.getSegment(node->boundingSegmentIds[i]);
+                std::string segmentType = segment.isFloorBoundary() ? "F" : (segment.isWall() ? "W" : "U");
+                nodeInfoString = std::format(" Seg {:<2d}: [({:.2f}, {:.2f}) ({:.2f}, {:.2f})] Type: {}", i, segment.v1.x, segment.v1.y,
+                                             segment.v2.x, segment.v2.y, segmentType);
+                nodeInfoText.setString(nodeInfoString);
+                nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
+                                         10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 + m_debugSettings.fontSize +
+                                             5);
+                m_renderTexture.draw(nodeInfoText);
+                ++lineNumber;
+            }
+        }
+    }
+
+    if (spriteEntity) {
+        return;
+    }
 }

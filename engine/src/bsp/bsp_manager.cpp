@@ -1,5 +1,6 @@
 #include "TwoHalfD/bsp/bsp_manager.h"
 #include "TwoHalfD/types/bsp_types.h"
+#include "TwoHalfD/types/entity_types.h"
 #include "TwoHalfD/types/math_types.h"
 #include "TwoHalfD/utils/math_util.h"
 #include <SFML/Window/Cursor.hpp>
@@ -13,6 +14,7 @@
 #include <ranges>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 void TwoHalfD::BSPManager::init(std::vector<Wall> walls, std::unordered_map<int, FloorSection> floorSections, float defaultFloorHeight,
@@ -52,9 +54,7 @@ void TwoHalfD::BSPManager::buildBSPTree() {
         }
     }
 
-    auto initialBoundsVertexes = _getInitialBounds(segments);
-    auto initialBoundsView = initialBoundsVertexes | std::views::transform([](XYVectorf vertex) { return PolygonSegment(vertex, nullptr); });
-    auto initialBounds = PolygonSegments(initialBoundsView.begin(), initialBoundsView.end());
+    auto initialBounds = _getInitialBounds(segments);
 
     std::mt19937 rng(seed);
     std::shuffle(segments.begin(), segments.end(), rng);
@@ -97,7 +97,7 @@ void TwoHalfD::BSPManager::removeEffect(int effectId) {
     m_effectPositions.erase(effectId);
 }
 
-TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) {
+const TwoHalfD::Segment &TwoHalfD::BSPManager::getSegment(int id) const {
     return m_segments[id];
 }
 
@@ -107,6 +107,13 @@ const std::vector<TwoHalfD::Wall> &TwoHalfD::BSPManager::getWalls() const {
 
 const std::unordered_map<int, TwoHalfD::FloorSection> &TwoHalfD::BSPManager::getFloorSections() const {
     return m_floorSections;
+}
+
+const TwoHalfD::BSPNode *TwoHalfD::BSPManager::getLeafNode(int nodeId) const {
+    if (nodeId < 0 || nodeId >= (int)m_leafNodes.size()) {
+        return nullptr;
+    }
+    return m_leafNodes[nodeId];
 }
 
 std::pair<std::vector<TwoHalfD::DrawCommand>, std::unordered_set<int>> TwoHalfD::BSPManager::update(TwoHalfD::Position &cameraPos) {
@@ -387,9 +394,7 @@ float TwoHalfD::BSPManager::_findIndividualPartitioning(int seed, std::vector<Tw
 
     TwoHalfD::OptimalCostPartitioning cost{0, 0, 0};
     TwoHalfD::BSPNode rootNode;
-    auto initialBoundsVertexes = _getInitialBounds(segments);
-    auto initialBoundsView = initialBoundsVertexes | std::views::transform([](XYVectorf v) { return PolygonSegment(v, nullptr); });
-    auto initialBounds = PolygonSegments(initialBoundsView.begin(), initialBoundsView.end());
+    auto initialBounds = _getInitialBounds(segments);
 
     _buildBSPTree(&rootNode, segments, initialBounds, -1, cost, false);
 
@@ -430,7 +435,7 @@ TwoHalfD::BSPNode *TwoHalfD::BSPManager::findConvexSection(const TwoHalfD::XYVec
  * Private functions
  * =============================================================================================================================
  */
-void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, PolygonSegments bounds,
+void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vector<TwoHalfD::Segment> &inputSegments, Polygon bounds,
                                          int floorSectionId, struct OptimalCostPartitioning &cost, bool saveSegments) {
     if (inputSegments.size() == 0) {
         return;
@@ -484,23 +489,12 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         _buildBSPTree(node->back.get(), backSegs, backBounds, backSectionFloorId, cost, saveSegments);
     } else if (saveSegments) {
         node->back = std::make_unique<TwoHalfD::BSPNode>();
-        node->back->bounds = backBounds;
-        std::vector<const Segment *> boundingSegments;
-        size_t n = backBounds.size();
-        for (size_t i{}; i < n; ++i) {
-            for (const auto &segment : m_segments) {
-                if (segmentsOverlap(segment.v1, segment.v2, backBounds[i].vertex, backBounds[(i + 1) % n].vertex)) {
-                    boundingSegments.push_back(&segment);
-                }
-            }
-        }
-
-        auto backboundsVertexView = backBounds | std::views::transform([](PolygonSegment bb) { return bb.vertex; });
-        auto backBoundsVertex = Polygon(backboundsVertexView.begin(), backboundsVertexView.end());
+        node->back->boundingPolygon = backBounds;
+        node->back->boundingSegmentIds = _extractBoundingSegmentIds(backBounds);
 
         auto floorSectionIt = m_floorSections.find(backSectionFloorId);
         if (floorSectionIt != m_floorSections.end() && backSectionFloorId != -1) {
-            auto floorSection = TwoHalfD::FloorSection{backBoundsVertex,
+            auto floorSection = TwoHalfD::FloorSection{backBounds,
                                                        floorSectionIt->second.floorTextureStart,
                                                        floorSectionId,
                                                        floorSectionIt->second.textureId,
@@ -508,6 +502,8 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
                                                        floorSectionIt->second.isCCW};
             node->back->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
         }
+        node->back->leafNodeId = m_leafNodeCounter++;
+        m_leafNodes.push_back(node->back.get());
     }
 
     if (frontSegs.size() > 0) {
@@ -516,13 +512,12 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
         _buildBSPTree(node->front.get(), frontSegs, frontBounds, frontSectionFloorId, cost, saveSegments);
     } else if (saveSegments) {
         node->front = std::make_unique<TwoHalfD::BSPNode>();
-        node->front->bounds = frontBounds;
+        node->front->boundingPolygon = frontBounds;
+        node->front->boundingSegmentIds = _extractBoundingSegmentIds(frontBounds);
 
         auto floorSectionIt = m_floorSections.find(frontSectionFloorId);
         if (floorSectionIt != m_floorSections.end() && frontSectionFloorId != -1) {
-            auto frontBoundsVertexView = frontBounds | std::views::transform([](PolygonSegment vS) { return vS.vertex; });
-            auto frontBoundsVertex = Polygon(frontBoundsVertexView.begin(), frontBoundsVertexView.end());
-            auto floorSection = TwoHalfD::FloorSection{frontBoundsVertex,
+            auto floorSection = TwoHalfD::FloorSection{frontBounds,
                                                        floorSectionIt->second.floorTextureStart,
                                                        floorSectionId,
                                                        floorSectionIt->second.textureId,
@@ -530,6 +525,8 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
                                                        floorSectionIt->second.isCCW};
             node->front->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
         }
+        node->front->leafNodeId = m_leafNodeCounter++;
+        m_leafNodes.push_back(node->front.get());
     }
 }
 
@@ -651,29 +648,6 @@ float TwoHalfD::BSPManager::_insertEffect(TwoHalfD::BSPNode *node, int effectId,
     }
 }
 
-std::pair<TwoHalfD::PolygonSegments, TwoHalfD::PolygonSegments> TwoHalfD::BSPManager::_splitConvexShape(const TwoHalfD::PolygonSegments &vertices,
-                                                                                                        const TwoHalfD::Segment &splitter) {
-    TwoHalfD::PolygonSegments frontVertices;
-    TwoHalfD::PolygonSegments backVertices;
-
-    for (size_t i{}; i < vertices.size(); ++i) {
-        const auto &currVert = vertices[i];
-        const auto &nextVert = vertices[(i + 1) % vertices.size()];
-        bool sideCurr = isInfront(currVert.vertex - splitter.v1, splitter.v2 - splitter.v1);
-        bool sideNext = isInfront(nextVert.vertex - splitter.v1, splitter.v2 - splitter.v1);
-
-        if (sideCurr) frontVertices.push_back({currVert.vertex, nullptr});
-        if (!sideCurr) backVertices.push_back({currVert.vertex, nullptr});
-        if ((sideCurr && !sideNext) || (!sideCurr && sideNext)) {
-            XYVectorf ip = computeLineIntersection(currVert.vertex, nextVert.vertex, splitter.v1, splitter.v2);
-            frontVertices.push_back({ip, &splitter});
-            backVertices.push_back({ip, &splitter});
-        }
-    }
-
-    return {{frontVertices}, {backVertices}};
-}
-
 std::pair<TwoHalfD::Polygon, TwoHalfD::Polygon> TwoHalfD::BSPManager::_splitConvexShape(const TwoHalfD::Polygon &vertices,
                                                                                         const TwoHalfD::Segment &splitter) {
     TwoHalfD::Polygon frontVertices;
@@ -767,6 +741,22 @@ TwoHalfD::BSPNode *TwoHalfD::BSPManager::_findConvexSection(const TwoHalfD::XYVe
     } else {
         return _findConvexSection(point, node->back.get());
     }
+}
+
+std::vector<int>
+TwoHalfD::BSPManager::_extractBoundingSegmentIds(const TwoHalfD::Polygon &boundingPolygon) {
+    std::vector<int> segmentIds;
+    const int n = boundingPolygon.size();
+
+    for (int i{0}; i < n; ++i) {
+        for (size_t j{0}; j < m_segments.size(); ++j) {
+            if (segmentsOverlap(m_segments[j].v1, m_segments[j].v2, boundingPolygon[i], boundingPolygon[(i + 1) % n])) {
+                segmentIds.push_back(j);
+            }
+        }
+    }
+
+    return segmentIds;
 }
 
 // --- Colour overlay ---

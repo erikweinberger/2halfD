@@ -75,10 +75,12 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
     m_cameraObject.cameraFloorHeight =
         convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_defaultFloorHeight;
+    m_cameraObject.nodeId = convexSection != nullptr ? convexSection->leafNodeId : -1;
 
     for (size_t i = 0; i < m_cameraObject.perimeterPoints.size(); ++i) {
         auto *section = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos + m_cameraObject.perimeterPoints[i].offset);
         m_cameraObject.perimeterPoints[i].floorHeight = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
+        m_cameraObject.perimeterPoints[i].nodeId = (section) ? section->leafNodeId : -1;
     }
 
     float maxPerimeterFloor =

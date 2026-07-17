@@ -148,10 +148,10 @@ int main() {
 
         // --- Dark grey: convex region outlines ---
         for (const auto &node : graph.getNodes()) {
-            const auto &bounds = node.bspNode->bounds;
+            const auto &bounds = node.bspNode->boundingPolygon;
             int n = static_cast<int>(bounds.size());
             for (int i = 0; i < n; ++i)
-                drawLine(bounds[i].vertex, bounds[(i + 1) % n].vertex, sf::Color(70, 70, 70));
+                drawLine(bounds[i], bounds[(i + 1) % n], sf::Color(70, 70, 70));
         }
 
         // --- Blue: graph edges (centroid -> portal -> centroid) ---

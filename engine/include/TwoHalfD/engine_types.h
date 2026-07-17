@@ -77,15 +77,14 @@ struct CameraObject {
     std::optional<float> gravityOverride;
     std::optional<float> maxFallSpeedOverride;
     std::optional<bool> canMoveWhileFallingOverride = false;
+    int nodeId = -1;
 
     void initPerimeterPoints(float radius) {
         float d = (radius + 1.f) * 0.7071f; // radius * cos(45)
         float r = radius + 1.f;
         perimeterPoints = {
-            PerimeterPoint{{r, 0}},  PerimeterPoint{{-r, 0}},
-            PerimeterPoint{{0, r}},  PerimeterPoint{{0, -r}},
-            PerimeterPoint{{d, d}},  PerimeterPoint{{-d, d}},
-            PerimeterPoint{{d, -d}}, PerimeterPoint{{-d, -d}},
+            PerimeterPoint{{r, 0}}, PerimeterPoint{{-r, 0}}, PerimeterPoint{{0, r}},  PerimeterPoint{{0, -r}},
+            PerimeterPoint{{d, d}}, PerimeterPoint{{-d, d}}, PerimeterPoint{{d, -d}}, PerimeterPoint{{-d, -d}},
         };
     }
 };

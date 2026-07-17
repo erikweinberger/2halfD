@@ -28,12 +28,6 @@ struct Segment {
     }
 };
 
-struct PolygonSegment {
-    TwoHalfD::XYVectorf vertex;
-    const TwoHalfD::Segment *segment;
-};
-
-using PolygonSegments = std::vector<PolygonSegment>;
 
 struct BSPNode {
     std::unique_ptr<BSPNode> front;
@@ -41,8 +35,8 @@ struct BSPNode {
 
     std::unordered_set<int> spriteIds;
     std::unordered_set<int> effectIds;
-    TwoHalfD::PolygonSegments bounds;
-    std::vector<const TwoHalfD::Segment *> boundingSegments;
+    Polygon boundingPolygon;
+    std::vector<int> boundingSegmentIds;
     std::unique_ptr<FloorSection> floorSection = nullptr;
     std::vector<FloorColourOverlay> colourOverlays;
 
@@ -51,6 +45,7 @@ struct BSPNode {
     XYVectorf splitterVec;
 
     int segmentID = -1;
+    int leafNodeId = -1;
 };
 
 struct DrawCommand {
