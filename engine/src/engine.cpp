@@ -1,10 +1,14 @@
+#include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include "TwoHalfD/types/math_types.h"
+#include "TwoHalfD/utils/math_util.h"
 #include <TwoHalfD/engine.h>
 
 #include <SFML/Window/Mouse.hpp>
 #include <cmath>
+#include <objc/objc.h>
 #include <span>
+#include <unordered_map>
 #include <variant>
 
 void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
@@ -131,41 +135,35 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
     TwoHalfD::Position prevPos = m_cameraObject.cameraPos;
     m_cameraObject.cameraPos += posUpdate;
     TwoHalfD::XYVectorf moveVec{posUpdate.pos.x, posUpdate.pos.y};
-    TwoHalfD::XYVectorf n_moveVec{moveVec.normalized()};
 
-    float moveMagnitude = 0;
     if (m_engineSettings.cameraCollision) {
-        TwoHalfD::XYVectorf oldPos = prevPos.pos;
-        auto segmentSpans = m_bspManager.findCollisions(m_cameraObject.cameraPos.pos, m_cameraObject.cameraRadius, m_cameraObject.cameraHeightStart);
-        if (segmentSpans.size() > 0) {
-            for (const auto &[start, end] : segmentSpans) {
-                const TwoHalfD::XYVectorf segmentVec = {end.x - start.x, end.y - start.y};
-                TwoHalfD::XYVectorf n_segmentVec{segmentVec.normalized()};
-
-                const float perpPointDistToStart = TwoHalfD::dot(m_cameraObject.cameraPos.pos - start, n_segmentVec);
-                TwoHalfD::XYVectorf perpP{start + n_segmentVec * perpPointDistToStart};
-
-                TwoHalfD::XYVectorf perpVec{m_cameraObject.cameraPos.pos - perpP};
-                TwoHalfD::XYVectorf n_perpVec{perpVec.normalized()};
-
-                TwoHalfD::XYVectorf oldPerpVec{oldPos - perpP};
-                float perpVecLen = perpVec.length();
-
-                float penetrationDepth;
-                if (dot(oldPerpVec, n_perpVec) < 0 && oldPerpVec.length() > perpVecLen) {
-                    penetrationDepth = m_cameraObject.cameraRadius + perpVecLen;
-                } else {
-                    penetrationDepth = m_cameraObject.cameraRadius - perpVecLen;
-                }
-                float moveRatio = std::abs(dot(n_perpVec, n_moveVec));
-                if (std::abs(moveRatio) < 0.01f) continue;
-
-                moveMagnitude = std::min(std::max(moveMagnitude, penetrationDepth / moveRatio), moveVec.length());
+        std::unordered_set<int> nodeIds;
+        nodeIds.reserve(m_cameraObject.perimeterPoints.size());
+        for (const auto boundingPoint : m_cameraObject.perimeterPoints) {
+            nodeIds.insert(boundingPoint.nodeId);
+        }
+        std::unordered_set<const Segment *> boundingSegments;
+        for (const auto nodeId : nodeIds) {
+            auto node = m_bspManager.getLeafNode(nodeId);
+            for (const auto segmentId : node->boundingSegmentIds) {
+                boundingSegments.insert(&m_bspManager.getSegment(segmentId));
             }
+        }
 
-            TwoHalfD::Position newPos{m_cameraObject.cameraPos.pos - moveMagnitude * n_moveVec, m_cameraObject.cameraPos.direction};
-            setCameraPosition(newPos);
-            return m_cameraObject.cameraPos;
+        for (const auto segment : boundingSegments) {
+            if (segment->isWall() && m_cameraObject.cameraHeightStart >= segment->wall->wallHeightStart + segment->wall->height) continue;
+            if (segment->isFloorBoundary() && segment->floorSection->height >= m_engineSettings.heightClipping) continue;
+
+            auto segVec = segment->v2 - segment->v1;
+            float t = dot(m_cameraObject.cameraPos.pos - segment->v1, segVec) / dot(segVec, segVec);
+            t = std::clamp(t, 0.f, 1.f);
+            auto closestPoint = segment->v1 + t * segVec;
+            auto pushVec = m_cameraObject.cameraPos.pos - closestPoint;
+            float dist = pushVec.length();
+            if (dist < m_cameraObject.cameraRadius && dist > 0.f) {
+                float penetration = m_cameraObject.cameraRadius - dist;
+                m_cameraObject.cameraPos.pos = m_cameraObject.cameraPos.pos + pushVec.normalized() * penetration;
+            }
         }
     }
 
