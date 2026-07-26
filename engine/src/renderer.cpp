@@ -572,102 +572,61 @@ void TwoHalfD::Renderer::renderOverlays(const CameraObject &camera) {
 
 void TwoHalfD::Renderer::renderDebugOverlays(const TwoHalfD::CameraObject &camera, const std::optional<TwoHalfD::SpriteEntity> &spriteEntity,
                                              const BSPManager &bsp) {
-    /* Display fps (both graphics and game)
-     Position
-     info about the nodes the boundary points are in (it should provide a way to visualize the bsp tree and the nodes the camera is in)
-     if another sprite entity is selected it should also come up
-    */
+    bool shouldUpdate = m_debugSettings.needsUpdate || m_debugSettings.updateTimer.getElapsedTime().asSeconds() >= m_debugSettings.updateInterval;
 
-    sf::Text fpsObjectRenderedText;
-    fpsObjectRenderedText.setFont(m_debugSettings.debugFont);
-    std::string fpsString = std::format("FPS: {:<5d} SEG: {:<4d} SPR: {:<4d} FLR: {:<4d} CLO: {:<4d} EFC: {:<4d}",
-                                        static_cast<int>(std::round(m_clocks.getAverageGraphicsFps())), m_debugSettings.numSegmentsRenderedFrame,
-                                        m_debugSettings.numSpritesRenderedFrame, m_debugSettings.numFloorSectionsRenderedFrame,
-                                        m_debugSettings.numColourOverlaysRenderedFrame, m_debugSettings.numEffectsRenderedFrame);
-    fpsObjectRenderedText.setString(fpsString);
-    fpsObjectRenderedText.setFillColor(m_debugSettings.debugColor);
-    fpsObjectRenderedText.setCharacterSize(m_debugSettings.fontSize);
-    fpsObjectRenderedText.setPosition(10, 10);
-    m_renderTexture.draw(fpsObjectRenderedText);
+    if (shouldUpdate) {
+        m_debugSettings.updateTimer.restart();
+        m_debugSettings.needsUpdate = false;
 
-    std::unordered_set<int> uniqueNodeIds;
+        std::string text;
+        text += std::format("FPS: {:<5d} SEG: {:<4d} SPR: {:<4d} FLR: {:<4d} CLO: {:<4d} EFC: {:<4d}\n",
+                            static_cast<int>(std::round(m_clocks.getAverageGraphicsFps())), m_debugSettings.numSegmentsRenderedFrame,
+                            m_debugSettings.numSpritesRenderedFrame, m_debugSettings.numFloorSectionsRenderedFrame,
+                            m_debugSettings.numColourOverlaysRenderedFrame, m_debugSettings.numEffectsRenderedFrame);
 
-    sf::Text cameraInfoText;
-    cameraInfoText.setFont(m_debugSettings.debugFont);
-    std::string cameraInfoString =
-        std::format("CamPos: ({:.2f}, {:.2f}) Dir: {:.2f} Height: {:.2f} Node ID: {:<3d}", camera.cameraPos.pos.x, camera.cameraPos.pos.y,
-                    camera.cameraPos.direction, camera.cameraHeight + camera.cameraHeightStart, camera.nodeId);
-    cameraInfoText.setString(cameraInfoString);
-    cameraInfoText.setFillColor(m_debugSettings.debugColor);
-    cameraInfoText.setCharacterSize(m_debugSettings.fontSize);
-    cameraInfoText.setPosition(10, 10 + m_debugSettings.fontSize + 5);
-    m_renderTexture.draw(cameraInfoText);
-    uniqueNodeIds.insert(camera.nodeId);
+        text += std::format("CamPos: ({:.2f}, {:.2f}) Dir: {:.2f} Height: {:.2f} Node: {:<3d}\n", camera.cameraPos.pos.x, camera.cameraPos.pos.y,
+                            camera.cameraPos.direction, camera.cameraHeight + camera.cameraHeightStart, camera.nodeId);
 
-    sf::Text nodeInfoText;
-    for (size_t i = 0; i < camera.perimeterPoints.size(); ++i) {
-        const auto &boundaryPoint = camera.perimeterPoints[i];
-        nodeInfoText.setFont(m_debugSettings.debugFont);
-        std::string nodeInfoString =
-            std::format("Boundary Point {:<2d}): ({:.2f}, {:.2f}) Node ID: {:<3d}", i, camera.cameraPos.pos.x + boundaryPoint.offset.x,
-                        camera.cameraPos.pos.y + boundaryPoint.offset.y, boundaryPoint.nodeId);
-        nodeInfoText.setString(nodeInfoString);
-        nodeInfoText.setFillColor(m_debugSettings.debugColor);
-        nodeInfoText.setCharacterSize(m_debugSettings.fontSize);
-        nodeInfoText.setPosition(10, 10 + m_debugSettings.fontSize * (i + 1) + 5 + m_debugSettings.fontSize + 5);
-        m_renderTexture.draw(nodeInfoText);
-        uniqueNodeIds.insert(boundaryPoint.nodeId);
-    }
+        std::unordered_set<const TwoHalfD::BSPNode *> uniqueBspRegions;
+        uniqueBspRegions.insert(bsp.getLeafNode(camera.nodeId));
 
-    u_int32_t lineNumber = 0;
-    for (const auto &nodeId : uniqueNodeIds) {
-        const auto *node = bsp.getLeafNode(nodeId);
-        if (node) {
-            std::string nodeInfoString = std::format("Node ID: {:<3d}", node->leafNodeId);
-            nodeInfoText.setString(nodeInfoString);
-            nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
-                                     10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 + m_debugSettings.fontSize + 5);
-            m_renderTexture.draw(nodeInfoText);
-            ++lineNumber;
+        for (size_t i = 0; i < camera.perimeterPoints.size(); ++i) {
+            const auto &bp = camera.perimeterPoints[i];
+            text += std::format("BP {:<2d}: ({:.2f}, {:.2f}) Node: {:<3d}\n", i, camera.cameraPos.pos.x + bp.offset.x,
+                                camera.cameraPos.pos.y + bp.offset.y, bp.bspRegion ? bp.bspRegion->leafNodeId : -1);
+            if (bp.bspRegion) uniqueBspRegions.insert(bp.bspRegion);
+        }
 
-            size_t boundCount = node->boundingPolygon.size();
-            nodeInfoString = "Bounds " + std::to_string(boundCount) + ": ";
-            size_t lengthBound = 40;
-            for (size_t i{0}; i < boundCount; ++i) {
-                const auto &boundVertex = node->boundingPolygon[i];
-                nodeInfoString += std::format("({:.2f}, {:.2f})", boundVertex.x, boundVertex.y);
-                if (nodeInfoString.length() > lengthBound) {
-                    nodeInfoText.setString(nodeInfoString);
-                    nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
-                                             10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 +
-                                                 m_debugSettings.fontSize + 5);
-                    m_renderTexture.draw(nodeInfoText);
-                    nodeInfoString = "";
-                    ++lineNumber;
+        text += "\n";
+
+        for (const auto node : uniqueBspRegions) {
+            if (!node) continue;
+            text += std::format("--- Node {:<3d} ---\n", node->leafNodeId);
+
+            std::string boundsLine = std::format("Bounds ({}): ", node->boundingPolygon.size());
+            for (size_t i = 0; i < node->boundingPolygon.size(); ++i) {
+                const auto &v = node->boundingPolygon[i];
+                boundsLine += std::format("({:.0f},{:.0f}) ", v.x, v.y);
+                if (boundsLine.length() > 60) {
+                    text += boundsLine + "\n";
+                    boundsLine = "  ";
                 }
             }
-            nodeInfoText.setString(nodeInfoString);
-            nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
-                                     10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 + m_debugSettings.fontSize + 5);
-            m_renderTexture.draw(nodeInfoText);
-            ++lineNumber;
+            text += boundsLine + "\n";
 
             for (size_t i = 0; i < node->boundingSegmentIds.size(); ++i) {
-                const auto &segment = bsp.getSegment(node->boundingSegmentIds[i]);
-                std::string segmentType = segment.isFloorBoundary() ? "F" : (segment.isWall() ? "W" : "U");
-                nodeInfoString = std::format(" Seg {:<2d}: [({:.2f}, {:.2f}) ({:.2f}, {:.2f})] Type: {}", i, segment.v1.x, segment.v1.y,
-                                             segment.v2.x, segment.v2.y, segmentType);
-                nodeInfoText.setString(nodeInfoString);
-                nodeInfoText.setPosition(m_window.getSize().x - nodeInfoText.getGlobalBounds().width - 10,
-                                         10 + m_debugSettings.fontSize * (lineNumber) + 5 + m_debugSettings.fontSize + 5 + m_debugSettings.fontSize +
-                                             5);
-                m_renderTexture.draw(nodeInfoText);
-                ++lineNumber;
+                const auto &seg = bsp.getSegment(node->boundingSegmentIds[i]);
+                std::string type = seg.isFloorBoundary() ? "F" : (seg.isWall() ? "W" : "U");
+                text += std::format("Seg {:<2d}: ({:.0f},{:.0f})-({:.0f},{:.0f}) {}\n", i, seg.v1.x, seg.v1.y, seg.v2.x, seg.v2.y, type);
             }
         }
+
+        m_debugSettings.cachedText.setFont(m_debugSettings.debugFont);
+        m_debugSettings.cachedText.setFillColor(m_debugSettings.debugColor);
+        m_debugSettings.cachedText.setCharacterSize(m_debugSettings.fontSize);
+        m_debugSettings.cachedText.setPosition(10, 10);
+        m_debugSettings.cachedText.setString(text);
     }
 
-    if (spriteEntity) {
-        return;
-    }
+    m_renderTexture.draw(m_debugSettings.cachedText);
 }

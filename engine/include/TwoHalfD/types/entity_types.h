@@ -14,6 +14,8 @@
 
 namespace TwoHalfD {
 
+struct BSPNode;
+
 struct TextureSignature {
     sf::Texture texture;
     std::string filePath;
@@ -62,8 +64,9 @@ using EntityUpdate = std::variant<WalkToUpdate, AttackUpdate, IdleUpdate>;
 
 struct PerimeterPoint {
     TwoHalfD::XYVectorf offset;
-    float floorHeight = 0.f;
-    int nodeId = -1;
+    const TwoHalfD::BSPNode *bspRegion;
+
+    float height() const;
 };
 
 struct SpriteEntity {
@@ -75,7 +78,7 @@ struct SpriteEntity {
     float scaleX = 1.f; // fraction of sprite area one texture copy fills horizontally
     float scaleY = 1.f; // fraction of sprite area one texture copy fills vertically
     float heightStart = 0.f;
-    std::array<PerimeterPoint, 8> perimeterPoints = {};
+    std::array<PerimeterPoint, 4> perimeterPoints = {};
     float speed = 5.f;
     float floorHeight = 0.f;
 
@@ -92,11 +95,8 @@ struct SpriteEntity {
     std::optional<bool> canMoveWhileFallingOverride;
 
     void initPerimeterPoints() {
-        float d = radius * 0.7071f;
-        perimeterPoints = {
-            PerimeterPoint{{radius, 0}}, PerimeterPoint{{-radius, 0}}, PerimeterPoint{{0, radius}}, PerimeterPoint{{0, -radius}},
-            PerimeterPoint{{d, d}},      PerimeterPoint{{-d, d}},      PerimeterPoint{{d, -d}},     PerimeterPoint{{-d, -d}},
-        };
+        perimeterPoints = {PerimeterPoint{{radius, 0}, nullptr}, PerimeterPoint{{-radius, 0}, nullptr}, PerimeterPoint{{0, radius}, nullptr},
+                           PerimeterPoint{{0, -radius}, nullptr}};
     }
 
     SpriteEntity(int id, TwoHalfD::Position pos, float radius, int height, int textureId, float scaleX = 1.f, float scaleY = 1.f)

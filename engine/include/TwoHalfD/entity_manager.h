@@ -1,8 +1,10 @@
 #ifndef ENTITY_MANAGER_H
 #define ENTITY_MANAGER_H
 
+#include "TwoHalfD/bsp/bsp_manager.h"
 #include "TwoHalfD/input_manager.h"
 #include "TwoHalfD/types/animation_types.h"
+#include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include <optional>
 #include <unordered_map>
@@ -17,13 +19,13 @@ class EntityManager {
 
     void addEntity(TwoHalfD::SpriteEntity entity);
     void removeEntity(int id);
-    std::optional<TwoHalfD::SpriteEntity> getEntity(int id) const;
+    std::optional<const TwoHalfD::SpriteEntity> getEntity(int id) const;
     const std::unordered_map<int, TwoHalfD::SpriteEntity> &getAllEntities() const;
 
     void walkTo(int entityId, const TwoHalfD::Path &path);
     void setHeightStart(int entityId, float heightStart);
     void setFloorHeight(int entityId, float floorHeight);
-    void setPerimeterFloorHeight(int entityId, int perimeterPointIndex, float perimeterFloorHeight);
+    void setEntityPerimeterRegion(int entityId, int perimeterIndex, const BSPNode *bspRegion);
 
     void setAnimation(int entityId, int templateId, bool loop = false);
     void clearAnimation(int entityId);
@@ -40,7 +42,7 @@ class EntityManager {
     const std::vector<int> &getExpiredEffectIds() const;
     void eraseExpiredEffects();
 
-    std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime, const EngineSettings &engineSettings);
+    std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime, const EngineSettings &engineSettings, const BSPManager &bsp);
 
     void setAnimationTemplates(const std::unordered_map<int, TwoHalfD::AnimationTemplate> &templates);
     const std::unordered_map<int, TwoHalfD::AnimationTemplate> *getAnimationTemplates() const;
@@ -52,7 +54,7 @@ class EntityManager {
     int m_nextEffectId = 0;
     const std::unordered_map<int, TwoHalfD::AnimationTemplate> *m_animationTemplates = nullptr;
 
-    void _tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update);
+    void _tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update, const BSPManager &bsp);
     bool _tickAnimation(TwoHalfD::AnimationState &state, float deltaTime);
 };
 } // namespace TwoHalfD

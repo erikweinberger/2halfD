@@ -1,6 +1,9 @@
+#include "TwoHalfD/bsp/bsp_manager.h"
 #include "TwoHalfD/types/animation_types.h"
+#include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include <TwoHalfD/entity_manager.h>
+#include <algorithm>
 
 TwoHalfD::EntityManager::EntityManager() = default;
 TwoHalfD::EntityManager::~EntityManager() = default;
@@ -13,7 +16,7 @@ void TwoHalfD::EntityManager::removeEntity(int id) {
     m_entities.erase(id);
 }
 
-std::optional<TwoHalfD::SpriteEntity> TwoHalfD::EntityManager::getEntity(int id) const {
+std::optional<const TwoHalfD::SpriteEntity> TwoHalfD::EntityManager::getEntity(int id) const {
     auto it = m_entities.find(id);
     if (it == m_entities.end()) return std::nullopt;
     return it->second;
@@ -44,14 +47,12 @@ void TwoHalfD::EntityManager::setFloorHeight(int entityId, float floorHeight) {
     }
 }
 
-void TwoHalfD::EntityManager::setPerimeterFloorHeight(int entityId, int perimeterPointIndex, float perimeterFloorHeight) {
-    auto it = m_entities.find(entityId);
-    if (it != m_entities.end()) {
-        it->second.perimeterPoints[perimeterPointIndex].floorHeight = perimeterFloorHeight;
-    }
+void TwoHalfD::EntityManager::setEntityPerimeterRegion(int entityId, int perimeterIndex, const BSPNode *bspRegion) {
+    m_entities[entityId].perimeterPoints[perimeterIndex].bspRegion = bspRegion;
 }
 
-std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update(float deltaTime, const EngineSettings &engineSettings) {
+std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update(float deltaTime, const EngineSettings &engineSettings,
+                                                                                 const BSPManager &bsp) {
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> movedEntities;
 
     for (auto &[id, entity] : m_entities) {
@@ -61,8 +62,8 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
         bool isFalling = false;
 
         auto maxIt = std::max_element(entity.perimeterPoints.begin(), entity.perimeterPoints.end(),
-                                       [](const auto &a, const auto &b) { return a.floorHeight < b.floorHeight; });
-        float maxPerimeterFloor = std::max(entity.floorHeight, maxIt->floorHeight);
+                                      [](const auto &a, const auto &b) { return (a.height()) < (b.height()); });
+        float maxPerimeterFloor = std::max(entity.floorHeight, maxIt->height());
 
         if (maxPerimeterFloor < entity.heightStart) {
             isFalling = true;
@@ -86,7 +87,7 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
                 [&](auto &update) {
                     using T = std::decay_t<decltype(update)>;
                     if constexpr (std::is_same_v<T, TwoHalfD::WalkToUpdate>) {
-                        _tickWalkTo(entity, update);
+                        _tickWalkTo(entity, update, bsp);
                     }
                 },
                 *entity.currentUpdate);
@@ -215,7 +216,7 @@ bool TwoHalfD::EntityManager::_tickAnimation(TwoHalfD::AnimationState &state, fl
     return false;
 }
 
-void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update) {
+void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update, const BSPManager &bsp) {
     if (update.nextPathIndex >= update.path.size()) {
         entity.currentUpdate = std::nullopt;
         return;
@@ -225,10 +226,45 @@ void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHal
     auto direction = (targetPos - entity.pos.pos).normalized();
     entity.pos.pos = entity.pos.pos + direction * entity.speed;
 
-    if ((entity.pos.pos - targetPos).length() < entity.speed + 1.f) {
-        update.nextPathIndex++;
-        if (update.nextPathIndex >= update.path.size()) {
-            entity.currentUpdate = std::nullopt;
+    std::vector<const BSPNode *> bspRegions;
+    bspRegions.reserve(entity.perimeterPoints.size());
+    for (const auto &boundingPoint : entity.perimeterPoints) {
+        if (std::find(bspRegions.begin(), bspRegions.end(), boundingPoint.bspRegion) == bspRegions.end()) {
+            bspRegions.push_back(boundingPoint.bspRegion);
+        }
+    }
+
+    std::vector<const Segment *> boundingSegments;
+    for (const auto bspRegion : bspRegions) {
+        if (bspRegion == nullptr) continue;
+        for (const auto segmentId : bspRegion->boundingSegmentIds) {
+            const auto segment = &bsp.getSegment(segmentId);
+            if (std::find(boundingSegments.begin(), boundingSegments.end(), segment) == boundingSegments.end()) {
+                boundingSegments.push_back(segment);
+            }
+        }
+
+        for (const auto segment : boundingSegments) {
+            if (segment->isWall() && entity.heightStart >= segment->wall->wallHeightStart + segment->wall->height) continue;
+            if (segment->isFloorBoundary() && segment->floorSection->height >= 30.f) continue;
+
+            auto segVec = segment->v2 - segment->v1;
+            float t = dot(entity.pos.pos - segment->v1, segVec) / segVec.lengthSquared();
+            t = std::clamp(t, 0.f, 1.f);
+            auto closestPoint = segment->v1 + t * segVec;
+            auto pushVec = entity.pos.pos - closestPoint;
+            float dist = pushVec.length();
+            if (dist < entity.radius && dist > 0.f) {
+                float penetration = entity.radius - dist;
+                entity.pos.pos += pushVec.normalized() * penetration;
+            }
+        }
+
+        if ((entity.pos.pos - targetPos).length() < entity.speed + 1.f) {
+            update.nextPathIndex++;
+            if (update.nextPathIndex >= update.path.size()) {
+                entity.currentUpdate = std::nullopt;
+            }
         }
     }
 }

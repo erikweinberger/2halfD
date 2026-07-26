@@ -12,7 +12,7 @@ static constexpr int OVERLAY_ID = 1;
 static const TwoHalfD::Polygon OVERLAY_POLYGON = {{100.f, 100.f}, {400.f, 100.f}, {400.f, 250.f}, {250.f, 250.f}, {250.f, 500.f}, {100.f, 500.f}};
 
 void Game::run() {
-    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level_box_test.txt";
+    fs::path levelFile = fs::path(ASSETS_DIR) / "levels" / "level1.txt";
     m_engine.loadLevel(levelFile);
     m_engine.addColourOverlay(OVERLAY_ID, OVERLAY_POLYGON, 0.f, 255, 0, 0, 128);
     while (m_engine.getState() == TwoHalfD::EngineState::running || m_engine.getState() == TwoHalfD::EngineState::fpsState ||
