@@ -136,7 +136,7 @@ void TwoHalfD::BSPGraph::_collectLeaves(BSPNode *node, float defaultFloorHeight)
             centroid.y *= inv;
         }
         graphNode.centroid = centroid;
-        graphNode.floorHeight = (node->floorSection != nullptr) ? node->floorSection->height : defaultFloorHeight;
+        graphNode.floorHeight = node->floorSection ? node->floorSection->height : defaultFloorHeight;
 
         int index = static_cast<int>(m_nodes.size());
         m_nodeIndexMap[node] = index;

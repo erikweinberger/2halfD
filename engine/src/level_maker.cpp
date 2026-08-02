@@ -51,8 +51,6 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
             auto defaultFloor = _makeDefaultFloor(line);
             result_level.defaultFloorTextureId = defaultFloor.first;
             result_level.defaultFloorStart = defaultFloor.second;
-            std::cout << "Default floor texture id: " << result_level.defaultFloorTextureId << " default floor start: ("
-                      << result_level.defaultFloorStart.x << " , " << result_level.defaultFloorStart.y << ")\n";
             break;
         }
         case TwoHalfD::EntityTypes::floorSection: {
@@ -73,9 +71,6 @@ TwoHalfD::Level TwoHalfD::LevelMaker::parseLevelFile(std::string levelFilePath) 
     result_level.textures = std::move(m_textures);
     result_level.walls = std::move(m_walls);
     result_level.sprites = std::move(m_spriteEntities);
-    std::cerr << "Loaded all things lenTex: " << result_level.textures.size() << " len of wall: " << result_level.walls.size()
-              << " len of sprites: " << result_level.sprites.size() << " len of animTemplates: " << result_level.animationTemplates.size() << '\n';
-
     return result_level;
 }
 
@@ -301,8 +296,6 @@ TwoHalfD::AnimationTemplate TwoHalfD::LevelMaker::_makeAnimationTemplate(std::st
             break;
         }
     }
-
-    std::cerr << "Loaded animation template id: " << templateId << " frames: " << frames.size() << '\n';
 
     return TwoHalfD::AnimationTemplate{templateId, frames};
 }

@@ -29,6 +29,11 @@ struct DebugSettings {
     u_int32_t numFloorSectionsRenderedFrame = 0u;
     u_int32_t numColourOverlaysRenderedFrame = 0u;
     u_int32_t numEffectsRenderedFrame = 0u;
+
+    sf::Text cachedText;
+    sf::Clock updateTimer;
+    float updateInterval = 0.5f;
+    bool needsUpdate = true;
 };
 
 class Renderer {

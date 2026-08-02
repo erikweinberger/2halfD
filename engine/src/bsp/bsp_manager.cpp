@@ -6,7 +6,6 @@
 #include <SFML/Window/Cursor.hpp>
 #include <algorithm>
 #include <cstddef>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <queue>
@@ -27,10 +26,8 @@ void TwoHalfD::BSPManager::init(std::vector<Wall> walls, std::unordered_map<int,
 }
 
 void TwoHalfD::BSPManager::buildBSPTree() {
-    int seed = 1; // m_seed;
-    std::cout << "Seed for BSP: " << seed << std::endl;
-    if (seed == -1) {
-        seed = findBestPartitioning();
+    if (m_seed == -1) {
+        m_seed = findBestPartitioning();
     }
 
     m_root = std::make_unique<TwoHalfD::BSPNode>();
@@ -56,7 +53,7 @@ void TwoHalfD::BSPManager::buildBSPTree() {
 
     auto initialBounds = _getInitialBounds(segments);
 
-    std::mt19937 rng(seed);
+    std::mt19937 rng(m_seed);
     std::shuffle(segments.begin(), segments.end(), rng);
     OptimalCostPartitioning cost{0, 0, 0};
     _buildBSPTree(m_root.get(), segments, initialBounds, -1, cost);
@@ -69,7 +66,7 @@ std::unordered_map<int, float> TwoHalfD::BSPManager::insertSprites(const std::un
     for (const auto &[entityId, entity] : entities) {
         m_spritePositions[entityId] = entity.pos.pos;
         auto insertNode = _insertSprite(m_root.get(), entityId, entity.pos.pos);
-        heightStarts[entityId] = (insertNode && insertNode->floorSection) ? 0.f : insertNode->floorSection->height;
+        heightStarts[entityId] = (insertNode && insertNode->floorSection) ? insertNode->floorSection->height : 0.f;
     }
     return heightStarts;
 }
@@ -202,8 +199,8 @@ void TwoHalfD::BSPManager::traverse(TwoHalfD::BSPNode *node, std::vector<TwoHalf
 
     if (node->front == nullptr && node->back == nullptr) {
         // std::cout << "At leaf node: " << node->floorSectionId << '\n';
-        if (node->floorSection != nullptr) {
-            commands.push_back(DrawCommand::makeFloorSection(node->floorSection.get()));
+        if (node->floorSection) {
+            commands.push_back(DrawCommand::makeFloorSection(&*node->floorSection));
         }
 
         for (auto &overlay : node->colourOverlays) {
@@ -384,7 +381,6 @@ int TwoHalfD::BSPManager::findBestPartitioning() {
             bestSeed = seed;
         }
     }
-    std::cout << "BSP Tree built with cost " << lowestScore << std::endl;
     return bestSeed;
 }
 
@@ -500,7 +496,7 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
                                                        floorSectionIt->second.textureId,
                                                        floorSectionIt->second.height,
                                                        floorSectionIt->second.isCCW};
-            node->back->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
+            node->back->floorSection = floorSection;
         }
         node->back->leafNodeId = m_leafNodeCounter++;
         m_leafNodes.push_back(node->back.get());
@@ -523,7 +519,7 @@ void TwoHalfD::BSPManager::_buildBSPTree(TwoHalfD::BSPNode *node, const std::vec
                                                        floorSectionIt->second.textureId,
                                                        floorSectionIt->second.height,
                                                        floorSectionIt->second.isCCW};
-            node->front->floorSection = std::make_unique<TwoHalfD::FloorSection>(floorSection);
+            node->front->floorSection = floorSection;
         }
         node->front->leafNodeId = m_leafNodeCounter++;
         m_leafNodes.push_back(node->front.get());
@@ -629,7 +625,7 @@ float TwoHalfD::BSPManager::_insertEffect(TwoHalfD::BSPNode *node, int effectId,
 
     if (node->front == nullptr && node->back == nullptr) {
         float height = 0.f;
-        if (node->floorSection != nullptr) {
+        if (node->floorSection) {
             height = node->floorSection->height;
         } else if (m_defaultFloorTextureId != -1) {
             height = m_defaultFloorHeight;
@@ -697,11 +693,6 @@ TwoHalfD::Polygon TwoHalfD::BSPManager::_getInitialBounds(const std::vector<TwoH
         {minX - 100.f, maxY + 100.f}, // top-left
     };
 
-    std::cout << "Initial bounds:\n";
-    for (const auto &vertex : initialBounds) {
-        std::cout << vertex.x << ", " << vertex.y << " |";
-    }
-    std::cout << std::endl;
     return initialBounds;
 }
 
@@ -743,8 +734,7 @@ TwoHalfD::BSPNode *TwoHalfD::BSPManager::_findConvexSection(const TwoHalfD::XYVe
     }
 }
 
-std::vector<int>
-TwoHalfD::BSPManager::_extractBoundingSegmentIds(const TwoHalfD::Polygon &boundingPolygon) {
+std::vector<int> TwoHalfD::BSPManager::_extractBoundingSegmentIds(const TwoHalfD::Polygon &boundingPolygon) {
     std::vector<int> segmentIds;
     const int n = boundingPolygon.size();
 
@@ -839,7 +829,7 @@ void TwoHalfD::BSPManager::_insertColourOverlayTriangle(BSPNode *node, const Pol
 
     if (node->front == nullptr && node->back == nullptr) {
         float effectiveHeight = height;
-        if (node->floorSection != nullptr) effectiveHeight = std::max(height, node->floorSection->height);
+        if (node->floorSection) effectiveHeight = std::max(height, node->floorSection->height);
         node->colourOverlays.push_back({triangle, id, effectiveHeight, r, g, b, a});
         m_overlayNodeMap[id].push_back(node);
         return;

@@ -55,7 +55,7 @@ inline bool isBehind(const TwoHalfD::XYVectorf &v, const TwoHalfD::XYVectorf &u)
 inline bool isCollinear(const TwoHalfD::XYVectorf &v1, const TwoHalfD::XYVectorf &v2, const TwoHalfD::XYVectorf &u1, const TwoHalfD::XYVectorf &u2) {
     const auto d1 = v2 - v1;
     const auto d2 = u2 - u1;
-    return std::abs(crossProduct2d(d1, d2)) < 1e-4f && std::abs(crossProduct2d(u1 - v1, d1)) < 1e-4f;
+    return std::abs(crossProduct2d(d1, d2)) < 0.1f && std::abs(crossProduct2d(u1 - v1, d1)) < 0.1f;
 }
 
 // Checks both collinear then uses this info to check if the segments overlap

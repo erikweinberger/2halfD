@@ -32,7 +32,7 @@ struct EngineSettings {
     bool cameraCollision = true;
     float heightClipping = 10.f; // How much difference in floor height is allowed before clipping occurs
 
-    float gravity = 0.01f;
+    float gravity = 0.5f;
     float maxFallSpeed = 15.f;
     bool canMoveWhileFalling = false;
 
@@ -80,12 +80,9 @@ struct CameraObject {
     int nodeId = -1;
 
     void initPerimeterPoints(float radius) {
-        float d = (radius + 1.f) * 0.7071f; // radius * cos(45)
         float r = radius + 1.f;
-        perimeterPoints = {
-            PerimeterPoint{{r, 0}}, PerimeterPoint{{-r, 0}}, PerimeterPoint{{0, r}},  PerimeterPoint{{0, -r}},
-            PerimeterPoint{{d, d}}, PerimeterPoint{{-d, d}}, PerimeterPoint{{d, -d}}, PerimeterPoint{{-d, -d}},
-        };
+        perimeterPoints = {PerimeterPoint{{r, 0}, nullptr}, PerimeterPoint{{-r, 0}, nullptr}, PerimeterPoint{{0, r}, nullptr},
+                           PerimeterPoint{{0, -r}, nullptr}};
     }
 };
 

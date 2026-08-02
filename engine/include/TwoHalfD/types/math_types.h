@@ -26,6 +26,11 @@ struct XYVector {
         return this->x == other.x && this->y == other.y;
     }
 
+    void operator+=(const XYVector &other) {
+        this->x += other.x;
+        this->y += other.y;
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const XYVector &v) {
         os << "(" << v.x << " , " << v.y << ")";
         return os;
@@ -76,6 +81,15 @@ struct XYVectorf {
 
     bool operator==(const XYVectorf &other) const {
         return this->x == other.x && this->y == other.y;
+    }
+
+    void operator+=(XYVectorf other) {
+        this->x += other.x;
+        this->y += other.y;
+    }
+
+    XYVectorf operator/(const float divisor) {
+        return {this->x / divisor, this->y / divisor};
     }
 
     friend std::ostream &operator<<(std::ostream &os, const XYVectorf &v) {
