@@ -22,15 +22,14 @@ std::span<const TwoHalfD::Event> TwoHalfD::InputManager::pollEvents(EngineState 
         } else if (const auto *mouseMoved = event->getIf<sf::Event::MouseMoved>()) {
             XYVector mouseWinPos = {mouseMoved->position.x, mouseMoved->position.y};
 
-            m_context.MouseDelta = m_context.prevMousePosition - mouseWinPos;
-            m_context.prevMousePosition = m_context.currentMousePosition;
-            m_context.currentMousePosition = mouseWinPos;
-
             if (m_warpPending) {
                 m_warpPending = false;
-                m_context.prevMousePosition = mouseWinPos;
+                m_context.currentMousePosition = mouseWinPos;
                 continue;
             }
+
+            m_context.MouseDelta = mouseWinPos - m_context.currentMousePosition;
+            m_context.currentMousePosition = mouseWinPos;
 
             m_inputArray[m_currentInput] = TwoHalfD::Event::MouseMoved(mouseMoved->position.x, mouseMoved->position.y, m_context.MouseDelta);
             ++m_currentInput;

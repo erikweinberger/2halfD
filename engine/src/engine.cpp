@@ -12,9 +12,22 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#if defined(__APPLE__)
+#include <ApplicationServices/ApplicationServices.h>
+#endif
+
 void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
     m_window.setMouseCursorVisible(false);
+
+#if defined(__APPLE__)
+    // sf::Mouse::setPosition warps the cursor via CGWarpMouseCursorPosition, which by default
+    // suppresses real hardware mouse events for 0.25s afterward — long enough to eat the
+    // player's actual movement every time the camera-recenter warp fires. Disable that window.
+    CGEventSourceRef eventSource = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
+    CGEventSourceSetLocalEventsSuppressionInterval(eventSource, 0.0);
+    CFRelease(eventSource);
+#endif
 
     TwoHalfD::Level level = m_levelMaker.parseLevelFile(levelFilePath);
 
