@@ -3,6 +3,7 @@
 #include "TwoHalfD/types/animation_types.h"
 #include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
+#include "TwoHalfD/utils/collision_util.h"
 #include <TwoHalfD/entity_manager.h>
 #include <algorithm>
 
@@ -265,25 +266,12 @@ void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHal
 
     for (const auto segment : boundingSegments) {
         if (segment->isWall() && entity.heightStart >= segment->wall->wallHeightStart + segment->wall->height) continue;
-        if (segment->isFloorBoundary() && std::abs(segment->floorSection->height - entity.heightStart) < engineSettings.heightClipping) continue;
-        auto segVec = segment->v2 - segment->v1;
-        float t = dot(entity.pos.pos - segment->v1, segVec) / segVec.lengthSquared();
-        t = std::clamp(t, 0.f, 1.f);
-        auto closestPoint = segment->v1 + t * segVec;
-        auto pushVec = entity.pos.pos - closestPoint;
-        float dist = pushVec.length();
-        if (dist < entity.radius && dist > 0.f) {
-            float penetration = entity.radius - dist;
-            entity.pos.pos += pushVec.normalized() * penetration;
-        }
+        if (segment->isFloorBoundary() && (segment->floorSection->height - entity.heightStart) <= engineSettings.heightClipping) continue;
+        entity.pos.pos += resolveCircleVsSegment(entity.pos.pos, entity.radius, *segment);
     }
 
     for (auto &sprite : otherSprites) {
-        auto otherSpriteToEntityVector = (entity.pos.pos - sprite->pos.pos);
-        float cameraToSpriteDist = otherSpriteToEntityVector.length();
-        if (cameraToSpriteDist <= (sprite->radius + entity.radius)) {
-            entity.pos.pos += otherSpriteToEntityVector.normalized() * ((sprite->radius + entity.radius + 1.f) - cameraToSpriteDist);
-        }
+        entity.pos.pos += resolveCircleVsCircle(entity.pos.pos, entity.radius, sprite->pos.pos, sprite->radius);
     }
 
     auto cameraToSpriteVector = (entity.pos.pos - cameraObject.cameraPos.pos);

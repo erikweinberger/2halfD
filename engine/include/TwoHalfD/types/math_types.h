@@ -88,6 +88,10 @@ struct XYVectorf {
         this->y += other.y;
     }
 
+    XYVectorf operator/(const float divisor) {
+        return {this->x / divisor, this->y / divisor};
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const XYVectorf &v) {
         os << "(" << v.x << " , " << v.y << ")";
         return os;

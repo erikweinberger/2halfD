@@ -1,6 +1,8 @@
+#include "TwoHalfD/engine_types.h"
 #include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include "TwoHalfD/types/math_types.h"
+#include "TwoHalfD/utils/collision_util.h"
 #include <TwoHalfD/engine.h>
 
 #include <SFML/Window/Mouse.hpp>
@@ -163,25 +165,12 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
             if (segment->isFloorBoundary() && (segment->floorSection->height - m_cameraObject.cameraHeightStart) <= m_engineSettings.heightClipping)
                 continue;
 
-            auto segVec = segment->v2 - segment->v1;
-            float t = dot(m_cameraObject.cameraPos.pos - segment->v1, segVec) / dot(segVec, segVec);
-            t = std::clamp(t, 0.f, 1.f);
-            auto closestPoint = segment->v1 + t * segVec;
-            auto pushVec = m_cameraObject.cameraPos.pos - closestPoint;
-            float dist = pushVec.length();
-            if (dist < m_cameraObject.cameraRadius && dist > 0.f) {
-                float penetration = (m_cameraObject.cameraRadius - dist) + 5.f;
-                m_cameraObject.cameraPos.pos = m_cameraObject.cameraPos.pos + pushVec.normalized() * penetration;
-            }
+            m_cameraObject.cameraPos.pos += resolveCircleVsSegment(m_cameraObject.cameraPos.pos, m_cameraObject.cameraRadius, *segment);
         }
 
         for (auto sprite : spriteEntities) {
-            auto spriteToCameraVector = (m_cameraObject.cameraPos.pos - sprite->pos.pos);
-            float cameraToSpriteDist = spriteToCameraVector.length();
-            if (cameraToSpriteDist <= (m_cameraObject.cameraRadius + sprite->radius)) {
-                m_cameraObject.cameraPos.pos +=
-                    spriteToCameraVector.normalized() * ((m_cameraObject.cameraRadius + sprite->radius + 1.f) - cameraToSpriteDist);
-            }
+            m_cameraObject.cameraPos.pos +=
+                resolveCircleVsCircle(m_cameraObject.cameraPos.pos, m_cameraObject.cameraRadius, sprite->pos.pos, sprite->radius);
         }
     }
 
