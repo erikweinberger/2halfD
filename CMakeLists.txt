@@ -33,6 +33,12 @@ target_include_directories(two_half
 # Link SFML libraries (built from source)
 target_link_libraries(two_half PRIVATE sfml-graphics sfml-window sfml-system sfml-audio)
 
+# ApplicationServices (CGEventSource) is used on macOS to disable the local-events
+# suppression window that CGWarpMouseCursorPosition triggers after a mouse warp.
+if (APPLE)
+    target_link_libraries(two_half PRIVATE "-framework ApplicationServices")
+endif()
+
 # Enable compiler warnings
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
     target_compile_options(two_half PRIVATE -Wall -Wextra -Wpedantic)
@@ -52,6 +58,9 @@ add_executable(bsp_vis ${ENGINE_SOURCES} game/visualizer.cpp)
 
 target_include_directories(bsp_vis PRIVATE ${CMAKE_SOURCE_DIR}/engine/include)
 target_link_libraries(bsp_vis PRIVATE sfml-graphics sfml-window sfml-system sfml-audio)
+if (APPLE)
+    target_link_libraries(bsp_vis PRIVATE "-framework ApplicationServices")
+endif()
 target_compile_definitions(bsp_vis PRIVATE
     ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
     ROOT_DIR="${CMAKE_SOURCE_DIR}"
