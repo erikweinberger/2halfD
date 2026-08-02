@@ -1,4 +1,5 @@
 #include "TwoHalfD/bsp/bsp_manager.h"
+#include "TwoHalfD/engine_types.h"
 #include "TwoHalfD/types/animation_types.h"
 #include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
@@ -20,6 +21,12 @@ std::optional<const TwoHalfD::SpriteEntity> TwoHalfD::EntityManager::getEntity(i
     auto it = m_entities.find(id);
     if (it == m_entities.end()) return std::nullopt;
     return it->second;
+}
+
+const TwoHalfD::SpriteEntity *TwoHalfD::EntityManager::getEntityPtr(int id) const {
+    auto it = m_entities.find(id);
+    if (it == m_entities.end()) return nullptr;
+    return &it->second;
 }
 
 const std::unordered_map<int, TwoHalfD::SpriteEntity> &TwoHalfD::EntityManager::getAllEntities() const {
@@ -52,18 +59,19 @@ void TwoHalfD::EntityManager::setEntityPerimeterRegion(int entityId, int perimet
 }
 
 std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update(float deltaTime, const EngineSettings &engineSettings,
-                                                                                 const BSPManager &bsp) {
+                                                                                 const BSPManager &bsp, const CameraObject &cameraObject) {
     std::vector<std::pair<int, TwoHalfD::XYVectorf>> movedEntities;
 
     for (auto &[id, entity] : m_entities) {
-        if (!entity.currentUpdate) continue;
 
         TwoHalfD::XYVectorf prevPos = entity.pos.pos;
         bool isFalling = false;
 
-        auto maxIt = std::max_element(entity.perimeterPoints.begin(), entity.perimeterPoints.end(),
-                                      [](const auto &a, const auto &b) { return (a.height()) < (b.height()); });
-        float maxPerimeterFloor = std::max(entity.floorHeight, maxIt->height());
+        float maxPerimeterFloor = entity.floorHeight;
+        for (const auto &p : entity.perimeterPoints) {
+            float h = p.height();
+            if (h - entity.heightStart < engineSettings.heightClipping) maxPerimeterFloor = std::max(maxPerimeterFloor, h);
+        }
 
         if (maxPerimeterFloor < entity.heightStart) {
             isFalling = true;
@@ -82,12 +90,13 @@ std::vector<std::pair<int, TwoHalfD::XYVectorf>> TwoHalfD::EntityManager::update
             entity.heightStart = maxPerimeterFloor;
             entity.velocity.z = 0.f;
         }
+        if (!entity.currentUpdate) continue;
         if (!isFalling || entity.canMoveWhileFallingOverride.value_or(engineSettings.canMoveWhileFalling)) {
             std::visit(
                 [&](auto &update) {
                     using T = std::decay_t<decltype(update)>;
                     if constexpr (std::is_same_v<T, TwoHalfD::WalkToUpdate>) {
-                        _tickWalkTo(entity, update, bsp);
+                        _tickWalkTo(entity, update, engineSettings, bsp, cameraObject);
                     }
                 },
                 *entity.currentUpdate);
@@ -216,7 +225,8 @@ bool TwoHalfD::EntityManager::_tickAnimation(TwoHalfD::AnimationState &state, fl
     return false;
 }
 
-void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update, const BSPManager &bsp) {
+void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update, const EngineSettings &engineSettings,
+                                          const BSPManager &bsp, const CameraObject &cameraObject) {
     if (update.nextPathIndex >= update.path.size()) {
         entity.currentUpdate = std::nullopt;
         return;
@@ -235,6 +245,7 @@ void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHal
     }
 
     std::vector<const Segment *> boundingSegments;
+    std::vector<const SpriteEntity *> otherSprites;
     for (const auto bspRegion : bspRegions) {
         if (bspRegion == nullptr) continue;
         for (const auto segmentId : bspRegion->boundingSegmentIds) {
@@ -243,28 +254,48 @@ void TwoHalfD::EntityManager::_tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHal
                 boundingSegments.push_back(segment);
             }
         }
-
-        for (const auto segment : boundingSegments) {
-            if (segment->isWall() && entity.heightStart >= segment->wall->wallHeightStart + segment->wall->height) continue;
-            if (segment->isFloorBoundary() && segment->floorSection->height >= 30.f) continue;
-
-            auto segVec = segment->v2 - segment->v1;
-            float t = dot(entity.pos.pos - segment->v1, segVec) / segVec.lengthSquared();
-            t = std::clamp(t, 0.f, 1.f);
-            auto closestPoint = segment->v1 + t * segVec;
-            auto pushVec = entity.pos.pos - closestPoint;
-            float dist = pushVec.length();
-            if (dist < entity.radius && dist > 0.f) {
-                float penetration = entity.radius - dist;
-                entity.pos.pos += pushVec.normalized() * penetration;
+        for (const auto spriteId : bspRegion->spriteIds) {
+            if (spriteId == entity.id) continue;
+            auto sprite = this->getEntityPtr(spriteId);
+            if (sprite) {
+                otherSprites.push_back(sprite);
             }
         }
+    }
 
-        if ((entity.pos.pos - targetPos).length() < entity.speed + 1.f) {
-            update.nextPathIndex++;
-            if (update.nextPathIndex >= update.path.size()) {
-                entity.currentUpdate = std::nullopt;
-            }
+    for (const auto segment : boundingSegments) {
+        if (segment->isWall() && entity.heightStart >= segment->wall->wallHeightStart + segment->wall->height) continue;
+        if (segment->isFloorBoundary() && std::abs(segment->floorSection->height - entity.heightStart) < engineSettings.heightClipping) continue;
+        auto segVec = segment->v2 - segment->v1;
+        float t = dot(entity.pos.pos - segment->v1, segVec) / segVec.lengthSquared();
+        t = std::clamp(t, 0.f, 1.f);
+        auto closestPoint = segment->v1 + t * segVec;
+        auto pushVec = entity.pos.pos - closestPoint;
+        float dist = pushVec.length();
+        if (dist < entity.radius && dist > 0.f) {
+            float penetration = entity.radius - dist;
+            entity.pos.pos += pushVec.normalized() * penetration;
+        }
+    }
+
+    for (auto &sprite : otherSprites) {
+        auto otherSpriteToEntityVector = (entity.pos.pos - sprite->pos.pos);
+        float cameraToSpriteDist = otherSpriteToEntityVector.length();
+        if (cameraToSpriteDist <= (sprite->radius + entity.radius)) {
+            entity.pos.pos += otherSpriteToEntityVector.normalized() * ((sprite->radius + entity.radius + 1.f) - cameraToSpriteDist);
+        }
+    }
+
+    auto cameraToSpriteVector = (entity.pos.pos - cameraObject.cameraPos.pos);
+    float cameraToSpriteDist = cameraToSpriteVector.length();
+    if (cameraToSpriteDist <= (cameraObject.cameraRadius + entity.radius)) {
+        entity.pos.pos += cameraToSpriteVector.normalized() * ((cameraObject.cameraRadius + entity.radius + 1.f) - cameraToSpriteDist);
+    }
+
+    if ((entity.pos.pos - targetPos).length() < entity.speed + 1.f) {
+        update.nextPathIndex++;
+        if (update.nextPathIndex >= update.path.size()) {
+            entity.currentUpdate = std::nullopt;
         }
     }
 }

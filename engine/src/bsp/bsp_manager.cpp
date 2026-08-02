@@ -66,7 +66,7 @@ std::unordered_map<int, float> TwoHalfD::BSPManager::insertSprites(const std::un
     for (const auto &[entityId, entity] : entities) {
         m_spritePositions[entityId] = entity.pos.pos;
         auto insertNode = _insertSprite(m_root.get(), entityId, entity.pos.pos);
-        heightStarts[entityId] = (insertNode && insertNode->floorSection) ? 0.f : insertNode->floorSection->height;
+        heightStarts[entityId] = (insertNode && insertNode->floorSection) ? insertNode->floorSection->height : 0.f;
     }
     return heightStarts;
 }

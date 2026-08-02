@@ -1,17 +1,14 @@
 #include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include "TwoHalfD/types/math_types.h"
-#include "TwoHalfD/utils/math_util.h"
 #include <TwoHalfD/engine.h>
 
 #include <SFML/Window/Mouse.hpp>
-#include <cmath>
 #include <cstddef>
 #include <objc/objc.h>
 #include <span>
 #include <unordered_map>
 #include <unordered_set>
-#include <variant>
 
 void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
@@ -39,6 +36,9 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     for (const auto &[entityId, heightStart] : heightStarts) {
         m_entityManager.setHeightStart(entityId, heightStart);
         m_entityManager.setFloorHeight(entityId, heightStart);
+    }
+    for (const auto &[entityId, spriteEntity] : m_entityManager.getAllEntities()) {
+        moveSprite(entityId, spriteEntity.pos.pos);
     }
 
     m_renderer.setData(&m_textures, &m_entityManager, m_defaultFloorHeight, m_defaultFloorTextureId, m_defaultFloorStart);
@@ -68,7 +68,7 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     }
 
     float deltaTime = static_cast<float>(m_engineClocks.getGameDeltaTime());
-    auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings, m_bspManager);
+    auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings, m_bspManager, m_cameraObject);
     for (const auto &[entityId, newPos] : movedEntities) {
         moveSprite(entityId, newPos);
     }
@@ -87,10 +87,11 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
         m_cameraObject.perimeterPoints[i].bspRegion = bspRegion;
     }
 
-    auto maxPerimeterFloor =
-        std::max_element(m_cameraObject.perimeterPoints.begin(), m_cameraObject.perimeterPoints.end(), [](const auto &p1, const auto &p2) {
-            return p1.height() < p2.height();
-        })->height();
+    float maxPerimeterFloor = m_cameraObject.cameraFloorHeight;
+    for (const auto &p : m_cameraObject.perimeterPoints) {
+        float h = p.height();
+        if (h - m_cameraObject.cameraHeightStart < m_engineSettings.heightClipping) maxPerimeterFloor = std::max(maxPerimeterFloor, h);
+    }
 
     if (maxPerimeterFloor < m_cameraObject.cameraHeightStart) {
         float gravity = m_cameraObject.gravityOverride.value_or(m_engineSettings.gravity);
@@ -143,16 +144,24 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
         }
 
         std::unordered_set<const TwoHalfD::Segment *> boundingSegments;
+        std::unordered_set<const SpriteEntity *> spriteEntities;
         for (const auto bspRegion : bspRegions) {
             if (bspRegion == nullptr) continue;
             for (const auto segmentId : bspRegion->boundingSegmentIds) {
                 boundingSegments.insert(&m_bspManager.getSegment(segmentId));
             }
+            for (const auto spriteId : bspRegion->spriteIds) {
+                const auto &spritePtr = m_entityManager.getEntityPtr(spriteId);
+                if (spritePtr) {
+                    spriteEntities.insert(spritePtr);
+                }
+            }
         }
 
         for (const auto segment : boundingSegments) {
             if (segment->isWall() && m_cameraObject.cameraHeightStart >= segment->wall->wallHeightStart + segment->wall->height) continue;
-            if (segment->isFloorBoundary() && segment->floorSection->height >= m_engineSettings.heightClipping) continue;
+            if (segment->isFloorBoundary() && (segment->floorSection->height - m_cameraObject.cameraHeightStart) <= m_engineSettings.heightClipping)
+                continue;
 
             auto segVec = segment->v2 - segment->v1;
             float t = dot(m_cameraObject.cameraPos.pos - segment->v1, segVec) / dot(segVec, segVec);
@@ -161,8 +170,17 @@ TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Positi
             auto pushVec = m_cameraObject.cameraPos.pos - closestPoint;
             float dist = pushVec.length();
             if (dist < m_cameraObject.cameraRadius && dist > 0.f) {
-                float penetration = m_cameraObject.cameraRadius - dist;
+                float penetration = (m_cameraObject.cameraRadius - dist) + 5.f;
                 m_cameraObject.cameraPos.pos = m_cameraObject.cameraPos.pos + pushVec.normalized() * penetration;
+            }
+        }
+
+        for (auto sprite : spriteEntities) {
+            auto spriteToCameraVector = (m_cameraObject.cameraPos.pos - sprite->pos.pos);
+            float cameraToSpriteDist = spriteToCameraVector.length();
+            if (cameraToSpriteDist <= (m_cameraObject.cameraRadius + sprite->radius)) {
+                m_cameraObject.cameraPos.pos +=
+                    spriteToCameraVector.normalized() * ((m_cameraObject.cameraRadius + sprite->radius + 1.f) - cameraToSpriteDist);
             }
         }
     }
@@ -248,7 +266,8 @@ void TwoHalfD::Engine::removeColourOverlay(int id) {
 
 void TwoHalfD::Engine::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
     auto entity = m_entityManager.getEntity(entityId);
-    m_bspManager.moveSprite(entityId, newPos);
+    auto node = m_bspManager.moveSprite(entityId, newPos);
+    m_entityManager.setFloorHeight(entityId, node->height());
 
     for (int i{}; i < (int)entity->perimeterPoints.size(); ++i) {
         auto perimeterPoint = entity->perimeterPoints[i];

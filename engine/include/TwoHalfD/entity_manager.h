@@ -20,6 +20,7 @@ class EntityManager {
     void addEntity(TwoHalfD::SpriteEntity entity);
     void removeEntity(int id);
     std::optional<const TwoHalfD::SpriteEntity> getEntity(int id) const;
+    const TwoHalfD::SpriteEntity *getEntityPtr(int id) const;
     const std::unordered_map<int, TwoHalfD::SpriteEntity> &getAllEntities() const;
 
     void walkTo(int entityId, const TwoHalfD::Path &path);
@@ -42,7 +43,7 @@ class EntityManager {
     const std::vector<int> &getExpiredEffectIds() const;
     void eraseExpiredEffects();
 
-    std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime, const EngineSettings &engineSettings, const BSPManager &bsp);
+    std::vector<std::pair<int, TwoHalfD::XYVectorf>> update(float deltaTime, const EngineSettings &engineSettings, const BSPManager &bsp, const CameraObject &cameraObject);
 
     void setAnimationTemplates(const std::unordered_map<int, TwoHalfD::AnimationTemplate> &templates);
     const std::unordered_map<int, TwoHalfD::AnimationTemplate> *getAnimationTemplates() const;
@@ -54,7 +55,7 @@ class EntityManager {
     int m_nextEffectId = 0;
     const std::unordered_map<int, TwoHalfD::AnimationTemplate> *m_animationTemplates = nullptr;
 
-    void _tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update, const BSPManager &bsp);
+    void _tickWalkTo(TwoHalfD::SpriteEntity &entity, TwoHalfD::WalkToUpdate &update, const EngineSettings &engineSettings, const BSPManager &bsp, const CameraObject &cameraObject);
     bool _tickAnimation(TwoHalfD::AnimationState &state, float deltaTime);
 };
 } // namespace TwoHalfD
