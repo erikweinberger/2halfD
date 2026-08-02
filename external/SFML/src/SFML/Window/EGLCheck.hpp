@@ -22,48 +22,52 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_EGLCHECK_HPP
-#define SFML_EGLCHECK_HPP
+#pragma once
 
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Config.hpp>
-#include <string>
 
+#include <string_view>
 
-namespace sf
-{
-namespace priv
+namespace sf::priv
 {
 ////////////////////////////////////////////////////////////
-/// Let's define a macro to quickly check every EGL API call
+/// \brief Helper class to check for EGL errors in debug mode
+///
+/// This RAII style class is used internally to detect and report EGL
+/// errors during development. It captures the location of an EGL call
+/// and checks for errors when is object is destroyed (i.e. after the
+/// EGL call executes).
+///
+////////////////////////////////////////////////////////////
+class EglScopedChecker
+{
+public:
+    EglScopedChecker(std::string_view file, std::string_view expression, unsigned int line);
+    ~EglScopedChecker();
+
+private:
+    const std::string_view m_file;
+    const std::string_view m_expression;
+    const unsigned int     m_line;
+};
+
+////////////////////////////////////////////////////////////
+/// Macro to quickly check every EGL API call
 ////////////////////////////////////////////////////////////
 #ifdef SFML_DEBUG
-
-    // In debug mode, perform a test on every EGL call
-    // The do-while loop is needed so that glCheck can be used as a single statement in if/else branches
-    #define eglCheck(expr) do { expr; sf::priv::eglCheckError(__FILE__, __LINE__, #expr); } while (false)
+// In debug mode, perform a test on every EGL call
+// The comma operator returns the second operand while sequencing the first operand
+#define eglCheck(...) \
+    (sf::priv::EglScopedChecker(__FILE__, #__VA_ARGS__, static_cast<unsigned int>(__LINE__)), __VA_ARGS__)
 
 #else
 
-    // Else, we don't add any overhead
-    #define eglCheck(x) (x)
+// Else, we don't add any overhead
+#define eglCheck(...) (__VA_ARGS__)
 
 #endif
 
-////////////////////////////////////////////////////////////
-/// \brief Check the last EGL error
-///
-/// \param file Source file where the call is located
-/// \param line Line number of the source file where the call is located
-/// \param expression The evaluated expression as a string
-///
-////////////////////////////////////////////////////////////
-void eglCheckError(const char* file, unsigned int line, const char* expression);
-
-} // namespace priv
-} // namespace sf
-
-
-#endif // SFML_EGLCHECK_HPP
+} // namespace sf::priv

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -22,80 +22,40 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_SENSORIMPLWIN32_HPP
-#define SFML_SENSORIMPLWIN32_HPP
+#pragma once
 
-
-namespace sf
-{
-namespace priv
-{
 ////////////////////////////////////////////////////////////
-/// \brief Windows implementation of sensors
-///
+// Headers
+////////////////////////////////////////////////////////////
+#include <SFML/Window/Sensor.hpp>
+
+
+namespace sf::priv
+{
 ////////////////////////////////////////////////////////////
 class SensorImpl
 {
 public:
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Perform the global initialization of the sensor module
-    ///
     ////////////////////////////////////////////////////////////
     static void initialize();
 
     ////////////////////////////////////////////////////////////
-    /// \brief Perform the global cleanup of the sensor module
-    ///
-    ////////////////////////////////////////////////////////////
     static void cleanup();
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Check if a sensor is available
-    ///
-    /// \param sensor Sensor to check
-    ///
-    /// \return True if the sensor is available, false otherwise
-    ///
     ////////////////////////////////////////////////////////////
     static bool isAvailable(Sensor::Type sensor);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Open the sensor
-    ///
-    /// \param sensor Type of the sensor
-    ///
-    /// \return True on success, false on failure
-    ///
-    ////////////////////////////////////////////////////////////
-    bool open(Sensor::Type sensor);
+    [[nodiscard]] bool open(Sensor::Type sensor);
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Close the sensor
-    ///
     ////////////////////////////////////////////////////////////
     void close();
 
     ////////////////////////////////////////////////////////////
-    /// \brief Update the sensor and get its new value
-    ///
-    /// \return Sensor value
-    ///
-    ////////////////////////////////////////////////////////////
-    Vector3f update();
+    [[nodiscard]] Vector3f update();
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Enable or disable the sensor
-    ///
-    /// \param enabled True to enable, false to disable
-    ///
     ////////////////////////////////////////////////////////////
     void setEnabled(bool enabled);
 };
 
-} // namespace priv
-
-} // namespace sf
-
-
-#endif // SFML_SENSORIMPLWIN32_HPP
+} // namespace sf::priv

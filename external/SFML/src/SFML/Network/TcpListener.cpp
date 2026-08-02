@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -25,33 +25,44 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Network/SocketImpl.hpp>
 #include <SFML/Network/TcpListener.hpp>
 #include <SFML/Network/TcpSocket.hpp>
-#include <SFML/Network/SocketImpl.hpp>
+
 #include <SFML/System/Err.hpp>
+
+#include <ostream>
+
+#include <cstring>
 
 
 namespace sf
 {
 ////////////////////////////////////////////////////////////
-TcpListener::TcpListener() :
-Socket(Tcp)
+TcpListener::TcpListener() : Socket(Type::Tcp)
 {
-
 }
 
 
 ////////////////////////////////////////////////////////////
 unsigned short TcpListener::getLocalPort() const
 {
-    if (getHandle() != priv::SocketImpl::invalidSocket())
+    if (getNativeHandle() != priv::SocketImpl::invalidSocket())
     {
-        // Retrieve informations about the local end of the socket
-        sockaddr_in address;
-        priv::SocketImpl::AddrLength size = sizeof(address);
-        if (getsockname(getHandle(), reinterpret_cast<sockaddr*>(&address), &size) != -1)
+        // Retrieve information about the local end of the socket
+        sockaddr_in6                 addressV6{};
+        priv::SocketImpl::AddrLength size = sizeof(addressV6);
+        if (getsockname(getNativeHandle(), reinterpret_cast<sockaddr*>(&addressV6), &size) != -1)
         {
-            return ntohs(address.sin_port);
+            if (addressV6.sin6_family == PF_INET6)
+                return ntohs(addressV6.sin6_port);
+
+            if (addressV6.sin6_family == PF_INET)
+            {
+                sockaddr_in addressV4{};
+                std::memcpy(&addressV4, &addressV6, sizeof(addressV4));
+                return ntohs(addressV4.sin_port);
+            }
         }
     }
 
@@ -61,36 +72,66 @@ unsigned short TcpListener::getLocalPort() const
 
 
 ////////////////////////////////////////////////////////////
-Socket::Status TcpListener::listen(unsigned short port, const IpAddress& address)
+Socket::Status TcpListener::listen(unsigned short port, IpAddress address)
 {
     // Close the socket if it is already bound
     close();
 
-    // Create the internal socket if it doesn't exist
-    create();
-
     // Check if the address is valid
-    if ((address == IpAddress::None) || (address == IpAddress::Broadcast))
-        return Error;
+    if (address == IpAddress::Broadcast)
+        return Status::Error;
 
     // Bind the socket to the specified port
-    sockaddr_in addr = priv::SocketImpl::createAddress(address.toInteger(), port);
-    if (bind(getHandle(), reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1)
+    sockaddr_in                  addressV4{};
+    sockaddr_in6                 addressV6{};
+    sockaddr*                    sockaddrPtr{};
+    priv::SocketImpl::AddrLength sockaddrSize{};
+
+    if (address.isV4())
+    {
+        addressV4    = priv::SocketImpl::createAddress(address.toInteger(), port);
+        sockaddrPtr  = reinterpret_cast<sockaddr*>(&addressV4);
+        sockaddrSize = sizeof(addressV4);
+
+        // Create the internal socket if it doesn't exist
+        create(IpAddress::Type::IpV4);
+    }
+    else if (address.isV6())
+    {
+        addressV6    = priv::SocketImpl::createAddress(address.toBytes(), port);
+        sockaddrPtr  = reinterpret_cast<sockaddr*>(&addressV6);
+        sockaddrSize = sizeof(addressV6);
+
+        // Create the internal socket if it doesn't exist
+        create(IpAddress::Type::IpV6);
+
+        // Disable IPv6 sockets only binding to IPv6 addresses,
+        // i.e. allow them to handle both IPv4 and IPv6 simultaneously
+        int no = 0;
+        if (setsockopt(getNativeHandle(), IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<char*>(&no), sizeof(no)) == -1)
+        {
+            err() << "Failed to set socket option \"IPV6_V6ONLY\" ; "
+                  << "IPv6 sockets will only handle IPv6 packets" << std::endl;
+        }
+    }
+
+    // Bind the socket
+    if (::bind(getNativeHandle(), sockaddrPtr, sockaddrSize) == -1)
     {
         // Not likely to happen, but...
         err() << "Failed to bind listener socket to port " << port << std::endl;
-        return Error;
+        return Status::Error;
     }
 
     // Listen to the bound port
-    if (::listen(getHandle(), SOMAXCONN) == -1)
+    if (::listen(getNativeHandle(), SOMAXCONN) == -1)
     {
         // Oops, socket is deaf
         err() << "Failed to listen to port " << port << std::endl;
-        return Error;
+        return Status::Error;
     }
 
-    return Done;
+    return Status::Done;
 }
 
 
@@ -106,16 +147,16 @@ void TcpListener::close()
 Socket::Status TcpListener::accept(TcpSocket& socket)
 {
     // Make sure that we're listening
-    if (getHandle() == priv::SocketImpl::invalidSocket())
+    if (getNativeHandle() == priv::SocketImpl::invalidSocket())
     {
         err() << "Failed to accept a new connection, the socket is not listening" << std::endl;
-        return Error;
+        return Status::Error;
     }
 
     // Accept a new connection
-    sockaddr_in address;
+    sockaddr_in6                 address{};
     priv::SocketImpl::AddrLength length = sizeof(address);
-    SocketHandle remote = ::accept(getHandle(), reinterpret_cast<sockaddr*>(&address), &length);
+    const SocketHandle           remote = ::accept(getNativeHandle(), reinterpret_cast<sockaddr*>(&address), &length);
 
     // Check for errors
     if (remote == priv::SocketImpl::invalidSocket())
@@ -125,7 +166,7 @@ Socket::Status TcpListener::accept(TcpSocket& socket)
     socket.close();
     socket.create(remote);
 
-    return Done;
+    return Status::Done;
 }
 
 } // namespace sf

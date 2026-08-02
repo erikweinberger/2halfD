@@ -1,5 +1,375 @@
 # Changelog
 
+## SFML 3.1.0
+
+### General
+
+-   [iOS] Fix cmake finding SFML static libs package via SFML_DIR (#3360, #3656)
+-   [Android] Reduce pointer usage (#3363)
+-   Improve code quality (#3374, #3378, #3397, #3401, #3440, #3442, #3443, #3544, #3678)
+-   Update CI (#3391, #3553, #3562, #3563, #3583, #3616, #3621, #3637)
+-   Improve CMake configuration (#3426, #3445, #3551, #3561, #3577, #3582, #3584, #3632, #3633)
+-   Documentation improvements (#3457, #3568, #3594, #3644, #3704)
+-   Move joystick example code around to support multiple controllers (#3487)
+-   [Android] Remove disabling of minifying in release (#3498)
+-   [Android] Support static libraries on android (#3533, #3664)
+-   Fix special comments for clang-format and issue tracker URL (#3535)
+-   Improve dependency handling (#3549, #3597, #3602, #3701, #3703)
+-   Enhance .gitignore (#3564, #3605)
+-   Simplify GlCheck implementation (#3586)
+-   Add build output to gitignore (#3589)
+-   [iOS] add sfml_logo.png to tennis app resources (#3601)
+-   [macOS] Generate Xcode scheme for examples so they can be run/debug (#3604)
+-   [iOS] Improve examples for iOS (#3606, #3607, #3608)
+-   [Android] Improve examples for Android (#3613, #3697, #3699)
+-   [macOS] Set Xcode debugger working directory (#3614)
+-   [macOS] Remove Xcode templates (#3622)
+-   [Android] 16 KB page sizes for Android (#3655)
+
+### System
+
+**Features**
+
+-   Support for `std::string_view` in `sf::String` (#2445, #2517)
+-   Add `sf::Vector3u` type alias for consistency (#3529)
+-   Added support for retrieving the library version that is loaded at runtime via `sf::version()` (#3691)
+
+**Bugfixes**
+
+-   Move vector function definitions to inline file so `static_asserts` are hit correctly (#3623)
+-   Make Unicode conversions more robust against invalid data (#3628)
+
+### Window
+
+**Features**
+
+-   Add non-const overload of `sf::Event::getIf` (#3367)
+-   Add tests for `sf::Mouse` (#3370)
+-   Provide additional checks for arguments in `WindowBase::handleEvents` (#3375)
+-   Add non-const overload of `Event::visit` (#3396)
+-   [Windows] Expand `sf::WindowHandle` tests (#3444)
+-   Update glad GL headers one final time (#3491)
+-   [iOS] Remove deprecated (no-op) setStatusBarOrientation (#3600)
+-   [Android] Android scan code and description implementations (#3618)
+-   Add key release events to event handling example (#3626)
+-   [Android] Add joystick support for Android (#3497)
+
+**Bugfixes**
+
+-   [macOS] Use CGWarpMouseCursorPosition to set mouse position on macOS (#1574, #3648)
+-   [macOS] Remove NSOpenGLPFAAccelerated attribute to allow mac software renderer (#1640, #3649)
+-   [Android] Fix crash on Android when requesting the position of a touch that isn't down, and deprecate fake "realtime" touch API (#2257, #3634)
+-   [Android] Fix backspace TextEntered event for Android (#2272, #3665)
+-   [Linux] Fixed and improved multiple issues with the X11 window implementation (#2943, #2947, #3676, #3677, #3684)
+-   [iOS] Use viewWillTransitionToSize to handle orientation changes on iOS (#3241, #3635)
+-   Make `glCheckError` take a `std::string_view` rather than constructing a `std::filesystem::path` on error checks (#3359)
+-   Make keyboard key/scancode count variables inline (#3379)
+-   Revert `Event::visit` regression and add test (#3400)
+-   [Windows] Fix using Emoji with `sf::Clipboard` (#3435)
+-   [iOS] iOS fixes (#3436)
+-   [Windows] Fix using Emoji in Windows window titles (#3437)
+-   [Android] Block window creation on Android until async process finishes (#3521, #3643)
+-   Move the JoystickRecord directly into the vector (#3560)
+-   [macOS] Add missing cast between NSWindow and SFOpenGLView (#3596)
+-   [Windows] Silence warning about default DirectInput version (#3598)
+-   [iOS] When creating a window on iOS send a resized event if needed (#3610)
+-   [Android] When backgrounding on Android we still need to recreate the surface (#3658)
+-   [macOS] Fixed allocated buffer being too small when converting CFStringRef to std::string in the macOS joystick implementation (#3679, #3681)
+
+### Graphics
+
+**Features**
+
+-   Improved text layout and shaping (#246, #2713, #2988, #3053, #3543, #3625)
+-   Enable range based looping of `sf::VertexArray` (#3366)
+-   Added support for making OpenGL errors fatal (#3468)
+-   Add support for QOI image format (#3554, #3700)
+-   Applied "Return Early Pattern" in some places (#3611)
+-   Support Unicode 17.0 (update cpp-unicodelib and SheenBidi) (#3666)
+
+**Bugfixes**
+
+-   Bevel shape outline beyond threshold (#2727, #2741)
+-   Fix #647 `sf::Image` support for Unicode filenames save/load (#3403)
+-   Fix opening `sf::Font` from non-ASCII path (#3422)
+-   Reduce warnings inside Windows Vm (#3489)
+-   Deprecate `sf::Font::getKerning` overload which uses `std::uint32_t` to represent Unicode codepoints (#3518)
+-   Prevent copy of shaper by moving the shared_ptr (#3558)
+
+### Audio
+
+**Features**
+
+-   Improve audio device and stream rerouting management (#3490, #3523)
+-   Add `sf::PlaybackDevice::getDeviceSampleRate` (#3525)
+-   [Linux] Update miniaudio to version 0.11.24 (#3640, #3641)
+
+**Bugfixes**
+
+-   Fix saving FLAC files to non-ASCII paths (#3421)
+-   Fix wrong function name in `SoundBuffer` comment (#3488)
+-   Add missing `<ostream>` include in `OutputSoundFile.cpp` (#3499, #3500)
+-   Use const ref instead of cloning channelMap (#3519)
+-   Update miniaudio to v0.11.22. (#3524)
+-   Fixed wrong sample count being reported for certain ogg audio files (#3578, #3579)
+-   Set audio playback periodSizeInFrames to allow playing very short duration audio clips (#3702)
+
+### Network
+
+**Features**
+
+-   Add support for IPv6 and more types of DNS queries (#307, #1023, #3667)
+-   Improve sf::SocketSelector usability and scalability (#2574, #3674)
+-   Add TLS and HTTPS support (#3545, #3694, #3696)
+-   Added support for SFTP as a replacement for FTP (#3675, #3687)
+
+**Bugfixes**
+
+-   Added boolean return value to sf::Http::setHost. Added test to sf::Http::setHost. Made sf::Http::sendRequest const (#3542, #3629)
+-   Prevent copy of message by moving the string (#3559)
+-   Fixed sf::SocketSelector epoll implementation not correctly interpreting sf::Time::Zero as a request to wait indefinitely (#3683)
+-   [Linux] Allow configuring the maximum number of file descriptors opened during network tests (#3693, #3695)
+
+### Unit Tests
+
+-   Update Catch2 (#3387, #3552)
+-   Tests for loading files with non-ASCII filenames (#3410, #3413, #3415, #3416)
+-   Harden copyability tests to test for triviality (#3411)
+-   Test for trivial move operations (#3414)
+-   Revamp `sf::String` tests (#3418)
+-   Add tests for `sf::OutputSoundFile` (#3419)
+-   Use Catch2 generators to simplify tests (#3420)
+-   Add a CMake option to disable internet tests (#3429)
+-   Revamp `sf::Utf<N>` tests (#3430)
+-   Add test for empty window title (#3438)
+-   [Windows] Add initial testcases for Win32 WindowHandle construction of WindowBase (#3439, #3444)
+-   Fix printing `sf::Vector2` in window tests (#3452)
+-   Work around issue with Catch2 (#3472)
+-   Separate CMakeLists for each test target (#3573)
+-   [Android] Support for testing android on windows and mac (#3590)
+-   [macOS] When using xcode discover tests before test to avoid running unsigned code (#3647)
+
+## SFML 3.0.2
+
+### General
+
+-   Automatic release CI builds (#3538)
+-   Documentation improvements (#3547, #3548)
+-   GitHub Actions updates (#3517, #3536)
+-   CMake adjustments (#3504, #3510, #3511)
+
+### System
+
+**Bugfixes**
+
+-   Add explicit cast for charN_t conversion for Clang 21 (#3571)
+
+### Window
+
+**Bugfixes**
+
+-   [Android] Fix issue with Re-creation of Windows on Android (#3507)
+
+### Graphics
+
+**Bugfixes**
+
+-   Assert positive size and in-bounds position for copy area (#3539, #3541)
+-   [Android] Fixed normalized texture coordinates when NPOT textures aren't supported (#3460, #3461)
+
+### Audio
+
+**Bugfixes**
+
+-   Fixed audio engine attempting to read data from previously destroyed objects (#3503, #3522)
+
+
+## SFML 3.0.1
+
+### General
+
+-   Improved SFML 3 migration guide (#3464, #3478, #3480)
+-   Improved diagnostics when incorrect library type is found by find_package (#3368)
+-   Improved diagnostics when C++ language version is too low (#3383)
+-   Fixed build errors when compiling in C++20 mode (#3394)
+-   [iOS] Fixed iOS debug build (#3427)
+-   Removed `-s` suffix for sfml-main (#3431)
+-   Prevented recreation of UDev target which broke package manager workflows (#3450)
+-   Fixed bug with installing pkgconfig files (#3451)
+-   Fixed CMake 4 build error (#3462)
+-   [macOS] Fixed C++ language version in Xcode template (#3463)
+
+### System
+
+**Bugfixes**
+
+-   [Windows] Silenced C4275 warning for `sf::Exception` (#3405)
+-   Fixed printing Unicode filepaths when error occurs (#3407)
+
+### Window
+
+**Bugfixes**
+
+-   Improved `sf::Event::visit` and `sf::WindowBase::handleEvents` (#3399)
+-   [Windows] Fixed calculating window size with a menu or an extended style (#3448)
+-   [Windows] Fixed crash when constructing a window from a `sf::WindowHandle` (#3469)
+
+### Graphics
+
+**Bugfixes**
+
+-   Fixed `sf::Image` support for Unicode filenames (#3403)
+-   Ensured `sf::Image` remains unchanged after an unsuccessful load (#3409)
+-   Fixed opening `sf::Font` from non-ASCII paths (#3422)
+-   [Android] Fixed crash when loading missing resources (#3476)
+
+### Network
+
+**Bugfixes**
+
+-   Fixed comments and address ordering in IpAddress::getLocalAddress (#3428)
+-   Fixed unsigned overflow in `sf::Packet` size check (#3441)
+
+
+## SFML 3.0.0
+
+For a closer look at breaking changes and how to migrate from SFML 2, check out the [migration guide](migration.md).
+
+### General
+
+-   Raised C++ requirement to C++17 (#1855)
+-   Modernized internals to the full extent allowed by C++17
+-   Upgraded to CMake 3.22 (#2543)
+-   Added many unit tests with >50% code coverage
+-   Added many new CI jobs for a huge variety of platforms and configurations
+-   Added clang-tidy config
+-   Added clang-format config
+-   Removed OpenAL shared library requirement (#2749)
+-   Used `[[nodiscard]]` (#1891, #1889, #1888, #1887, #1890, #1887, #2010, #3137, #3138)
+-   Made many APIs `constexpr`-capable (#1903, #1909, #1904, #1910, #1934, #1937, #1999, #2000, #2377)
+-   Changed many `(x, y)` APIs to instead use `sf::Vector2<T>` (#1902, #1942, #1948, #2055, #2972)
+-   Removed deprecated APIs (#1881, #1886)
+-   Added `SFML::` namespace to CMake targets (#1947)
+-   Added support for PCH builds via `SFML_ENABLE_PCH` CMake option (#1895)
+-   Added CMake preset to do developer builds (#2642)
+-   Added move semantics to many types (#1932, #2014, #2016, #2273, #2276, #2277, #2329, #2487, #2658, #2656, #2805, #3142)
+-   Added debug assertions to catch common bugs (#2404, #2586, #2595, #2682, #2725, #3122, #3211)
+-   Changed default library type from shared to static (#2646)
+-   Converted some types to aggregates (#2590, #2898, #3034)
+-   Converted APIs to use `std::string_view` over C-style string parameters (#3039, #3040)
+-   Converted structs to namespaces (#2320)
+-   Used `std::filesystem::path` in function parameters (#1964, #2599)
+-   Converted C-style enumerations to scoped enumerations (#2131, #2286, #2374, #2822, #2850, #2891, #2962)
+-   Improved error messages (#2043, #2636, #2689)
+-   Removed custom fixed width integer aliases (#2192, #2196, #2199, #2200)
+-   Improved object lifetime safety (#2332, #2336, #3126)
+-   Used `std::optional` to express nullable parameters and return values (#1952, #2449, #2756, #2803, #2963, #2964, #3106)
+-   [Android] Removed sfml-activity (#2783)
+-   Consistently used `getNativeHandle` function name (#2669)
+-   [Windows] Added support for UCRT MinGW (#3115)
+-   [Windows] Added support for Windows ARM64 (#3111)
+-   Added throwing constructors (#3152)
+-   Fixed `OPTIONAL_COMPONENTS` when finding SFML via `find_package` (#2052)
+-   [Nix] Fixed pkg-config support on Nix (#2835)
+
+### System
+
+**Features**
+
+-   Replaced multithreading primitives with standard C++ ones (#1863)
+-   Replaced `sf::NonCopyable` with `= delete` (#1901)
+-   Added `sf::Angle` (#1969)
+-   Added extension methods for `sf::Vector2<T>` (#1979)
+-   Made `sf::Clock` pausable (#2004)
+-   Added polar coordinate `sf::Vector2<T>` constructor (#2085)
+-   Added extension methods for `sf::Vector3<T>` (#2086)
+-   Improved `sf::Time` interoperability with `<chrono>` (#2133)
+-   Removed `sf::MemoryInputStream` default constructor (#3085)
+-   Disallowed constructing `sf::String` from `nullptr` (#3144)
+
+**Bugfixes**
+
+-   Fixed condition for trailing bytes count in UTF-8 decoder (#2435)
+
+### Window
+
+**Features**
+
+-   Added `sf::WindowBase::set{Min|Max}imumSize()` (#2519)
+-   Optimized WGL context creation performance on some systems (#2616)
+-   Rewrote `sf::Event` API to improve type safety (#2766)
+-   Added `sf::State` for specifying fullscreen or floating windows (#2818)
+-   Renamed `XButton1` and `XButton2` to `Extra1` and `Extra2` (#2838)
+-   Added raw mouse input support (#3057)
+-   Added `timeout` parameter to `waitEvent` (#3094)
+
+**Bugfixes**
+
+-   [Windows] Fixed OpenGL entry point loading on Windows (#2478)
+-   Fixed `wglGetProcAddress` not providing OpenGL 1.1 functions when the context is provided by an Nvidia ICD (#2498)
+-   [macOS] Fixed macOS window resizing bug (#2538)
+-   [macOS] Fixed macOS window height bug (#2631)
+-   Fixed `sf::Context::setActive` bug (#2816)
+-   [Windows] Fixed F13-F24 and consumer key names not being returned on Windows (#2873)
+-   [Windows] Changed `sf::Context::getFunction` to return `nullptr` when called on Windows without an active context (#2925)
+-   [Linux] Fixed broken joystick axis mappings under Linux (#3167)
+-   [macOS] Fixed how macOS fullscreen video modes are detected (#3151, #3348)
+-   [macOS] Avoided unnecessary permission request prompts (#3232)
+-   [Linux] Fixed DRM mode setting to use SFML window dimensions (#3310)
+
+### Graphics
+
+**Features**
+
+-   Added support for stencil testing (#1453)
+-   Added texture coordinate type to `sf::RenderStates` (#1807)
+-   Added `bool` return value to `sf::Image::copy` to signal success/failure (#2137)
+-   Reduced `sf::Transformable` object size (#2288)
+-   Allowed setting window icon with `sf::Image` (#2417)
+-   Removed `sf::Text` default constructor (#2486)
+-   Removed `sf::Sprite` default constructor (#2494)
+-   Added `sf::Shape::getGeometricCenter()` (#2537)
+-   Changed pointer return type to reference (#2637)
+-   Added `sf::Rect<T>::getCenter()` (#2776)
+-   Removed `sf::View::reset` in favor of assignment operations (#2942)
+-   Implemented `sf::Rect<T>` as position and size vectors (#2972)
+-   Ensured a new font page in `sf::Font::loadPage` is created only when needed (#3099)
+-   Renamed `sf::Font::loadFromFile` to `sf::Font::openFromFile` (#3129)
+
+**Bugfixes**
+
+-   Fixed EGL pixel format selection and OpenGL version parsing (#2438)
+-   [Android] Fixed texture being upside down on Android when copying the texture of an `sf::RenderTexture` (#2719)
+-   Fixed FBO `sf::RenderTarget` tracking (#2726)
+-   Fixed shader loading check for empty streams (#2869)
+-   Added sanity checks for OpenGL extensions to make sure the required entry points are actually available (#3052)
+-   Fixed cache state not correctly being ignored when switching between `sf::RenderTarget`s within a single context (#3114)
+-   Correctly drained OpenGL errors in [E]GLCheck (#3247)
+
+### Audio
+
+**Features**
+
+-   Removed `sf::Sound` default constructor (#2640)
+-   Replaced audio backend with miniaudio (#2749)
+-   Added support for user defined sound effect implementations (#2973)
+-   Added support for changing the audio playback device during runtime (#3029)
+-   Renamed `getLoop()` to `isLooping()` and `setLoop()` to `setLooping()` (#3187)
+
+**Bugfixes**
+
+-   Fixed `sf::SoundStream::play` bug (#2037)
+-   Fixed poor `sf::SoundStream::setPlayingOffset` precision (#3101)
+-   Fixed a bug when reading Ogg files on big endian systems (#3340)
+
+### Network
+
+**Bugfixes**
+
+-   Removed invalid internal state from `sf::IpAddress` (#2145)
+-   Fixed sockets not closing before being moved into (#2758)
+-   Fixed how `sf::IpAddress`'s internal representation is stored on big endian systems (#3339)
+
 ## SFML 2.6.2
 
 ### General
@@ -20,7 +390,7 @@
 
 -   Fix joystickButton being used for Joystick(Dis)Connected event (#2957)
 -   [Windows] Close the clipboard if we fail to empty it (#3043)
--   [Android] Remove use of deprecated `ALooper_pollAll` (#3181, #3189)
+-   [Android] Removed use of deprecated `ALooper_pollAll` (#3181, #3189)
 -   [macOS] Fix how macOS fullscreen video modes are detected (#2300, #3151)
 -   [macOS] Prevent unnecessary macOS input monitoring permission prompts (#2843, #3235)
 -   [Linux] Fix DRM mode setting to use SFML window dimensions (#3136)

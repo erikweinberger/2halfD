@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -22,49 +22,53 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_GLCHECK_HPP
-#define SFML_GLCHECK_HPP
+#pragma once
 
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Config.hpp>
-#include <SFML/Graphics/GLExtensions.hpp>
+
+#include <string_view>
 
 
-namespace sf
-{
-namespace priv
+namespace sf::priv
 {
 ////////////////////////////////////////////////////////////
-/// Let's define a macro to quickly check every OpenGL API call
+/// \brief Helper class to check for OpenGL errors in debug mode
+///
+/// This RAII style class is used internally to detect and report OpenGL
+/// errors during development. It captures the location of an OpenGL call
+/// and checks for errors when is object is destroyed (i.e. after the
+/// OpenGL call executes).
+///
+////////////////////////////////////////////////////////////
+class GlScopedChecker
+{
+public:
+    GlScopedChecker(std::string_view file, std::string_view expression, unsigned int line);
+    ~GlScopedChecker();
+
+private:
+    const std::string_view m_file;
+    const std::string_view m_expression;
+    const unsigned int     m_line;
+};
+
+////////////////////////////////////////////////////////////
+/// Macro to quickly check every OpenGL API call
 ////////////////////////////////////////////////////////////
 #ifdef SFML_DEBUG
-
-    // In debug mode, perform a test on every OpenGL call
-    // The do-while loop is needed so that glCheck can be used as a single statement in if/else branches
-    #define glCheck(expr) do { expr; sf::priv::glCheckError(__FILE__, __LINE__, #expr); } while (false)
+// In debug mode, perform a test on every OpenGL call
+// The comma operator returns the second operand while sequencing the first operand
+#define glCheck(...) \
+    (sf::priv::GlScopedChecker(__FILE__, #__VA_ARGS__, static_cast<unsigned int>(__LINE__)), __VA_ARGS__)
 
 #else
 
-    // Else, we don't add any overhead
-    #define glCheck(expr) (expr)
+// Else, we don't add any overhead
+#define glCheck(...) (__VA_ARGS__)
 
 #endif
 
-////////////////////////////////////////////////////////////
-/// \brief Check the last OpenGL error
-///
-/// \param file Source file where the call is located
-/// \param line Line number of the source file where the call is located
-/// \param expression The evaluated expression as a string
-///
-////////////////////////////////////////////////////////////
-void glCheckError(const char* file, unsigned int line, const char* expression);
-
-} // namespace priv
-
-} // namespace sf
-
-
-#endif // SFML_GLCHECK_HPP
+} // namespace sf::priv

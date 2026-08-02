@@ -7,28 +7,20 @@ TwoHalfD::InputManager::InputManager(sf::RenderWindow &window)
     : m_window(window) {}
 
 std::span<const TwoHalfD::Event> TwoHalfD::InputManager::pollEvents(EngineState &engineState) {
-    sf::Event event;
-    while (m_window.pollEvent(event)) {
-        switch (event.type) {
-        case sf::Event::Closed: {
+    while (const std::optional event = m_window.pollEvent()) {
+        if (event->is<sf::Event::Closed>()) {
             m_window.close();
             engineState = EngineState::ended;
-            break;
-        }
-        case sf::Event::KeyPressed: {
+        } else if (const auto *keyPressed = event->getIf<sf::Event::KeyPressed>()) {
             sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
-            m_inputArray[m_currentInput] = TwoHalfD::Event::KeyPressed(event.key.code, mouseWinPos.x, mouseWinPos.y);
+            m_inputArray[m_currentInput] = TwoHalfD::Event::KeyPressed(static_cast<int>(keyPressed->code), mouseWinPos.x, mouseWinPos.y);
             ++m_currentInput;
-            break;
-        }
-        case sf::Event::KeyReleased: {
+        } else if (const auto *keyReleased = event->getIf<sf::Event::KeyReleased>()) {
             sf::Vector2i mouseWinPos = sf::Mouse::getPosition(m_window);
-            m_inputArray[m_currentInput] = TwoHalfD::Event::KeyReleased(event.key.code, mouseWinPos.x, mouseWinPos.y);
+            m_inputArray[m_currentInput] = TwoHalfD::Event::KeyReleased(static_cast<int>(keyReleased->code), mouseWinPos.x, mouseWinPos.y);
             ++m_currentInput;
-            break;
-        }
-        case sf::Event::MouseMoved: {
-            XYVector mouseWinPos = {event.mouseMove.x, event.mouseMove.y};
+        } else if (const auto *mouseMoved = event->getIf<sf::Event::MouseMoved>()) {
+            XYVector mouseWinPos = {mouseMoved->position.x, mouseMoved->position.y};
 
             m_context.MouseDelta = m_context.prevMousePosition - mouseWinPos;
             m_context.prevMousePosition = m_context.currentMousePosition;
@@ -37,15 +29,11 @@ std::span<const TwoHalfD::Event> TwoHalfD::InputManager::pollEvents(EngineState 
             if (m_warpPending) {
                 m_warpPending = false;
                 m_context.prevMousePosition = mouseWinPos;
-                break;
+                continue;
             }
 
-            m_inputArray[m_currentInput] = TwoHalfD::Event::MouseMoved(event.mouseMove.x, event.mouseMove.y, m_context.MouseDelta);
+            m_inputArray[m_currentInput] = TwoHalfD::Event::MouseMoved(mouseMoved->position.x, mouseMoved->position.y, m_context.MouseDelta);
             ++m_currentInput;
-            break;
-        }
-        default:
-            break;
         }
     }
     return std::span<const TwoHalfD::Event>(m_inputArray.data(), m_currentInput);

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -26,89 +26,105 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/GLCheck.hpp>
+#include <SFML/Graphics/GLExtensions.hpp>
+
+#include <SFML/Window/Context.hpp>
+
 #include <SFML/System/Err.hpp>
-#include <string>
+
+#include <filesystem>
+#include <ostream>
 
 
-namespace sf
+namespace
 {
-namespace priv
+namespace glCheckImpl
 {
 ////////////////////////////////////////////////////////////
-void glCheckError(const char* file, unsigned int line, const char* expression)
+bool checkError(std::string_view file, unsigned int line, std::string_view expression)
 {
-    // Get the last error
-    GLenum errorCode = glGetError();
-
-    if (errorCode != GL_NO_ERROR)
+    // Additionally check if a context was active on the thread at the time of the function call
+    if (sf::Context::getActiveContextId() == 0)
     {
-        std::string fileString = file;
-        std::string error = "Unknown error";
-        std::string description  = "No description";
+        sf::err() << "An internal OpenGL call failed in " << std::filesystem::path(file).filename() << "(" << line << ")."
+                  << "\nExpression:\n   " << expression
+                  << "\nError description:\n   No active OpenGL context on calling thread.\n"
+                  << std::endl;
 
-        // Decode the error code
-        switch (errorCode)
-        {
-            case GL_INVALID_ENUM:
-            {
-                error = "GL_INVALID_ENUM";
-                description = "An unacceptable value has been specified for an enumerated argument.";
-                break;
-            }
+#if defined(SFML_FATAL_OPENGL_ERRORS)
+        assert(false && "OpenGL error (fatal OpenGL errors enabled): No active OpenGL context on calling thread");
+#endif
 
-            case GL_INVALID_VALUE:
-            {
-                error = "GL_INVALID_VALUE";
-                description = "A numeric argument is out of range.";
-                break;
-            }
+        return true;
+    }
 
-            case GL_INVALID_OPERATION:
-            {
-                error = "GL_INVALID_OPERATION";
-                description = "The specified operation is not allowed in the current state.";
-                break;
-            }
+    const auto logError = [&](const char* error, const char* description)
+    {
+        sf::err() << "An internal OpenGL call failed in " << std::filesystem::path(file).filename() << "(" << line << ")."
+                  << "\nExpression:\n   " << expression << "\nError description:\n   " << error << "\n   "
+                  << description << '\n'
+                  << std::endl;
 
-            case GL_STACK_OVERFLOW:
-            {
-                error = "GL_STACK_OVERFLOW";
-                description = "This command would cause a stack overflow.";
-                break;
-            }
+#if defined(SFML_FATAL_OPENGL_ERRORS)
+        assert(false && "OpenGL error (fatal OpenGL errors enabled)");
+#endif
 
-            case GL_STACK_UNDERFLOW:
-            {
-                error = "GL_STACK_UNDERFLOW";
-                description = "This command would cause a stack underflow.";
-                break;
-            }
+        return false;
+    };
 
-            case GL_OUT_OF_MEMORY:
-            {
-                error = "GL_OUT_OF_MEMORY";
-                description = "There is not enough memory left to execute the command.";
-                break;
-            }
+    switch (glGetError())
+    {
+        case GL_NO_ERROR:
+            return true;
 
-            case GLEXT_GL_INVALID_FRAMEBUFFER_OPERATION:
-            {
-                error = "GL_INVALID_FRAMEBUFFER_OPERATION";
-                description = "The object bound to FRAMEBUFFER_BINDING is not \"framebuffer complete\".";
-                break;
-            }
-        }
+        case GL_INVALID_ENUM:
+            return logError("GL_INVALID_ENUM", "An unacceptable value has been specified for an enumerated argument.");
 
-        // Log the error
-        err() << "An internal OpenGL call failed in "
-              << fileString.substr(fileString.find_last_of("\\/") + 1) << "(" << line << ")."
-              << "\nExpression:\n   " << expression
-              << "\nError description:\n   " << error << "\n   " << description << "\n"
-              << std::endl;
+        case GL_INVALID_VALUE:
+            return logError("GL_INVALID_VALUE", "A numeric argument is out of range.");
+
+        case GL_INVALID_OPERATION:
+            return logError("GL_INVALID_OPERATION", "The specified operation is not allowed in the current state.");
+
+        case GL_STACK_OVERFLOW:
+            return logError("GL_STACK_OVERFLOW", "This command would cause a stack overflow.");
+
+        case GL_STACK_UNDERFLOW:
+            return logError("GL_STACK_UNDERFLOW", "This command would cause a stack underflow.");
+
+        case GL_OUT_OF_MEMORY:
+            return logError("GL_OUT_OF_MEMORY", "There is not enough memory left to execute the command.");
+
+        case GLEXT_GL_INVALID_FRAMEBUFFER_OPERATION:
+            return logError("GL_INVALID_FRAMEBUFFER_OPERATION",
+                            "The object bound to FRAMEBUFFER_BINDING is not \"framebuffer complete\".");
+
+        default:
+            return logError("Unknown error", "Unknown description");
     }
 }
 
+} // namespace glCheckImpl
+} // namespace
 
-} // namespace priv
+namespace sf::priv
+{
+////////////////////////////////////////////////////////////
+GlScopedChecker::GlScopedChecker(const std::string_view file, const std::string_view expression, const unsigned int line) :
+    m_file(file),
+    m_expression(expression),
+    m_line(line)
+{
+    if (const GLenum error = glGetError(); error != GL_NO_ERROR)
+        err() << "OpenGL error (" << error << ") detected during glCheck call" << std::endl;
+}
 
-} // namespace sf
+
+////////////////////////////////////////////////////////////
+GlScopedChecker::~GlScopedChecker()
+{
+    while (!glCheckImpl::checkError(m_file, m_line, m_expression))
+        /* no-op */;
+}
+
+} // namespace sf::priv

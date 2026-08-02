@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -22,15 +22,26 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_TCPSOCKET_HPP
-#define SFML_TCPSOCKET_HPP
+#pragma once
 
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Network/Export.hpp>
+
 #include <SFML/Network/Socket.hpp>
+
+#include <SFML/System/String.hpp>
 #include <SFML/System/Time.hpp>
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <cstddef>
+#include <cstdint>
 
 
 namespace sf
@@ -46,6 +57,17 @@ class Packet;
 class SFML_NETWORK_API TcpSocket : public Socket
 {
 public:
+    ////////////////////////////////////////////////////////////
+    /// \brief TLS status codes that may be returned by TLS setup
+    ///
+    ////////////////////////////////////////////////////////////
+    enum class TlsStatus
+    {
+        NotConnected,      //!< TCP connection not yet connected
+        HandshakeStarted,  //!< TLS handshake has been started
+        HandshakeComplete, //!< TLS handshake is complete, stream is encrypted
+        Error              //!< An unexpected error happened
+    };
 
     ////////////////////////////////////////////////////////////
     /// \brief Default constructor
@@ -54,29 +76,59 @@ public:
     TcpSocket();
 
     ////////////////////////////////////////////////////////////
+    /// \brief Destructor
+    ///
+    ////////////////////////////////////////////////////////////
+    ~TcpSocket() override;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Deleted copy constructor
+    ///
+    ////////////////////////////////////////////////////////////
+    TcpSocket(const TcpSocket&) = delete;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Deleted copy assignment
+    ///
+    ////////////////////////////////////////////////////////////
+    TcpSocket& operator=(const TcpSocket&) = delete;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Move constructor
+    ///
+    ////////////////////////////////////////////////////////////
+    TcpSocket(TcpSocket&&) noexcept;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Move assignment
+    ///
+    ////////////////////////////////////////////////////////////
+    TcpSocket& operator=(TcpSocket&&) noexcept;
+
+    ////////////////////////////////////////////////////////////
     /// \brief Get the port to which the socket is bound locally
     ///
     /// If the socket is not connected, this function returns 0.
     ///
     /// \return Port to which the socket is bound
     ///
-    /// \see connect, getRemotePort
+    /// \see `connect`, `getRemotePort`
     ///
     ////////////////////////////////////////////////////////////
-    unsigned short getLocalPort() const;
+    [[nodiscard]] unsigned short getLocalPort() const;
 
     ////////////////////////////////////////////////////////////
     /// \brief Get the address of the connected peer
     ///
     /// If the socket is not connected, this function returns
-    /// sf::IpAddress::None.
+    /// an unset optional.
     ///
     /// \return Address of the remote peer
     ///
-    /// \see getRemotePort
+    /// \see `getRemotePort`
     ///
     ////////////////////////////////////////////////////////////
-    IpAddress getRemoteAddress() const;
+    [[nodiscard]] std::optional<IpAddress> getRemoteAddress() const;
 
     ////////////////////////////////////////////////////////////
     /// \brief Get the port of the connected peer to which
@@ -86,10 +138,10 @@ public:
     ///
     /// \return Remote port to which the socket is connected
     ///
-    /// \see getRemoteAddress
+    /// \see `getRemoteAddress`
     ///
     ////////////////////////////////////////////////////////////
-    unsigned short getRemotePort() const;
+    [[nodiscard]] unsigned short getRemotePort() const;
 
     ////////////////////////////////////////////////////////////
     /// \brief Connect the socket to a remote peer
@@ -106,10 +158,10 @@ public:
     ///
     /// \return Status code
     ///
-    /// \see disconnect
+    /// \see `disconnect`
     ///
     ////////////////////////////////////////////////////////////
-    Status connect(const IpAddress& remoteAddress, unsigned short remotePort, Time timeout = Time::Zero);
+    [[nodiscard]] Status connect(IpAddress remoteAddress, unsigned short remotePort, Time timeout = Time::Zero);
 
     ////////////////////////////////////////////////////////////
     /// \brief Disconnect the socket from its remote peer
@@ -117,16 +169,349 @@ public:
     /// This function gracefully closes the connection. If the
     /// socket is not connected, this function has no effect.
     ///
-    /// \see connect
+    /// \see `connect`
     ///
     ////////////////////////////////////////////////////////////
     void disconnect();
 
     ////////////////////////////////////////////////////////////
+    /// \brief Set up transport layer security as a client
+    ///
+    /// Once the TCP connection is connected, transport layer
+    /// security can be set up.
+    ///
+    /// All the necessary cryptographic initialization will
+    /// be performed when this function is called.
+    ///
+    /// If this function is called before the TCP connection is
+    /// connected, it will return `TlsStatus::NotConnected` and
+    /// must be called again once the TCP connection is connected.
+    ///
+    /// If this function started TLS setup but could not finish
+    /// it within this call e.g. because this socket was set to
+    /// non-blocking, it will return `TlsStatus::HandshakeStarted`
+    /// and this function will have to be called repeatedly until
+    /// `TlsStatus::HandshakeComplete` is returned. If this socket
+    /// is blocking, `TlsStatus::HandshakeComplete` should be
+    /// returned within the same function call if TLS setup was
+    /// successful.
+    ///
+    /// If `TlsStatus::Error` is returned, something went wrong
+    /// with TLS setup and the connection must be reconnected and
+    /// TLS setup reattempted after it is connected again.
+    ///
+    /// If verification is enabled, this function verifies the peer
+    /// using the system provided certificate store. If the peer
+    /// does not have a certificate that was signed by a certificate
+    /// authority i.e. a self-signed certificate, the entire certificate
+    /// chain can be provided using the alternative overload.
+    ///
+    /// Servers that host multiple services under different names
+    /// need to know which of those services we want to connect
+    /// to in order to reply with the correct certificate chain.
+    /// Server name indication (SNI) is used for this purpose. The
+    /// hostname provided to this function is sent to the server
+    /// if it supports SNI in order for it to return the corresponding
+    /// certificate chain. The hostname is then used to verify the
+    /// certificate chain that was returned by the server. If the
+    /// server does not support SNI or only serves a single
+    /// certificate chain, the hostname will only be used for
+    /// verification.
+    ///
+    /// \param hostname   Hostname of the remote peer, used for verification
+    /// \param verifyPeer `true` to enable peer verification, `false` to disable it
+    ///
+    /// \return TLS status code
+    ///
+    /// \see `setupTlsServer`
+    ///
+    ////////////////////////////////////////////////////////////
+    TlsStatus setupTlsClient(const sf::String& hostname, bool verifyPeer = true);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Set up transport layer security as a client
+    ///
+    /// Once the TCP connection is connected, transport layer
+    /// security can be set up.
+    ///
+    /// All the necessary cryptographic initialization will
+    /// be performed when this function is called.
+    ///
+    /// If this function is called before the TCP connection is
+    /// connected, it will return `TlsStatus::NotConnected` and
+    /// must be called again once the TCP connection is connected.
+    ///
+    /// If this function started TLS setup but could not finish
+    /// it within this call e.g. because this socket was set to
+    /// non-blocking, it will return `TlsStatus::HandshakeStarted`
+    /// and this function will have to be called repeatedly until
+    /// `TlsStatus::HandshakeComplete` is returned. If this socket
+    /// is blocking, `TlsStatus::HandshakeComplete` should be
+    /// returned within the same function call if TLS setup was
+    /// successful.
+    ///
+    /// If `TlsStatus::Error` is returned, something went wrong
+    /// with TLS setup and the connection must be reconnected and
+    /// TLS setup reattempted after it is connected again.
+    ///
+    /// Servers that host multiple services under different names
+    /// need to know which of those services we want to connect
+    /// to in order to reply with the correct certificate chain.
+    /// Server name indication (SNI) is used for this purpose. The
+    /// hostname provided to this function is sent to the server
+    /// if it supports SNI in order for it to return the corresponding
+    /// certificate chain. The hostname is then used to verify the
+    /// certificate chain that was returned by the server. If the
+    /// server does not support SNI or only serves a single
+    /// certificate chain, the hostname will only be used for
+    /// verification.
+    ///
+    /// When calling this overload, the certificate chain to verify
+    /// the host with has to be provided. Verification is always
+    /// enabled when calling this overload.
+    ///
+    /// The certificate data should be provided in PEM format.
+    ///
+    /// This overload is provided to prevent a const char* argument
+    /// resulting in the `bool verifyPeer` overload being called
+    /// instead of the `std::string_view` overload.
+    ///
+    /// \param hostname             Hostname of the remote peer, used for verification
+    /// \param certificateChainData Null terminated string containing certificate chain data in PEM encoding
+    ///
+    /// \return TLS status code
+    ///
+    /// \see `setupTlsServer`
+    ///
+    ////////////////////////////////////////////////////////////
+    TlsStatus setupTlsClient(const sf::String& hostname, const char* certificateChainData);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Set up transport layer security as a client
+    ///
+    /// Once the TCP connection is connected, transport layer
+    /// security can be set up.
+    ///
+    /// All the necessary cryptographic initialization will
+    /// be performed when this function is called.
+    ///
+    /// If this function is called before the TCP connection is
+    /// connected, it will return `TlsStatus::NotConnected` and
+    /// must be called again once the TCP connection is connected.
+    ///
+    /// If this function started TLS setup but could not finish
+    /// it within this call e.g. because this socket was set to
+    /// non-blocking, it will return `TlsStatus::HandshakeStarted`
+    /// and this function will have to be called repeatedly until
+    /// `TlsStatus::HandshakeComplete` is returned. If this socket
+    /// is blocking, `TlsStatus::HandshakeComplete` should be
+    /// returned within the same function call if TLS setup was
+    /// successful.
+    ///
+    /// If `TlsStatus::Error` is returned, something went wrong
+    /// with TLS setup and the connection must be reconnected and
+    /// TLS setup reattempted after it is connected again.
+    ///
+    /// Servers that host multiple services under different names
+    /// need to know which of those services we want to connect
+    /// to in order to reply with the correct certificate chain.
+    /// Server name indication (SNI) is used for this purpose. The
+    /// hostname provided to this function is sent to the server
+    /// if it supports SNI in order for it to return the corresponding
+    /// certificate chain. The hostname is then used to verify the
+    /// certificate chain that was returned by the server. If the
+    /// server does not support SNI or only serves a single
+    /// certificate chain, the hostname will only be used for
+    /// verification.
+    ///
+    /// When calling this overload, the certificate chain to verify
+    /// the host with has to be provided. Verification is always
+    /// enabled when calling this overload.
+    ///
+    /// The certificate data can be provided in PEM or DER format.
+    ///
+    /// \param hostname             Hostname of the remote peer, used for verification
+    /// \param certificateChainData Certificate chain data in PEM or DER encoding
+    /// \param certificateChainSize Size of the certificate chain data
+    ///
+    /// \return TLS status code
+    ///
+    /// \see `setupTlsServer`
+    ///
+    ////////////////////////////////////////////////////////////
+    TlsStatus setupTlsClient(const sf::String& hostname, const std::byte* certificateChainData, std::size_t certificateChainSize);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Set up transport layer security as a client
+    ///
+    /// Once the TCP connection is connected, transport layer
+    /// security can be set up.
+    ///
+    /// All the necessary cryptographic initialization will
+    /// be performed when this function is called.
+    ///
+    /// If this function is called before the TCP connection is
+    /// connected, it will return `TlsStatus::NotConnected` and
+    /// must be called again once the TCP connection is connected.
+    ///
+    /// If this function started TLS setup but could not finish
+    /// it within this call e.g. because this socket was set to
+    /// non-blocking, it will return `TlsStatus::HandshakeStarted`
+    /// and this function will have to be called repeatedly until
+    /// `TlsStatus::HandshakeComplete` is returned. If this socket
+    /// is blocking, `TlsStatus::HandshakeComplete` should be
+    /// returned within the same function call if TLS setup was
+    /// successful.
+    ///
+    /// If `TlsStatus::Error` is returned, something went wrong
+    /// with TLS setup and the connection must be reconnected and
+    /// TLS setup reattempted after it is connected again.
+    ///
+    /// Servers that host multiple services under different names
+    /// need to know which of those services we want to connect
+    /// to in order to reply with the correct certificate chain.
+    /// Server name indication (SNI) is used for this purpose. The
+    /// hostname provided to this function is sent to the server
+    /// if it supports SNI in order for it to return the corresponding
+    /// certificate chain. The hostname is then used to verify the
+    /// certificate chain that was returned by the server. If the
+    /// server does not support SNI or only serves a single
+    /// certificate chain, the hostname will only be used for
+    /// verification.
+    ///
+    /// When calling this overload, the certificate chain to verify
+    /// the host with has to be provided. Verification is always
+    /// enabled when calling this overload.
+    ///
+    /// The certificate data should be provided in PEM format.
+    ///
+    /// \param hostname             Hostname of the remote peer, used for verification
+    /// \param certificateChainData Certificate chain data in PEM encoding
+    ///
+    /// \return TLS status code
+    ///
+    /// \see `setupTlsServer`
+    ///
+    ////////////////////////////////////////////////////////////
+    TlsStatus setupTlsClient(const sf::String& hostname, std::string_view certificateChainData);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Set up transport layer security as a server
+    ///
+    /// Once the TCP connection is connected, transport layer
+    /// security can be set up.
+    ///
+    /// All the necessary cryptographic initialization will
+    /// be performed when this function is called.
+    ///
+    /// If this function is called before the TCP connection is
+    /// connected, it will return `TlsStatus::NotConnected` and
+    /// must be called again once the TCP connection is connected.
+    ///
+    /// If this function started TLS setup but could not finish
+    /// it within this call e.g. because this socket was set to
+    /// non-blocking, it will return `TlsStatus::HandshakeStarted`
+    /// and this function will have to be called repeatedly until
+    /// `TlsStatus::HandshakeComplete` is returned. If this socket
+    /// is blocking, `TlsStatus::HandshakeComplete` should be
+    /// returned within the same function call if TLS setup was
+    /// successful.
+    ///
+    /// If `TlsStatus::Error` is returned, something went wrong
+    /// with TLS setup and the connection must be disconnected.
+    /// The client must reconnect and reattempt TLS setup again.
+    ///
+    /// As a server, a certificate chain as well as a private key
+    /// must be provided.
+    ///
+    /// The certificate and private key data can be provided in
+    /// PEM or DER format.
+    ///
+    /// If the private key is secured by a password, the password
+    /// must be provided.
+    ///
+    /// \param certificateChainData   Certificate chain data in PEM or DER encoding
+    /// \param certificateChainSize   Size of the certificate chain data
+    /// \param privateKeyData         Private key data in PEM or DER encoding
+    /// \param privateKeySize         Size of the private key data
+    /// \param privateKeyPasswordData Private key password data
+    /// \param privateKeyPasswordSize Size of the private key password data
+    ///
+    /// \return TLS status code
+    ///
+    /// \see `setupTlsClient`
+    ///
+    ////////////////////////////////////////////////////////////
+    TlsStatus setupTlsServer(const std::byte* certificateChainData,
+                             std::size_t      certificateChainSize,
+                             const std::byte* privateKeyData,
+                             std::size_t      privateKeySize,
+                             const std::byte* privateKeyPasswordData,
+                             std::size_t      privateKeyPasswordSize);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Set up transport layer security as a server
+    ///
+    /// Once the TCP connection is connected, transport layer
+    /// security can be set up.
+    ///
+    /// All the necessary cryptographic initialization will
+    /// be performed when this function is called.
+    ///
+    /// If this function is called before the TCP connection is
+    /// connected, it will return `TlsStatus::NotConnected` and
+    /// must be called again once the TCP connection is connected.
+    ///
+    /// If this function started TLS setup but could not finish
+    /// it within this call e.g. because this socket was set to
+    /// non-blocking, it will return `TlsStatus::HandshakeStarted`
+    /// and this function will have to be called repeatedly until
+    /// `TlsStatus::HandshakeComplete` is returned. If this socket
+    /// is blocking, `TlsStatus::HandshakeComplete` should be
+    /// returned within the same function call if TLS setup was
+    /// successful.
+    ///
+    /// If `TlsStatus::Error` is returned, something went wrong
+    /// with TLS setup and the connection must be disconnected.
+    /// The client must reconnect and reattempt TLS setup again.
+    ///
+    /// As a server, a certificate chain as well as a private key
+    /// must be provided.
+    ///
+    /// The certificate and private key data should be provided in
+    /// PEM format.
+    ///
+    /// If the private key is secured by a password, the password
+    /// must be provided.
+    ///
+    /// \param certificateChainData   Certificate chain data in PEM encoding
+    /// \param privateKeyData         Private key data in PEM encoding
+    /// \param privateKeyPasswordData Private key password if required
+    ///
+    /// \return TLS status code
+    ///
+    /// \see `setupTlsClient`
+    ///
+    ////////////////////////////////////////////////////////////
+    TlsStatus setupTlsServer(std::string_view certificateChainData,
+                             std::string_view privateKeyData,
+                             std::string_view privateKeyPasswordData = {});
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the name of the TLS ciphersuite currently in use
+    ///
+    /// \return TLS ciphersuite currently in use or `std::nullopt` if TLS is not set up
+    ///
+    /// \see `setupTlsClient`, `setupTlsServer`
+    ///
+    ////////////////////////////////////////////////////////////
+    [[nodiscard]] std::optional<std::string> getCurrentCiphersuiteName() const;
+
+    ////////////////////////////////////////////////////////////
     /// \brief Send raw data to the remote peer
     ///
     /// To be able to handle partial sends over non-blocking
-    /// sockets, use the send(const void*, std::size_t, std::size_t&)
+    /// sockets, use the `send(const void*, std::size_t, std::size_t&)`
     /// overload instead.
     /// This function will fail if the socket is not connected.
     ///
@@ -135,10 +520,10 @@ public:
     ///
     /// \return Status code
     ///
-    /// \see receive
+    /// \see `receive`
     ///
     ////////////////////////////////////////////////////////////
-    Status send(const void* data, std::size_t size);
+    [[nodiscard]] Status send(const void* data, std::size_t size);
 
     ////////////////////////////////////////////////////////////
     /// \brief Send raw data to the remote peer
@@ -151,10 +536,10 @@ public:
     ///
     /// \return Status code
     ///
-    /// \see receive
+    /// \see `receive`
     ///
     ////////////////////////////////////////////////////////////
-    Status send(const void* data, std::size_t size, std::size_t& sent);
+    [[nodiscard]] Status send(const void* data, std::size_t size, std::size_t& sent);
 
     ////////////////////////////////////////////////////////////
     /// \brief Receive raw data from the remote peer
@@ -169,15 +554,15 @@ public:
     ///
     /// \return Status code
     ///
-    /// \see send
+    /// \see `send`
     ///
     ////////////////////////////////////////////////////////////
-    Status receive(void* data, std::size_t size, std::size_t& received);
+    [[nodiscard]] Status receive(void* data, std::size_t size, std::size_t& received);
 
     ////////////////////////////////////////////////////////////
     /// \brief Send a formatted packet of data to the remote peer
     ///
-    /// In non-blocking mode, if this function returns sf::Socket::Partial,
+    /// In non-blocking mode, if this function returns `sf::Socket::Status::Partial`,
     /// you \em must retry sending the same unmodified packet before sending
     /// anything else in order to guarantee the packet arrives at the remote
     /// peer uncorrupted.
@@ -187,10 +572,10 @@ public:
     ///
     /// \return Status code
     ///
-    /// \see receive
+    /// \see `receive`
     ///
     ////////////////////////////////////////////////////////////
-    Status send(Packet& packet);
+    [[nodiscard]] Status send(Packet& packet);
 
     ////////////////////////////////////////////////////////////
     /// \brief Receive a formatted packet of data from the remote peer
@@ -203,13 +588,12 @@ public:
     ///
     /// \return Status code
     ///
-    /// \see send
+    /// \see `send`
     ///
     ////////////////////////////////////////////////////////////
-    Status receive(Packet& packet);
+    [[nodiscard]] Status receive(Packet& packet);
 
 private:
-
     friend class TcpListener;
 
     ////////////////////////////////////////////////////////////
@@ -218,23 +602,21 @@ private:
     ////////////////////////////////////////////////////////////
     struct PendingPacket
     {
-        PendingPacket();
-
-        Uint32            Size;         //!< Data of packet size
-        std::size_t       SizeReceived; //!< Number of size bytes received so far
-        std::vector<char> Data;         //!< Data of the packet
+        std::uint32_t          size{};         //!< Data of packet size
+        std::size_t            sizeReceived{}; //!< Number of size bytes received so far
+        std::vector<std::byte> data;           //!< Data of the packet
     };
 
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    PendingPacket m_pendingPacket; //!< Temporary data of the packet currently being received
+    struct Impl;
+    std::unique_ptr<Impl>  m_impl;              //!< Implementation details
+    PendingPacket          m_pendingPacket;     //!< Temporary data of the packet currently being received
+    std::vector<std::byte> m_blockToSendBuffer; //!< Buffer used to prepare data being sent from the socket
 };
 
 } // namespace sf
-
-
-#endif // SFML_TCPSOCKET_HPP
 
 
 ////////////////////////////////////////////////////////////
@@ -250,8 +632,8 @@ private:
 /// and without errors (no data corrupted, lost or duplicated).
 ///
 /// When a socket is connected to a remote host, you can
-/// retrieve informations about this host with the
-/// getRemoteAddress and getRemotePort functions. You can
+/// retrieve information about this host with the
+/// `getRemoteAddress` and `getRemotePort` functions. You can
 /// also get the local port to which the socket is bound
 /// (which is automatically chosen when the socket is connected),
 /// with the getLocalPort function.
@@ -262,9 +644,9 @@ private:
 /// one call to Send will exactly match one call to Receive
 /// at the other end of the socket.
 ///
-/// The high-level interface uses packets (see sf::Packet),
+/// The high-level interface uses packets (see `sf::Packet`),
 /// which are easier to use and provide more safety regarding
-/// the data that is exchanged. You can look at the sf::Packet
+/// the data that is exchanged. You can look at the `sf::Packet`
 /// class to get more details about how they work.
 ///
 /// The socket is automatically disconnected when it is destroyed,
@@ -284,10 +666,10 @@ private:
 /// socket.send(message.c_str(), message.size() + 1);
 ///
 /// // Receive an answer from the server
-/// char buffer[1024];
+/// std::array<char, 1024> buffer;
 /// std::size_t received = 0;
-/// socket.receive(buffer, sizeof(buffer), received);
-/// std::cout << "The server said: " << buffer << std::endl;
+/// socket.receive(buffer.data(), buffer.size(), received);
+/// std::cout << "The server said: " << buffer.data() << std::endl;
 ///
 /// // ----- The server -----
 ///
@@ -298,19 +680,19 @@ private:
 /// // Wait for a connection
 /// sf::TcpSocket socket;
 /// listener.accept(socket);
-/// std::cout << "New client connected: " << socket.getRemoteAddress() << std::endl;
+/// std::cout << "New client connected: " << socket.getRemoteAddress().value() << std::endl;
 ///
 /// // Receive a message from the client
-/// char buffer[1024];
+/// std::array<char, 1024> buffer;
 /// std::size_t received = 0;
-/// socket.receive(buffer, sizeof(buffer), received);
-/// std::cout << "The client said: " << buffer << std::endl;
+/// socket.receive(buffer.data(), buffer.size(), received);
+/// std::cout << "The client said: " << buffer.data() << std::endl;
 ///
 /// // Send an answer
 /// std::string message = "Welcome, client";
 /// socket.send(message.c_str(), message.size() + 1);
 /// \endcode
 ///
-/// \see sf::Socket, sf::UdpSocket, sf::Packet
+/// \see `sf::Socket`, `sf::UdpSocket`, `sf::Packet`
 ///
 ////////////////////////////////////////////////////////////
