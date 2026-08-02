@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2023 Andrew Mickelson
+// Copyright (C) 2024-2026 Andrew Mickelson
 //               2013 Jonathan De Wachter (dewachter.jonathan@gmail.com)
 //
 // This software is provided 'as-is', without any express or implied warranty.
@@ -23,8 +23,7 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_DRMCONTEXT_HPP
-#define SFML_DRMCONTEXT_HPP
+#pragma once
 
 ////////////////////////////////////////////////////////////
 // Headers
@@ -33,27 +32,27 @@
 #include <SFML/Window/EGLCheck.hpp>
 #include <SFML/Window/GlContext.hpp>
 #include <SFML/Window/VideoMode.hpp>
+
 #include <glad/egl.h>
+
 #include <gbm.h>
 #include <xf86drmMode.h>
 
 
-namespace sf
-{
-namespace priv
+namespace sf::priv
 {
 struct Drm
 {
-    int fileDescriptor;
+    int fileDescriptor{};
 
-    drmModeModeInfoPtr mode;
-    Uint32 crtcId;
-    Uint32 connectorId;
+    drmModeModeInfoPtr mode{};
+    std::uint32_t      crtcId{};
+    std::uint32_t      connectorId{};
 
-    drmModeCrtcPtr originalCrtc;
+    drmModeCrtcPtr originalCrtc{};
 
-    drmModeConnectorPtr savedConnector;
-    drmModeEncoderPtr savedEncoder;
+    drmModeConnectorPtr savedConnector{};
+    drmModeEncoderPtr   savedEncoder{};
 };
 
 class WindowImplDRM;
@@ -61,99 +60,33 @@ class WindowImplDRM;
 class DRMContext : public GlContext
 {
 public:
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Create a new context, not associated to a window
-    ///
-    /// \param shared Context to share the new one with (can be NULL)
-    ///
     ////////////////////////////////////////////////////////////
     DRMContext(DRMContext* shared);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Create a new context attached to a window
-    ///
-    /// \param shared       Context to share the new one with
-    /// \param settings     Creation parameters
-    /// \param owner        Pointer to the owner window
-    /// \param bitsPerPixel Pixel depth, in bits per pixel
-    ///
-    ////////////////////////////////////////////////////////////
-    DRMContext(DRMContext* shared, const ContextSettings& settings, const WindowImpl* owner, unsigned int bitsPerPixel);
+    DRMContext(DRMContext* shared, const ContextSettings& settings, const WindowImpl& owner, unsigned int bitsPerPixel);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Create a new context that embeds its own rendering target
-    ///
-    /// \param shared   Context to share the new one with
-    /// \param settings Creation parameters
-    /// \param width    Back buffer width, in pixels
-    /// \param height   Back buffer height, in pixels
-    ///
-    ////////////////////////////////////////////////////////////
-    DRMContext(DRMContext* shared, const ContextSettings& settings, unsigned int width, unsigned int height);
+    DRMContext(DRMContext* shared, const ContextSettings& settings, Vector2u size);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Destructor
-    ///
-    ////////////////////////////////////////////////////////////
-    ~DRMContext();
+    ~DRMContext() override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Activate the context as the current target
-    ///        for rendering
-    ///
-    /// \param current Whether to make the context current or no longer current
-    ///
-    /// \return True on success, false if any error happened
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual bool makeCurrent(bool current);
+    bool makeCurrent(bool current) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Display what has been rendered to the context so far
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void display();
+    void display() override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Enable or disable vertical synchronization
-    ///
-    /// Activating vertical synchronization will limit the number
-    /// of frames displayed to the refresh rate of the monitor.
-    /// This can avoid some visual artifacts, and limit the framerate
-    /// to a good value (but not constant across different computers).
-    ///
-    /// \param enabled: True to enable v-sync, false to deactivate
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setVerticalSyncEnabled(bool enabled);
+    void setVerticalSyncEnabled(bool enabled) override;
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Create the EGL context
-    ///
-    /// \param shared       Context to share the new one with (can be NULL)
-    /// \param bitsPerPixel Pixel depth, in bits per pixel
-    /// \param settings     Creation parameters
-    ///
     ////////////////////////////////////////////////////////////
     void createContext(DRMContext* shared);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Create the EGL surface
-    ///
-    /// \param width   Back buffer width, in pixels
-    /// \param height  Back buffer height, in pixels
-    /// \param scanout True to present the surface to the screen
-    ///
-    ////////////////////////////////////////////////////////////
-    void createSurface(unsigned int width, unsigned int height, bool scanout);
+    void createSurface(Vector2u size, bool scanout);
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Destroy the EGL surface
-    ///
-    /// This function must be called when the activity is stopped, or
-    /// when the orientation change.
-    ///
     ////////////////////////////////////////////////////////////
     void destroySurface();
 
@@ -169,28 +102,16 @@ public:
     static EGLConfig getBestConfig(EGLDisplay display, const ContextSettings& settings);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the address of an OpenGL function
-    ///
-    /// \param name Name of the function to get the address of
-    ///
-    /// \return Address of the OpenGL function, 0 on failure
-    ///
-    ////////////////////////////////////////////////////////////
     static GlFunctionPointer getFunction(const char* name);
 
 protected:
-
     friend class VideoModeImpl;
     friend class WindowImplDRM;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get Direct Rendering Manager pointer
-    ///
-    ////////////////////////////////////////////////////////////
     static Drm& getDRM();
 
 private:
-
     ////////////////////////////////////////////////////////////
     /// \brief Helper to copy the picked EGL configuration
     ///
@@ -200,21 +121,16 @@ private:
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    EGLDisplay  m_display; ///< The internal EGL display
-    EGLContext  m_context; ///< The internal EGL context
-    EGLSurface  m_surface; ///< The internal EGL surface
-    EGLConfig   m_config;  ///< The internal EGL config
+    EGLDisplay m_display{EGL_NO_DISPLAY}; ///< The internal EGL display
+    EGLContext m_context{EGL_NO_CONTEXT}; ///< The internal EGL context
+    EGLSurface m_surface{EGL_NO_SURFACE}; ///< The internal EGL surface
+    EGLConfig  m_config{};                ///< The internal EGL config
 
-    gbm_bo* m_currentBO;
-    gbm_bo* m_nextBO;
-    gbm_surface* m_gbmSurface;
-    bool m_shown;
-    bool m_scanOut;
+    gbm_bo*      m_currentBO{};
+    gbm_bo*      m_nextBO{};
+    gbm_surface* m_gbmSurface{};
+    bool         m_shown{};
+    bool         m_scanOut{};
 };
 
-} // namespace priv
-
-} // namespace sf
-
-
-#endif // SFML_DRMCONTEXT_HPP
+} // namespace sf::priv

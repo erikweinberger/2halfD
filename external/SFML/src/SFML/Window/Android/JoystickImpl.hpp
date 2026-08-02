@@ -22,95 +22,56 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_JOYSTICKIMPLANDROID_HPP
-#define SFML_JOYSTICKIMPLANDROID_HPP
+#pragma once
 
-
-namespace sf
-{
-namespace priv
-{
 ////////////////////////////////////////////////////////////
-/// \brief Android implementation of joysticks
-///
+// Headers
+////////////////////////////////////////////////////////////
+#include <SFML/Window/Joystick.hpp>
+
+#include <optional>
+
+
+namespace sf::priv
+{
 ////////////////////////////////////////////////////////////
 class JoystickImpl
 {
 public:
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Perform the global initialization of the joystick module
-    ///
     ////////////////////////////////////////////////////////////
     static void initialize();
 
     ////////////////////////////////////////////////////////////
-    /// \brief Perform the global cleanup of the joystick module
-    ///
-    ////////////////////////////////////////////////////////////
     static void cleanup();
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Check if a joystick is currently connected
-    ///
-    /// \param index Index of the joystick to check
-    ///
-    /// \return True if the joystick is connected, false otherwise
-    ///
     ////////////////////////////////////////////////////////////
     static bool isConnected(unsigned int index);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Open the joystick
-    ///
-    /// \param index Index assigned to the joystick
-    ///
-    /// \return True on success, false on failure
-    ///
-    ////////////////////////////////////////////////////////////
-    bool open(unsigned int index);
+    [[nodiscard]] bool open(unsigned int index);
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Close the joystick
-    ///
     ////////////////////////////////////////////////////////////
     void close();
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the joystick capabilities
-    ///
-    /// \return Joystick capabilities
-    ///
-    ////////////////////////////////////////////////////////////
-    JoystickCaps getCapabilities() const;
+    [[nodiscard]] JoystickCaps getCapabilities() const;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the joystick identification
-    ///
-    /// \return Joystick identification
-    ///
-    ////////////////////////////////////////////////////////////
-    Joystick::Identification getIdentification() const;
+    [[nodiscard]] Joystick::Identification getIdentification() const;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Update the joystick and get its new state
-    ///
-    /// \return Joystick state
-    ///
+    [[nodiscard]] JoystickState update() const;
+
     ////////////////////////////////////////////////////////////
-    JoystickState update();
+    [[nodiscard]] static int sfAxisToAndroid(Joystick::Axis axis);
 
 private:
-
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    Joystick::Identification m_identification; ///< Joystick identification
+    Joystick::Identification    m_identification; ///< Joystick identification
+    JoystickCaps                m_capabilities;
+    std::optional<std::int32_t> m_currentDeviceIdx; ///< Physical device ID
 };
 
-} // namespace priv
-
-} // namespace sf
-
-
-#endif // SFML_JOYSTICKIMPLANDROID_HPP
+} // namespace sf::priv

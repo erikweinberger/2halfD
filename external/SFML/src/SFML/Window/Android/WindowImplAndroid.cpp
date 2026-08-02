@@ -26,73 +26,80 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#include <SFML/Window/WindowStyle.hpp> // important to be included first (conflict with None)
+#include <SFML/Window/Android/JniHelper.hpp>
 #include <SFML/Window/Android/WindowImplAndroid.hpp>
 #include <SFML/Window/Event.hpp>
-#include <SFML/System/Lock.hpp>
+#include <SFML/Window/WindowEnums.hpp>
+
 #include <SFML/System/Err.hpp>
+
 #include <android/looper.h>
+
+#include <mutex>
+#include <ostream>
 
 // Define missing constants for older API levels
 #if __ANDROID_API__ < 13
-    #define AMOTION_EVENT_ACTION_HOVER_MOVE 0x00000007
-    #define AMOTION_EVENT_ACTION_SCROLL     0x00000008
+#define AMOTION_EVENT_ACTION_HOVER_MOVE 0x00000007
+#define AMOTION_EVENT_ACTION_SCROLL     0x00000008
 #endif
 
 ////////////////////////////////////////////////////////////
 // Private data
 ////////////////////////////////////////////////////////////
-namespace sf
+namespace sf::priv
 {
-namespace priv
-{
-WindowImplAndroid* WindowImplAndroid::singleInstance = NULL;
+WindowImplAndroid* WindowImplAndroid::singleInstance = nullptr;
 
 ////////////////////////////////////////////////////////////
 WindowImplAndroid::WindowImplAndroid(WindowHandle /* handle */)
-: m_size(0, 0)
-, m_windowBeingCreated(false)
-, m_windowBeingDestroyed(false)
-, m_hasFocus(false)
 {
 }
 
 
 ////////////////////////////////////////////////////////////
-WindowImplAndroid::WindowImplAndroid(VideoMode mode, const String& /* title */, unsigned long style, const ContextSettings& /* settings */)
-: m_size(mode.width, mode.height)
-, m_windowBeingCreated(false)
-, m_windowBeingDestroyed(false)
-, m_hasFocus(false)
+WindowImplAndroid::WindowImplAndroid(VideoMode mode,
+                                     const String& /* title */,
+                                     std::uint32_t /* style */,
+                                     State state,
+                                     const ContextSettings& /* settings */) :
+    m_size(mode.size)
 {
-    priv::ActivityStates& states = priv::getActivity();
-    Lock lock(states.mutex);
+    ActivityStates& states = getActivity();
+    {
+        const std::lock_guard lock(states.mutex);
 
-    if (style& Style::Fullscreen)
-        states.fullscreen = true;
+        if (state == State::Fullscreen)
+            states.fullscreen = true;
 
-    WindowImplAndroid::singleInstance = this;
-    states.forwardEvent = forwardEvent;
+        WindowImplAndroid::singleInstance = this;
+        states.forwardEvent               = forwardEvent;
 
-    // Register process event callback
-    states.processEvent = processEvent;
+        // Register process event callback
+        states.processEvent = processEvent;
+        states.initialized  = true;
+    }
 
-    states.initialized = true;
+    // Wait for window to be created
+    while (states.window == nullptr)
+    {
+        ALooper_pollOnce(0, nullptr, nullptr, nullptr);
+    }
 }
 
 
 ////////////////////////////////////////////////////////////
 WindowImplAndroid::~WindowImplAndroid()
 {
-    WindowImplAndroid::singleInstance = NULL;
+    WindowImplAndroid::singleInstance = nullptr;
 }
 
 
 ////////////////////////////////////////////////////////////
-WindowHandle WindowImplAndroid::getSystemHandle() const
+WindowHandle WindowImplAndroid::getNativeHandle() const
 {
-    ActivityStates& states = getActivity();
-    Lock lock(states.mutex);
+    ActivityStates&       states = getActivity();
+    const std::lock_guard lock(states.mutex);
 
     return states.window;
 }
@@ -102,11 +109,11 @@ WindowHandle WindowImplAndroid::getSystemHandle() const
 void WindowImplAndroid::processEvents()
 {
     // Process incoming OS events
-    while (ALooper_pollOnce(0, NULL, NULL, NULL) >= 0)
+    while (ALooper_pollOnce(0, nullptr, nullptr, nullptr) >= 0)
         ;
 
-    ActivityStates& states = getActivity();
-    Lock lock(states.mutex);
+    ActivityStates&       states = getActivity();
+    const std::lock_guard lock(states.mutex);
 
     if (m_windowBeingCreated)
     {
@@ -128,12 +135,12 @@ void WindowImplAndroid::processEvents()
 Vector2i WindowImplAndroid::getPosition() const
 {
     // Not applicable
-    return Vector2i(0, 0);
+    return {};
 }
 
 
 ////////////////////////////////////////////////////////////
-void WindowImplAndroid::setPosition(const Vector2i& /* position */)
+void WindowImplAndroid::setPosition(Vector2i /* position */)
 {
     // Not applicable
 }
@@ -147,8 +154,22 @@ Vector2u WindowImplAndroid::getSize() const
 
 
 ////////////////////////////////////////////////////////////
-void WindowImplAndroid::setSize(const Vector2u& /* size */)
+void WindowImplAndroid::setSize(Vector2u /* size */)
 {
+}
+
+
+////////////////////////////////////////////////////////////
+void WindowImplAndroid::setMinimumSize(const std::optional<Vector2u>& /* minimumSize */)
+{
+    // Not applicable
+}
+
+
+////////////////////////////////////////////////////////////
+void WindowImplAndroid::setMaximumSize(const std::optional<Vector2u>& /* maximumSize */)
+{
+    // Not applicable
 }
 
 
@@ -160,7 +181,7 @@ void WindowImplAndroid::setTitle(const String& /* title */)
 
 
 ////////////////////////////////////////////////////////////
-void WindowImplAndroid::setIcon(unsigned int /* width */, unsigned int /* height */, const Uint8* /* pixels */)
+void WindowImplAndroid::setIcon(Vector2u /* size */, const std::uint8_t* /* pixels */)
 {
     // Not applicable
 }
@@ -218,21 +239,21 @@ bool WindowImplAndroid::hasFocus() const
 ////////////////////////////////////////////////////////////
 void WindowImplAndroid::forwardEvent(const Event& event)
 {
-    if (WindowImplAndroid::singleInstance != NULL)
+    if (WindowImplAndroid::singleInstance != nullptr)
     {
-        ActivityStates& states = getActivity();
+        const ActivityStates& states = getActivity();
 
-        if (event.type == Event::GainedFocus)
+        if (event.is<Event::FocusGained>())
         {
-            WindowImplAndroid::singleInstance->m_size.x = static_cast<unsigned int>(ANativeWindow_getWidth(states.window));
-            WindowImplAndroid::singleInstance->m_size.y = static_cast<unsigned int>(ANativeWindow_getHeight(states.window));
+            WindowImplAndroid::singleInstance->m_size = Vector2u(
+                Vector2i(ANativeWindow_getWidth(states.window), ANativeWindow_getHeight(states.window)));
             WindowImplAndroid::singleInstance->m_windowBeingCreated = true;
-            WindowImplAndroid::singleInstance->m_hasFocus = true;
+            WindowImplAndroid::singleInstance->m_hasFocus           = true;
         }
-        else if (event.type == Event::LostFocus)
+        else if (event.is<Event::FocusLost>())
         {
             WindowImplAndroid::singleInstance->m_windowBeingDestroyed = true;
-            WindowImplAndroid::singleInstance->m_hasFocus = false;
+            WindowImplAndroid::singleInstance->m_hasFocus             = false;
         }
 
         WindowImplAndroid::singleInstance->pushEvent(event);
@@ -243,56 +264,56 @@ void WindowImplAndroid::forwardEvent(const Event& event)
 ////////////////////////////////////////////////////////////
 int WindowImplAndroid::processEvent(int /* fd */, int /* events */, void* /* data */)
 {
-    ActivityStates& states = getActivity();
-    Lock lock(states.mutex);
+    ActivityStates&       states = getActivity();
+    const std::lock_guard lock(states.mutex);
 
-    AInputEvent* _event = NULL;
+    AInputEvent* inputEvent = nullptr;
 
-    if (AInputQueue_getEvent(states.inputQueue, &_event) >= 0)
+    if (AInputQueue_getEvent(states.inputQueue, &inputEvent) >= 0)
     {
-        if (AInputQueue_preDispatchEvent(states.inputQueue, _event))
+        if (AInputQueue_preDispatchEvent(states.inputQueue, inputEvent))
             return 1;
 
         int handled = 0;
 
-        int32_t type = AInputEvent_getType(_event);
+        const std::int32_t type = AInputEvent_getType(inputEvent);
 
         if (type == AINPUT_EVENT_TYPE_KEY)
         {
-            int32_t action = AKeyEvent_getAction(_event);
-            int32_t key = AKeyEvent_getKeyCode(_event);
+            const std::int32_t action = AKeyEvent_getAction(inputEvent);
+            const std::int32_t key    = AKeyEvent_getKeyCode(inputEvent);
 
             if ((action == AKEY_EVENT_ACTION_DOWN || action == AKEY_EVENT_ACTION_UP || action == AKEY_EVENT_ACTION_MULTIPLE) &&
                 key != AKEYCODE_VOLUME_UP && key != AKEYCODE_VOLUME_DOWN)
             {
-                handled = processKeyEvent(_event, states);
+                handled = processKeyEvent(inputEvent, states);
             }
         }
         else if (type == AINPUT_EVENT_TYPE_MOTION)
         {
-            int32_t action = AMotionEvent_getAction(_event);
+            const std::int32_t action = AMotionEvent_getAction(inputEvent);
 
             switch (action & AMOTION_EVENT_ACTION_MASK)
             {
                 case AMOTION_EVENT_ACTION_SCROLL:
                 {
-                    handled = processScrollEvent(_event, states);
+                    handled = processScrollEvent(inputEvent, states);
                     break;
                 }
 
-                // todo: should hover_move indeed trigger the event?
+                // TODO: should hover_move indeed trigger the event?
                 // case AMOTION_EVENT_ACTION_HOVER_MOVE:
                 case AMOTION_EVENT_ACTION_MOVE:
                 {
-                    handled = processMotionEvent(_event, states);
+                    handled = processMotionEvent(inputEvent, states);
                     break;
                 }
 
-                // todo: investigate AMOTION_EVENT_OUTSIDE
+                // TODO: investigate AMOTION_EVENT_OUTSIDE
                 case AMOTION_EVENT_ACTION_POINTER_DOWN:
                 case AMOTION_EVENT_ACTION_DOWN:
                 {
-                    handled = processPointerEvent(true, _event, states);
+                    handled = processPointerEvent(true, inputEvent, states);
                     break;
                 }
 
@@ -300,14 +321,13 @@ int WindowImplAndroid::processEvent(int /* fd */, int /* events */, void* /* dat
                 case AMOTION_EVENT_ACTION_UP:
                 case AMOTION_EVENT_ACTION_CANCEL:
                 {
-                    handled = processPointerEvent(false, _event, states);
+                    handled = processPointerEvent(false, inputEvent, states);
                     break;
                 }
             }
-
         }
 
-        AInputQueue_finishEvent(states.inputQueue, _event, handled);
+        AInputQueue_finishEvent(states.inputQueue, inputEvent, handled);
     }
 
     return 1;
@@ -315,334 +335,354 @@ int WindowImplAndroid::processEvent(int /* fd */, int /* events */, void* /* dat
 
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::processScrollEvent(AInputEvent* _event, ActivityStates& states)
+int WindowImplAndroid::processScrollEvent(AInputEvent* inputEvent, ActivityStates& states)
 {
     // Prepare the Java virtual machine
-    jint lResult;
-
-    JavaVM* lJavaVM = states.activity->vm;
-    JNIEnv* lJNIEnv = states.activity->env;
-
-    JavaVMAttachArgs lJavaVMAttachArgs;
-    lJavaVMAttachArgs.version = JNI_VERSION_1_6;
-    lJavaVMAttachArgs.name = "NativeThread";
-    lJavaVMAttachArgs.group = NULL;
-
-    lResult=lJavaVM->AttachCurrentThread(&lJNIEnv, &lJavaVMAttachArgs);
-
-    if (lResult == JNI_ERR) {
-        err() << "Failed to initialize JNI, couldn't get the Unicode value" << std::endl;
+    auto jni = Jni::attachCurrentThread(*states.activity);
+    if (!jni)
+    {
+        err() << "Failed to initialize JNI" << std::endl;
         return 0;
     }
 
-    // Retrieve everything we need to create this MotionEvent in Java
-    Int64 downTime = AMotionEvent_getDownTime(_event);
-    Int64 eventTime = AMotionEvent_getEventTime(_event);
-    Int32 action = AMotionEvent_getAction(_event);
-    float x = AMotionEvent_getX(_event, 0);
-    float y = AMotionEvent_getY(_event, 0);
-    float pressure = AMotionEvent_getPressure(_event, 0);
-    float size = AMotionEvent_getSize(_event, 0);
-    Int32 metaState = AMotionEvent_getMetaState(_event);
-    float xPrecision = AMotionEvent_getXPrecision(_event);
-    float yPrecision = AMotionEvent_getYPrecision(_event);
-    Int32 deviceId = AInputEvent_getDeviceId(_event);
-    Int32 edgeFlags = AMotionEvent_getEdgeFlags(_event);
+    auto& lJNIEnv = jni->getEnv();
 
-    // Create the MotionEvent object in Java trough its static constructor obtain()
-    jclass ClassMotionEvent = lJNIEnv->FindClass("android/view/MotionEvent");
-    jmethodID StaticMethodObtain = lJNIEnv->GetStaticMethodID(ClassMotionEvent, "obtain", "(JJIFFFFIFFII)Landroid/view/MotionEvent;");
+    // Retrieve everything we need to create this MotionEvent in Java
+    const std::int64_t downTime   = AMotionEvent_getDownTime(inputEvent);
+    const std::int64_t eventTime  = AMotionEvent_getEventTime(inputEvent);
+    const std::int32_t action     = AMotionEvent_getAction(inputEvent);
+    const float        x          = AMotionEvent_getX(inputEvent, 0);
+    const float        y          = AMotionEvent_getY(inputEvent, 0);
+    const float        pressure   = AMotionEvent_getPressure(inputEvent, 0);
+    const float        size       = AMotionEvent_getSize(inputEvent, 0);
+    const std::int32_t metaState  = AMotionEvent_getMetaState(inputEvent);
+    const float        xPrecision = AMotionEvent_getXPrecision(inputEvent);
+    const float        yPrecision = AMotionEvent_getYPrecision(inputEvent);
+    const std::int32_t deviceId   = AInputEvent_getDeviceId(inputEvent);
+    const std::int32_t edgeFlags  = AMotionEvent_getEdgeFlags(inputEvent);
+
+    // Create the MotionEvent object in Java through its static constructor obtain()
+    jclass    classMotionEvent   = lJNIEnv.FindClass("android/view/MotionEvent");
+    jmethodID staticMethodObtain = lJNIEnv.GetStaticMethodID(classMotionEvent,
+                                                             "obtain",
+                                                             "(JJIFFFFIFFII)Landroid/view/MotionEvent;");
     // Note: C standard compatibility, varargs
     //       automatically promote floats to doubles
     //       even though the function signature declares float
-    jobject ObjectMotionEvent = lJNIEnv->CallStaticObjectMethod(
-        ClassMotionEvent, StaticMethodObtain, downTime,
-        eventTime, action, static_cast<double>(x),
-        static_cast<double>(y), static_cast<double>(pressure),
-        static_cast<double>(size), metaState,
-        static_cast<double>(xPrecision), static_cast<double>(yPrecision),
-        deviceId, edgeFlags
-    );
+    jobject objectMotionEvent = lJNIEnv.CallStaticObjectMethod(classMotionEvent,
+                                                               staticMethodObtain,
+                                                               downTime,
+                                                               eventTime,
+                                                               action,
+                                                               static_cast<double>(x),
+                                                               static_cast<double>(y),
+                                                               static_cast<double>(pressure),
+                                                               static_cast<double>(size),
+                                                               metaState,
+                                                               static_cast<double>(xPrecision),
+                                                               static_cast<double>(yPrecision),
+                                                               deviceId,
+                                                               edgeFlags);
 
     // Call its getAxisValue() method to get the delta value of our wheel move event
-    jmethodID MethodGetAxisValue = lJNIEnv->GetMethodID(ClassMotionEvent, "getAxisValue", "(I)F");
-    jfloat delta = lJNIEnv->CallFloatMethod(ObjectMotionEvent, MethodGetAxisValue, 0x00000001);
+    jmethodID    methodGetAxisValue = lJNIEnv.GetMethodID(classMotionEvent, "getAxisValue", "(I)F");
+    const jfloat delta              = lJNIEnv.CallFloatMethod(objectMotionEvent, methodGetAxisValue, 0x00000001);
 
-    lJNIEnv->DeleteLocalRef(ClassMotionEvent);
-    lJNIEnv->DeleteLocalRef(ObjectMotionEvent);
+    lJNIEnv.DeleteLocalRef(classMotionEvent);
+    lJNIEnv.DeleteLocalRef(objectMotionEvent);
 
     // Create and send our mouse wheel event
-    Event event;
-    event.type = Event::MouseWheelMoved;
-    event.mouseWheel.delta = static_cast<int>(delta);
-    event.mouseWheel.x = static_cast<int>(AMotionEvent_getX(_event, 0));
-    event.mouseWheel.y = static_cast<int>(AMotionEvent_getY(_event, 0));
-
+    Event::MouseWheelScrolled event;
+    event.wheel    = Mouse::Wheel::Vertical;
+    event.delta    = static_cast<float>(delta);
+    event.position = Vector2i(Vector2(AMotionEvent_getX(inputEvent, 0), AMotionEvent_getY(inputEvent, 0)));
     forwardEvent(event);
-
-    // Detach this thread from the JVM
-    lJavaVM->DetachCurrentThread();
 
     return 1;
 }
 
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::processKeyEvent(AInputEvent* _event, ActivityStates& /* states */)
+int WindowImplAndroid::processKeyEvent(AInputEvent* inputEvent, ActivityStates& states)
 {
-    int32_t action = AKeyEvent_getAction(_event);
+    const std::int32_t action  = AKeyEvent_getAction(inputEvent);
+    const std::int32_t key     = AKeyEvent_getKeyCode(inputEvent);
+    const std::int32_t scan    = AKeyEvent_getScanCode(inputEvent);
+    const std::int32_t metakey = AKeyEvent_getMetaState(inputEvent);
+    const auto         sfCode  = androidKeyToSF(key);
 
-    int32_t key = AKeyEvent_getKeyCode(_event);
-    int32_t metakey = AKeyEvent_getMetaState(_event);
+    if (std::holds_alternative<Keyboard::Key>(sfCode))
+        return processKeyboardKeyEvent(inputEvent, action, std::get<Keyboard::Key>(sfCode), androidScanToSF(scan), metakey);
+    return processJoystickButtonEvent(inputEvent, action, std::get<Joystick::Button>(sfCode), states);
+}
 
-    Event event;
-    event.key.code    = androidKeyToSF(key);
-    event.key.alt     = metakey & AMETA_ALT_ON;
-    event.key.control = false;
-    event.key.shift   = metakey & AMETA_SHIFT_ON;
+
+////////////////////////////////////////////////////////////
+int WindowImplAndroid::processKeyboardKeyEvent(
+    AInputEvent*           inputEvent,
+    std::int32_t           action,
+    sf::Keyboard::Key      key,
+    sf::Keyboard::Scancode scancode,
+    std::int32_t           metakey)
+{
+    const auto forwardKeyEvent = [&](auto keyEvent)
+    {
+        keyEvent.code     = key;
+        keyEvent.scancode = scancode;
+        keyEvent.alt      = metakey & AMETA_ALT_ON;
+        keyEvent.shift    = metakey & AMETA_SHIFT_ON;
+        forwardEvent(keyEvent);
+    };
 
     switch (action)
     {
-    case AKEY_EVENT_ACTION_DOWN:
-        event.type = Event::KeyPressed;
-        forwardEvent(event);
-        return 1;
-    case AKEY_EVENT_ACTION_UP:
-        event.type = Event::KeyReleased;
-        forwardEvent(event);
-
-        if (Uint32 unicode = static_cast<Uint32>(getUnicode(_event)))
-        {
-            event.type = Event::TextEntered;
-            event.text.unicode = static_cast<Uint32>(unicode);
-            forwardEvent(event);
-        }
-        return 1;
-    case AKEY_EVENT_ACTION_MULTIPLE:
-        // Since complex inputs don't get separate key down/up events
-        // both have to be faked at once
-        event.type = Event::KeyPressed;
-        forwardEvent(event);
-        event.type = Event::KeyReleased;
-        forwardEvent(event);
-
-        // This requires some special treatment, since this might represent
-        // a repetition of key presses or a complete sequence
-        if (key == AKEYCODE_UNKNOWN)
-        {
-            // This is a unique sequence, which is not yet exposed in the NDK
-            // https://code.google.com/p/android/issues/detail?id=33998
-            return 0;
-        }
-        else if (Uint32 unicode = static_cast<Uint32>(getUnicode(_event))) // This is a repeated sequence
-        {
-            event.type = Event::TextEntered;
-            event.text.unicode = static_cast<Uint32>(unicode);
-
-            int32_t repeats = AKeyEvent_getRepeatCount(_event);
-            for (int32_t i = 0; i < repeats; ++i)
-                forwardEvent(event);
+        case AKEY_EVENT_ACTION_DOWN:
+            forwardKeyEvent(Event::KeyPressed{});
             return 1;
-        }
-        break;
+        case AKEY_EVENT_ACTION_UP:
+            forwardKeyEvent(Event::KeyReleased{});
+
+            if (const auto unicode = getUnicode(inputEvent))
+                forwardEvent(Event::TextEntered{unicode});
+            return 1;
+        case AKEY_EVENT_ACTION_MULTIPLE:
+            // Since complex inputs don't get separate key down/up events
+            // both have to be faked at once
+            forwardKeyEvent(Event::KeyPressed{});
+            forwardKeyEvent(Event::KeyReleased{});
+
+            if (key == Keyboard::Key::Unknown)
+            {
+                // This related to a very old issue that hasn't been resolved in over a decade
+                // https://code.google.com/p/android/issues/detail?id=33998
+                return 0;
+            }
+            if (const auto unicode = getUnicode(inputEvent)) // This is a repeated sequence
+            {
+                const Event event(Event::TextEntered{unicode});
+
+                const std::int32_t repeats = AKeyEvent_getRepeatCount(inputEvent);
+                for (std::int32_t i = 0; i < repeats; ++i)
+                    forwardEvent(event);
+                return 1;
+            }
+            break;
     }
     return 0;
 }
 
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::processMotionEvent(AInputEvent* _event, ActivityStates& states)
+int WindowImplAndroid::processJoystickButtonEvent(AInputEvent*     inputEvent,
+                                                  std::int32_t     action,
+                                                  Joystick::Button button,
+                                                  ActivityStates&  states)
 {
-    int32_t device = AInputEvent_getSource(_event);
+    const auto deviceId = AInputEvent_getDeviceId(inputEvent);
+    if (states.joystickStates.find(deviceId) == states.joystickStates.end())
+        return 1;
 
-    Event event;
-
-    if (device == AINPUT_SOURCE_MOUSE)
-        event.type = Event::MouseMoved;
-    else if (static_cast<Uint32>(device) & AINPUT_SOURCE_TOUCHSCREEN)
-        event.type = Event::TouchMoved;
-
-    size_t pointerCount = AMotionEvent_getPointerCount(_event);
-
-    for (size_t p = 0; p < pointerCount; p++)
-    {
-        int32_t id = AMotionEvent_getPointerId(_event, p);
-
-        int x = static_cast<int>(AMotionEvent_getX(_event, p));
-        int y = static_cast<int>(AMotionEvent_getY(_event, p));
-
-        if (device == AINPUT_SOURCE_MOUSE)
-        {
-            event.mouseMove.x = x;
-            event.mouseMove.y = y;
-
-            states.mousePosition = Vector2i(event.mouseMove.x, event.mouseMove.y);
-        }
-        else if (static_cast<Uint32>(device) & AINPUT_SOURCE_TOUCHSCREEN)
-        {
-            if (states.touchEvents[id].x == x && states.touchEvents[id].y == y)
-                continue;
-
-            event.touch.finger = static_cast<unsigned int>(id);
-            event.touch.x = x;
-            event.touch.y = y;
-
-            states.touchEvents[id] = Vector2i(event.touch.x, event.touch.y);
-        }
-
-        forwardEvent(event);
-     }
+    const auto buttonIdx                               = static_cast<std::underlying_type_t<decltype(button)>>(button);
+    states.joystickStates[deviceId].buttons[buttonIdx] = action == AKEY_EVENT_ACTION_DOWN;
     return 1;
 }
 
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::processPointerEvent(bool isDown, AInputEvent* _event, ActivityStates& states)
+int WindowImplAndroid::processMotionEvent(AInputEvent* inputEvent, ActivityStates& states)
 {
-    int32_t device = AInputEvent_getSource(_event);
-    int32_t action = AMotionEvent_getAction(_event);
+    const std::int32_t device       = AInputEvent_getSource(inputEvent);
+    const std::size_t  pointerCount = AMotionEvent_getPointerCount(inputEvent);
 
-    size_t index = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
-    int32_t id = AMotionEvent_getPointerId(_event, index);
+    for (std::size_t p = 0; p < pointerCount; ++p)
+    {
+        const std::int32_t id = AMotionEvent_getPointerId(inputEvent, p);
 
-    int x = static_cast<int>(AMotionEvent_getX(_event, index));
-    int y = static_cast<int>(AMotionEvent_getY(_event, index));
+        const int x = static_cast<int>(AMotionEvent_getX(inputEvent, p));
+        const int y = static_cast<int>(AMotionEvent_getY(inputEvent, p));
 
-    Event event;
+        if (device == AINPUT_SOURCE_MOUSE)
+        {
+            const Event::MouseMoved mouseMoved{{x, y}};
+            forwardEvent(mouseMoved);
+
+            states.mousePosition = mouseMoved.position;
+        }
+        else if (static_cast<std::uint32_t>(device) & AINPUT_SOURCE_TOUCHSCREEN)
+        {
+            if (states.touchEvents[id].x == x && states.touchEvents[id].y == y)
+                continue;
+
+            const Event::TouchMoved touchMoved{static_cast<unsigned int>(id), {x, y}};
+            forwardEvent(touchMoved);
+
+            states.touchEvents[id] = touchMoved.position;
+        }
+        else if (static_cast<std::uint32_t>(device) & AINPUT_SOURCE_JOYSTICK)
+        {
+            // There seems to be no direct mapping between input event and the ID of the device that
+            // caused the event. However, as the single input event contains all axii changes, it's possible
+            // to poll values for all axii in a single loop iteration.
+            //
+            // Additionally, some controllers such as the Xbox One controller will report triggers as
+            // negative/positive values on the single axis on Windows, while Android reports them
+            // on two separate axii.
+            const auto deviceId = AInputEvent_getDeviceId(inputEvent);
+            if (states.joystickStates.find(deviceId) == states.joystickStates.end())
+                return 1;
+
+            const float factor = 100.f; // SFML normalizes axis to the range <-100, 100> instead of <-1, 1>
+            auto&       axes   = states.joystickStates[deviceId].axes;
+
+            for (unsigned int axisIdx = 0; axisIdx < Joystick::AxisCount; ++axisIdx)
+            {
+                const auto axis = static_cast<Joystick::Axis>(axisIdx);
+                axes[axis] = AMotionEvent_getAxisValue(inputEvent, JoystickImpl::sfAxisToAndroid(axis), p) * factor;
+            }
+        }
+    }
+
+    return 1;
+}
+
+
+////////////////////////////////////////////////////////////
+int WindowImplAndroid::processPointerEvent(bool isDown, AInputEvent* inputEvent, ActivityStates& states)
+{
+    const std::int32_t device = AInputEvent_getSource(inputEvent);
+    const std::int32_t action = AMotionEvent_getAction(inputEvent);
+
+    const std::size_t index = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+    const std::int32_t id     = AMotionEvent_getPointerId(inputEvent, index);
+    const auto         button = static_cast<Mouse::Button>(id);
+
+    int x = static_cast<int>(AMotionEvent_getX(inputEvent, index));
+    int y = static_cast<int>(AMotionEvent_getY(inputEvent, index));
 
     if (isDown)
     {
         if (device == AINPUT_SOURCE_MOUSE)
         {
-            event.type = Event::MouseButtonPressed;
-            event.mouseButton.button = static_cast<Mouse::Button>(id);
-            event.mouseButton.x = x;
-            event.mouseButton.y = y;
+            if (id >= 0 && id < static_cast<int>(Mouse::ButtonCount))
+                states.isButtonPressed[button] = true;
 
-            if (id >= 0 && id < Mouse::ButtonCount)
-                states.isButtonPressed[id] = true;
+            forwardEvent(Event::MouseButtonPressed{button, {x, y}});
         }
         else if (static_cast<unsigned int>(device) & AINPUT_SOURCE_TOUCHSCREEN)
         {
-            event.type = Event::TouchBegan;
-            event.touch.finger = static_cast<unsigned int>(id);
-            event.touch.x = x;
-            event.touch.y = y;
+            Event::TouchBegan touchBegan;
+            touchBegan.finger   = static_cast<unsigned int>(id);
+            touchBegan.position = {x, y};
 
-            states.touchEvents[id] = Vector2i(event.touch.x, event.touch.y);
+            states.touchEvents[id] = touchBegan.position;
+
+            forwardEvent(touchBegan);
         }
     }
     else
     {
         if (device == AINPUT_SOURCE_MOUSE)
         {
-            event.type = Event::MouseButtonReleased;
-            event.mouseButton.button = static_cast<Mouse::Button>(id);
-            event.mouseButton.x = x;
-            event.mouseButton.y = y;
+            if (id >= 0 && id < static_cast<int>(Mouse::ButtonCount))
+                states.isButtonPressed[button] = false;
 
-            if (id >= 0 && id < Mouse::ButtonCount)
-                states.isButtonPressed[id] = false;
+            forwardEvent(Event::MouseButtonReleased{button, {x, y}});
         }
-        else if (static_cast<Uint32>(device) & AINPUT_SOURCE_TOUCHSCREEN)
+        else if (static_cast<std::uint32_t>(device) & AINPUT_SOURCE_TOUCHSCREEN)
         {
-            event.type = Event::TouchEnded;
-            event.touch.finger = static_cast<unsigned int>(id);
-            event.touch.x = x;
-            event.touch.y = y;
-
             states.touchEvents.erase(id);
+            forwardEvent(Event::TouchEnded{static_cast<unsigned int>(id), {x, y}});
         }
     }
 
-    forwardEvent(event);
     return 1;
 }
 
 
 ////////////////////////////////////////////////////////////
-Keyboard::Key WindowImplAndroid::androidKeyToSF(int32_t key)
+std::variant<Keyboard::Key, Joystick::Button> WindowImplAndroid::androidKeyToSF(std::int32_t key)
 {
+    // clang-format off
     switch (key)
     {
         case AKEYCODE_UNKNOWN:
         case AKEYCODE_SOFT_LEFT:
         case AKEYCODE_SOFT_RIGHT:
-        case AKEYCODE_HOME:               return Keyboard::Unknown;
-        case AKEYCODE_BACK:               return Keyboard::Escape;
+        case AKEYCODE_HOME:               return Keyboard::Key::Unknown;
+        case AKEYCODE_BACK:               return Keyboard::Key::Escape;
         case AKEYCODE_CALL:
-        case AKEYCODE_ENDCALL:            return Keyboard::Unknown;
-        case AKEYCODE_0:                  return Keyboard::Num0;
-        case AKEYCODE_1:                  return Keyboard::Num1;
-        case AKEYCODE_2:                  return Keyboard::Num2;
-        case AKEYCODE_3:                  return Keyboard::Num3;
-        case AKEYCODE_4:                  return Keyboard::Num4;
-        case AKEYCODE_5:                  return Keyboard::Num5;
-        case AKEYCODE_6:                  return Keyboard::Num6;
-        case AKEYCODE_7:                  return Keyboard::Num7;
-        case AKEYCODE_8:                  return Keyboard::Num8;
-        case AKEYCODE_9:                  return Keyboard::Num9;
+        case AKEYCODE_ENDCALL:            return Keyboard::Key::Unknown;
+        case AKEYCODE_0:                  return Keyboard::Key::Num0;
+        case AKEYCODE_1:                  return Keyboard::Key::Num1;
+        case AKEYCODE_2:                  return Keyboard::Key::Num2;
+        case AKEYCODE_3:                  return Keyboard::Key::Num3;
+        case AKEYCODE_4:                  return Keyboard::Key::Num4;
+        case AKEYCODE_5:                  return Keyboard::Key::Num5;
+        case AKEYCODE_6:                  return Keyboard::Key::Num6;
+        case AKEYCODE_7:                  return Keyboard::Key::Num7;
+        case AKEYCODE_8:                  return Keyboard::Key::Num8;
+        case AKEYCODE_9:                  return Keyboard::Key::Num9;
         case AKEYCODE_STAR:
-        case AKEYCODE_POUND:
-        case AKEYCODE_DPAD_UP:
-        case AKEYCODE_DPAD_DOWN:
-        case AKEYCODE_DPAD_LEFT:
-        case AKEYCODE_DPAD_RIGHT:
-        case AKEYCODE_DPAD_CENTER:
+        case AKEYCODE_POUND:              return Keyboard::Key::Unknown;
+        case AKEYCODE_DPAD_UP:            return Joystick::Button::DpadUp;
+        case AKEYCODE_DPAD_DOWN:          return Joystick::Button::DpadDown;
+        case AKEYCODE_DPAD_LEFT:          return Joystick::Button::DpadLeft;
+        case AKEYCODE_DPAD_RIGHT:         return Joystick::Button::DpadRight;
+        case AKEYCODE_DPAD_CENTER:        return Joystick::Button::DpadCenter;
         case AKEYCODE_VOLUME_UP:
         case AKEYCODE_VOLUME_DOWN:
         case AKEYCODE_POWER:
         case AKEYCODE_CAMERA:
-        case AKEYCODE_CLEAR:              return Keyboard::Unknown;
-        case AKEYCODE_A:                  return Keyboard::A;
-        case AKEYCODE_B:                  return Keyboard::B;
-        case AKEYCODE_C:                  return Keyboard::C;
-        case AKEYCODE_D:                  return Keyboard::D;
-        case AKEYCODE_E:                  return Keyboard::E;
-        case AKEYCODE_F:                  return Keyboard::F;
-        case AKEYCODE_G:                  return Keyboard::G;
-        case AKEYCODE_H:                  return Keyboard::H;
-        case AKEYCODE_I:                  return Keyboard::I;
-        case AKEYCODE_J:                  return Keyboard::J;
-        case AKEYCODE_K:                  return Keyboard::K;
-        case AKEYCODE_L:                  return Keyboard::L;
-        case AKEYCODE_M:                  return Keyboard::M;
-        case AKEYCODE_N:                  return Keyboard::N;
-        case AKEYCODE_O:                  return Keyboard::O;
-        case AKEYCODE_P:                  return Keyboard::P;
-        case AKEYCODE_Q:                  return Keyboard::Q;
-        case AKEYCODE_R:                  return Keyboard::R;
-        case AKEYCODE_S:                  return Keyboard::S;
-        case AKEYCODE_T:                  return Keyboard::T;
-        case AKEYCODE_U:                  return Keyboard::U;
-        case AKEYCODE_V:                  return Keyboard::V;
-        case AKEYCODE_W:                  return Keyboard::W;
-        case AKEYCODE_X:                  return Keyboard::X;
-        case AKEYCODE_Y:                  return Keyboard::Y;
-        case AKEYCODE_Z:                  return Keyboard::Z;
-        case AKEYCODE_COMMA:              return Keyboard::Comma;
-        case AKEYCODE_PERIOD:             return Keyboard::Period;
-        case AKEYCODE_ALT_LEFT:           return Keyboard::LAlt;
-        case AKEYCODE_ALT_RIGHT:          return Keyboard::RAlt;
-        case AKEYCODE_SHIFT_LEFT:         return Keyboard::LShift;
-        case AKEYCODE_SHIFT_RIGHT:        return Keyboard::RShift;
-        case AKEYCODE_TAB:                return Keyboard::Tab;
-        case AKEYCODE_SPACE:              return Keyboard::Space;
+        case AKEYCODE_CLEAR:              return Keyboard::Key::Unknown;
+        case AKEYCODE_A:                  return Keyboard::Key::A;
+        case AKEYCODE_B:                  return Keyboard::Key::B;
+        case AKEYCODE_C:                  return Keyboard::Key::C;
+        case AKEYCODE_D:                  return Keyboard::Key::D;
+        case AKEYCODE_E:                  return Keyboard::Key::E;
+        case AKEYCODE_F:                  return Keyboard::Key::F;
+        case AKEYCODE_G:                  return Keyboard::Key::G;
+        case AKEYCODE_H:                  return Keyboard::Key::H;
+        case AKEYCODE_I:                  return Keyboard::Key::I;
+        case AKEYCODE_J:                  return Keyboard::Key::J;
+        case AKEYCODE_K:                  return Keyboard::Key::K;
+        case AKEYCODE_L:                  return Keyboard::Key::L;
+        case AKEYCODE_M:                  return Keyboard::Key::M;
+        case AKEYCODE_N:                  return Keyboard::Key::N;
+        case AKEYCODE_O:                  return Keyboard::Key::O;
+        case AKEYCODE_P:                  return Keyboard::Key::P;
+        case AKEYCODE_Q:                  return Keyboard::Key::Q;
+        case AKEYCODE_R:                  return Keyboard::Key::R;
+        case AKEYCODE_S:                  return Keyboard::Key::S;
+        case AKEYCODE_T:                  return Keyboard::Key::T;
+        case AKEYCODE_U:                  return Keyboard::Key::U;
+        case AKEYCODE_V:                  return Keyboard::Key::V;
+        case AKEYCODE_W:                  return Keyboard::Key::W;
+        case AKEYCODE_X:                  return Keyboard::Key::X;
+        case AKEYCODE_Y:                  return Keyboard::Key::Y;
+        case AKEYCODE_Z:                  return Keyboard::Key::Z;
+        case AKEYCODE_COMMA:              return Keyboard::Key::Comma;
+        case AKEYCODE_PERIOD:             return Keyboard::Key::Period;
+        case AKEYCODE_ALT_LEFT:           return Keyboard::Key::LAlt;
+        case AKEYCODE_ALT_RIGHT:          return Keyboard::Key::RAlt;
+        case AKEYCODE_SHIFT_LEFT:         return Keyboard::Key::LShift;
+        case AKEYCODE_SHIFT_RIGHT:        return Keyboard::Key::RShift;
+        case AKEYCODE_TAB:                return Keyboard::Key::Tab;
+        case AKEYCODE_SPACE:              return Keyboard::Key::Space;
         case AKEYCODE_SYM:
         case AKEYCODE_EXPLORER:
-        case AKEYCODE_ENVELOPE:           return Keyboard::Unknown;
-        case AKEYCODE_ENTER:              return Keyboard::Enter;
-        case AKEYCODE_DEL:                return Keyboard::Backspace;
-        case AKEYCODE_FORWARD_DEL:        return Keyboard::Delete;
-        case AKEYCODE_GRAVE:              return Keyboard::Grave;
-        case AKEYCODE_MINUS:              return Keyboard::Subtract;
-        case AKEYCODE_EQUALS:             return Keyboard::Equal;
-        case AKEYCODE_LEFT_BRACKET:       return Keyboard::LBracket;
-        case AKEYCODE_RIGHT_BRACKET:      return Keyboard::RBracket;
-        case AKEYCODE_BACKSLASH:          return Keyboard::Backslash;
-        case AKEYCODE_SEMICOLON:          return Keyboard::Semicolon;
-        case AKEYCODE_APOSTROPHE:         return Keyboard::Quote;
-        case AKEYCODE_SLASH:              return Keyboard::Slash;
+        case AKEYCODE_ENVELOPE:           return Keyboard::Key::Unknown;
+        case AKEYCODE_ENTER:              return Keyboard::Key::Enter;
+        case AKEYCODE_DEL:                return Keyboard::Key::Backspace;
+        case AKEYCODE_FORWARD_DEL:        return Keyboard::Key::Delete;
+        case AKEYCODE_GRAVE:              return Keyboard::Key::Grave;
+        case AKEYCODE_MINUS:              return Keyboard::Key::Subtract;
+        case AKEYCODE_EQUALS:             return Keyboard::Key::Equal;
+        case AKEYCODE_LEFT_BRACKET:       return Keyboard::Key::LBracket;
+        case AKEYCODE_RIGHT_BRACKET:      return Keyboard::Key::RBracket;
+        case AKEYCODE_BACKSLASH:          return Keyboard::Key::Backslash;
+        case AKEYCODE_SEMICOLON:          return Keyboard::Key::Semicolon;
+        case AKEYCODE_APOSTROPHE:         return Keyboard::Key::Apostrophe;
+        case AKEYCODE_SLASH:              return Keyboard::Key::Slash;
         case AKEYCODE_AT:
         case AKEYCODE_NUM:
         case AKEYCODE_HEADSETHOOK:
@@ -657,83 +697,210 @@ Keyboard::Key WindowImplAndroid::androidKeyToSF(int32_t key)
         case AKEYCODE_MEDIA_PREVIOUS:
         case AKEYCODE_MEDIA_REWIND:
         case AKEYCODE_MEDIA_FAST_FORWARD:
-        case AKEYCODE_MUTE:               return Keyboard::Unknown;
-        case AKEYCODE_PAGE_UP:            return Keyboard::PageUp;
-        case AKEYCODE_PAGE_DOWN:          return Keyboard::PageDown;
+        case AKEYCODE_MUTE:               return Keyboard::Key::Unknown;
+        case AKEYCODE_PAGE_UP:            return Keyboard::Key::PageUp;
+        case AKEYCODE_PAGE_DOWN:          return Keyboard::Key::PageDown;
         case AKEYCODE_PICTSYMBOLS:
-        case AKEYCODE_SWITCH_CHARSET:
-        case AKEYCODE_BUTTON_A:
-        case AKEYCODE_BUTTON_B:
-        case AKEYCODE_BUTTON_C:
-        case AKEYCODE_BUTTON_X:
-        case AKEYCODE_BUTTON_Y:
-        case AKEYCODE_BUTTON_Z:
-        case AKEYCODE_BUTTON_L1:
-        case AKEYCODE_BUTTON_R1:
-        case AKEYCODE_BUTTON_L2:
-        case AKEYCODE_BUTTON_R2:
-        case AKEYCODE_BUTTON_THUMBL:
-        case AKEYCODE_BUTTON_THUMBR:
-        case AKEYCODE_BUTTON_START:
-        case AKEYCODE_BUTTON_SELECT:
-        case AKEYCODE_BUTTON_MODE:
-        default:                          return Keyboard::Unknown;
+        case AKEYCODE_SWITCH_CHARSET:     return Keyboard::Key::Unknown;
+        case AKEYCODE_BUTTON_A:           return Joystick::Button::A;
+        case AKEYCODE_BUTTON_B:           return Joystick::Button::B;
+        case AKEYCODE_BUTTON_C:           return Joystick::Button::C;
+        case AKEYCODE_BUTTON_X:           return Joystick::Button::X;
+        case AKEYCODE_BUTTON_Y:           return Joystick::Button::Y;
+        case AKEYCODE_BUTTON_Z:           return Joystick::Button::Z;
+        case AKEYCODE_BUTTON_L1:          return Joystick::Button::L1;
+        case AKEYCODE_BUTTON_R1:          return Joystick::Button::R1;
+        case AKEYCODE_BUTTON_L2:          return Joystick::Button::L2;
+        case AKEYCODE_BUTTON_R2:          return Joystick::Button::R2;
+        case AKEYCODE_BUTTON_THUMBL:      return Joystick::Button::L3;
+        case AKEYCODE_BUTTON_THUMBR:      return Joystick::Button::R3;
+        case AKEYCODE_BUTTON_START:       return Joystick::Button::Start;
+        case AKEYCODE_BUTTON_SELECT:      return Joystick::Button::Select;
+        case AKEYCODE_BUTTON_MODE:        return Joystick::Button::Capture;
+        default:                          return Keyboard::Key::Unknown;
     }
+    // clang-format on
 }
 
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::getUnicode(AInputEvent* event)
+Keyboard::Scancode WindowImplAndroid::androidScanToSF(std::int32_t key)
 {
-    // Retrieve activity states
-    ActivityStates& states = getActivity();
-    Lock lock(states.mutex);
-
-    // Initializes JNI
-    jint lResult;
-
-    JavaVM* lJavaVM = states.activity->vm;
-    JNIEnv* lJNIEnv = states.activity->env;
-
-    JavaVMAttachArgs lJavaVMAttachArgs;
-    lJavaVMAttachArgs.version = JNI_VERSION_1_6;
-    lJavaVMAttachArgs.name = "NativeThread";
-    lJavaVMAttachArgs.group = NULL;
-
-    lResult=lJavaVM->AttachCurrentThread(&lJNIEnv, &lJavaVMAttachArgs);
-
-    if (lResult == JNI_ERR)
-        err() << "Failed to initialize JNI, couldn't get the Unicode value" << std::endl;
-
-    // Retrieve key data from the input event
-    jlong downTime = AKeyEvent_getDownTime(event);
-    jlong eventTime = AKeyEvent_getEventTime(event);
-    jint action = AKeyEvent_getAction(event);
-    jint code = AKeyEvent_getKeyCode(event);
-    jint repeat = AKeyEvent_getRepeatCount(event); // not sure!
-    jint metaState = AKeyEvent_getMetaState(event);
-    jint deviceId = AInputEvent_getDeviceId(event);
-    jint scancode = AKeyEvent_getScanCode(event);
-    jint flags = AKeyEvent_getFlags(event);
-    jint source = AInputEvent_getSource(event);
-
-    // Construct a KeyEvent object from the event data
-    jclass ClassKeyEvent = lJNIEnv->FindClass("android/view/KeyEvent");
-    jmethodID KeyEventConstructor = lJNIEnv->GetMethodID(ClassKeyEvent, "<init>", "(JJIIIIIIII)V");
-    jobject ObjectKeyEvent = lJNIEnv->NewObject(ClassKeyEvent, KeyEventConstructor, downTime, eventTime, action, code, repeat, metaState, deviceId, scancode, flags, source);
-
-    // Call its getUnicodeChar() method to get the Unicode value
-    jmethodID MethodGetUnicode = lJNIEnv->GetMethodID(ClassKeyEvent, "getUnicodeChar", "(I)I");
-    int unicode = lJNIEnv->CallIntMethod(ObjectKeyEvent, MethodGetUnicode, metaState);
-
-    lJNIEnv->DeleteLocalRef(ClassKeyEvent);
-    lJNIEnv->DeleteLocalRef(ObjectKeyEvent);
-
-    // Detach this thread from the JVM
-    lJavaVM->DetachCurrentThread();
-
-    return unicode;
+    // Referencing https://android.googlesource.com/platform/frameworks/base/+/cd92588/data/keyboards/Generic.kl
+    // as the best source for how to map an android scancode to SFML
+    // clang-format off
+    switch (key)
+    {
+        case 1:   return Keyboard::Scan::Escape;
+        case 2:   return Keyboard::Scan::Num1;
+        case 3:   return Keyboard::Scan::Num2;
+        case 4:   return Keyboard::Scan::Num3;
+        case 5:   return Keyboard::Scan::Num4;
+        case 6:   return Keyboard::Scan::Num5;
+        case 7:   return Keyboard::Scan::Num6;
+        case 8:   return Keyboard::Scan::Num7;
+        case 9:   return Keyboard::Scan::Num8;
+        case 10:  return Keyboard::Scan::Num9;
+        case 11:  return Keyboard::Scan::Num0;
+        case 12:  return Keyboard::Scan::Hyphen;
+        case 13:  return Keyboard::Scan::Equal;
+        case 14:  return Keyboard::Scan::Backspace;
+        case 15:  return Keyboard::Scan::Tab;
+        case 16:  return Keyboard::Scan::Q;
+        case 17:  return Keyboard::Scan::W;
+        case 18:  return Keyboard::Scan::E;
+        case 19:  return Keyboard::Scan::R;
+        case 20:  return Keyboard::Scan::T;
+        case 21:  return Keyboard::Scan::Y;
+        case 22:  return Keyboard::Scan::U;
+        case 23:  return Keyboard::Scan::I;
+        case 24:  return Keyboard::Scan::O;
+        case 25:  return Keyboard::Scan::P;
+        case 26:  return Keyboard::Scan::LBracket;
+        case 27:  return Keyboard::Scan::RBracket;
+        case 28:  return Keyboard::Scan::Enter;
+        case 29:  return Keyboard::Scan::LControl;
+        case 30:  return Keyboard::Scan::A;
+        case 31:  return Keyboard::Scan::S;
+        case 32:  return Keyboard::Scan::D;
+        case 33:  return Keyboard::Scan::F;
+        case 34:  return Keyboard::Scan::G;
+        case 35:  return Keyboard::Scan::H;
+        case 36:  return Keyboard::Scan::J;
+        case 37:  return Keyboard::Scan::K;
+        case 38:  return Keyboard::Scan::L;
+        case 39:  return Keyboard::Scan::Semicolon;
+        case 40:  return Keyboard::Scan::Apostrophe;
+        case 41:  return Keyboard::Scan::Grave;
+        case 42:  return Keyboard::Scan::LShift;
+        case 43:  return Keyboard::Scan::Backslash;
+        case 44:  return Keyboard::Scan::Z;
+        case 45:  return Keyboard::Scan::X;
+        case 46:  return Keyboard::Scan::C;
+        case 47:  return Keyboard::Scan::V;
+        case 48:  return Keyboard::Scan::B;
+        case 49:  return Keyboard::Scan::N;
+        case 50:  return Keyboard::Scan::M;
+        case 51:  return Keyboard::Scan::Comma;
+        case 52:  return Keyboard::Scan::Period;
+        case 53:  return Keyboard::Scan::Slash;
+        case 54:  return Keyboard::Scan::RShift;
+        case 55:  return Keyboard::Scan::NumpadMultiply;
+        case 56:  return Keyboard::Scan::LAlt;
+        case 57:  return Keyboard::Scan::Space;
+        case 58:  return Keyboard::Scan::CapsLock;
+        case 59:  return Keyboard::Scan::F1;
+        case 60:  return Keyboard::Scan::F2;
+        case 61:  return Keyboard::Scan::F3;
+        case 62:  return Keyboard::Scan::F4;
+        case 63:  return Keyboard::Scan::F5;
+        case 64:  return Keyboard::Scan::F6;
+        case 65:  return Keyboard::Scan::F7;
+        case 66:  return Keyboard::Scan::F8;
+        case 67:  return Keyboard::Scan::F9;
+        case 68:  return Keyboard::Scan::F10;
+        case 69:  return Keyboard::Scan::NumLock;
+        case 70:  return Keyboard::Scan::ScrollLock;
+        case 71:  return Keyboard::Scan::Numpad7;
+        case 72:  return Keyboard::Scan::Numpad8;
+        case 73:  return Keyboard::Scan::Numpad9;
+        case 74:  return Keyboard::Scan::NumpadMinus;
+        case 75:  return Keyboard::Scan::Numpad4;
+        case 76:  return Keyboard::Scan::Numpad5;
+        case 77:  return Keyboard::Scan::Numpad6;
+        case 78:  return Keyboard::Scan::NumpadPlus;
+        case 79:  return Keyboard::Scan::Numpad1;
+        case 80:  return Keyboard::Scan::Numpad2;
+        case 81:  return Keyboard::Scan::Numpad3;
+        case 82:  return Keyboard::Scan::Numpad0;
+        case 83:  return Keyboard::Scan::NumpadDecimal;
+        case 87:  return Keyboard::Scan::F11;
+        case 88:  return Keyboard::Scan::F12;
+        case 96:  return Keyboard::Scan::NumpadEnter;
+        case 97:  return Keyboard::Scan::RControl;
+        case 100: return Keyboard::Scan::RAlt;
+        case 102: return Keyboard::Scan::Home;
+        case 103: return Keyboard::Scan::Up;
+        case 104: return Keyboard::Scan::PageUp;
+        case 105: return Keyboard::Scan::Left;
+        case 106: return Keyboard::Scan::Right;
+        case 107: return Keyboard::Scan::End;
+        case 108: return Keyboard::Scan::Down;
+        case 109: return Keyboard::Scan::PageDown;
+        case 110: return Keyboard::Scan::Insert;
+        case 111: return Keyboard::Scan::Delete;
+        case 113: return Keyboard::Scan::VolumeMute;
+        case 114: return Keyboard::Scan::VolumeDown;
+        case 115: return Keyboard::Scan::VolumeUp;
+        case 156: return Keyboard::Scan::Favorites;
+        case 166: return Keyboard::Scan::Stop;
+        case 201: return Keyboard::Scan::Pause;
+        case 217: return Keyboard::Scan::Search;
+        default:  return Keyboard::Scan::Unknown;
+    }
+    // clang-format on
 }
 
-} // namespace priv
-} // namespace sf
+
+////////////////////////////////////////////////////////////
+char32_t WindowImplAndroid::getUnicode(AInputEvent* event)
+{
+    // Retrieve activity states
+    ActivityStates&       states = getActivity();
+    const std::lock_guard lock(states.mutex);
+
+    // Prepare the Java virtual machine
+    auto jni = Jni::attachCurrentThread(*states.activity);
+    if (!jni)
+    {
+        err() << "Failed to initialize JNI, couldn't get the Unicode value" << std::endl;
+        return 0;
+    }
+
+    auto& lJNIEnv = jni->getEnv();
+
+    // Retrieve key data from the input event
+    const jlong downTime  = AKeyEvent_getDownTime(event);
+    const jlong eventTime = AKeyEvent_getEventTime(event);
+    const jint  action    = AKeyEvent_getAction(event);
+    const jint  code      = AKeyEvent_getKeyCode(event);
+    const jint  repeat    = AKeyEvent_getRepeatCount(event); // not sure!
+    const jint  metaState = AKeyEvent_getMetaState(event);
+    const jint  deviceId  = AInputEvent_getDeviceId(event);
+    const jint  scancode  = AKeyEvent_getScanCode(event);
+    const jint  flags     = AKeyEvent_getFlags(event);
+    const jint  source    = AInputEvent_getSource(event);
+
+    // Backspace doesn't have a unicode char, so we generate '\b' for consistency with other platforms
+    if (code == AKEYCODE_DEL)
+    {
+        return '\b';
+    }
+
+    // Construct a KeyEvent object from the event data
+    jclass    classKeyEvent       = lJNIEnv.FindClass("android/view/KeyEvent");
+    jmethodID keyEventConstructor = lJNIEnv.GetMethodID(classKeyEvent, "<init>", "(JJIIIIIIII)V");
+    jobject   objectKeyEvent      = lJNIEnv.NewObject(classKeyEvent,
+                                               keyEventConstructor,
+                                               downTime,
+                                               eventTime,
+                                               action,
+                                               code,
+                                               repeat,
+                                               metaState,
+                                               deviceId,
+                                               scancode,
+                                               flags,
+                                               source);
+
+    // Call its getUnicodeChar() method to get the Unicode value
+    jmethodID methodGetUnicode = lJNIEnv.GetMethodID(classKeyEvent, "getUnicodeChar", "(I)I");
+    const int unicode          = lJNIEnv.CallIntMethod(objectKeyEvent, methodGetUnicode, metaState);
+
+    lJNIEnv.DeleteLocalRef(classKeyEvent);
+    lJNIEnv.DeleteLocalRef(objectKeyEvent);
+
+    return static_cast<char32_t>(unicode);
+}
+
+} // namespace sf::priv

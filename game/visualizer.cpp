@@ -87,7 +87,7 @@ int main() {
     computePathVisualization(graph, pathStart, pathEnd, exploredNodes, finalPath);
 
     const float WIN_W = 1280.f, WIN_H = 960.f;
-    sf::RenderWindow window(sf::VideoMode(static_cast<unsigned>(WIN_W), static_cast<unsigned>(WIN_H)), "BSP Visualizer");
+    sf::RenderWindow window(sf::VideoMode({static_cast<unsigned>(WIN_W), static_cast<unsigned>(WIN_H)}), "BSP Visualizer");
     window.setFramerateLimit(60);
 
     float worldW = maxX - minX, worldH = maxY - minY;
@@ -100,14 +100,14 @@ int main() {
 
     auto drawLine = [&](const TwoHalfD::XYVectorf &a, const TwoHalfD::XYVectorf &b, sf::Color col) {
         sf::Vertex line[2] = {sf::Vertex(toScreen(a), col), sf::Vertex(toScreen(b), col)};
-        window.draw(line, 2, sf::Lines);
+        window.draw(line, 2, sf::PrimitiveType::Lines);
     };
 
     auto drawDot = [&](const TwoHalfD::XYVectorf &p, float r, sf::Color col) {
         sf::CircleShape dot(r);
         dot.setFillColor(col);
         sf::Vector2f pos = toScreen(p);
-        dot.setPosition(pos.x - r, pos.y - r);
+        dot.setPosition({pos.x - r, pos.y - r});
         window.draw(dot);
     };
 
@@ -116,21 +116,28 @@ int main() {
     sf::Clock pathClock;
 
     while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) window.close();
-            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) window.close();
-            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R) pathClock.restart();
-
-            if (event.type == sf::Event::MouseWheelScrolled) scale *= (event.mouseWheelScroll.delta > 0) ? 1.15f : (1.f / 1.15f);
-
-            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Middle) {
-                panning = true;
-                lastMouse = sf::Mouse::getPosition(window);
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) window.close();
+            if (const auto *keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyPressed->code == sf::Keyboard::Key::Escape) window.close();
+                if (keyPressed->code == sf::Keyboard::Key::R) pathClock.restart();
             }
-            if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Middle) panning = false;
 
-            if (event.type == sf::Event::MouseMoved && panning) {
+            if (const auto *scrolled = event->getIf<sf::Event::MouseWheelScrolled>()) {
+                scale *= (scrolled->delta > 0) ? 1.15f : (1.f / 1.15f);
+            }
+
+            if (const auto *pressed = event->getIf<sf::Event::MouseButtonPressed>()) {
+                if (pressed->button == sf::Mouse::Button::Middle) {
+                    panning = true;
+                    lastMouse = sf::Mouse::getPosition(window);
+                }
+            }
+            if (const auto *released = event->getIf<sf::Event::MouseButtonReleased>()) {
+                if (released->button == sf::Mouse::Button::Middle) panning = false;
+            }
+
+            if (const auto *moved = event->getIf<sf::Event::MouseMoved>(); moved && panning) {
                 sf::Vector2i curr = sf::Mouse::getPosition(window);
                 sf::Vector2i delta = curr - lastMouse;
                 viewCenter.x -= delta.x / scale;

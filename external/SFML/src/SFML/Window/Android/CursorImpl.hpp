@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -22,67 +22,36 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_CURSORIMPLANDROID_HPP
-#define SFML_CURSORIMPLANDROID_HPP
+#pragma once
 
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Window/Cursor.hpp>
-#include <SFML/System/NonCopyable.hpp>
+
 #include <SFML/System/Vector2.hpp>
 
 
-namespace sf
-{
-
-namespace priv
+namespace sf::priv
 {
 ////////////////////////////////////////////////////////////
-/// \brief Android implementation of Cursor
-///
-/// This is a typical "not supported" implementation.
-///
-////////////////////////////////////////////////////////////
-class CursorImpl : NonCopyable
+class CursorImpl
 {
 public:
+    ////////////////////////////////////////////////////////////
+    CursorImpl() = default;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Default constructor
-    ///
-    /// Refer to sf::Cursor::Cursor().
-    ///
-    ////////////////////////////////////////////////////////////
-    CursorImpl();
+    CursorImpl(const CursorImpl&) = delete;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Destructor
-    ///
-    /// Refer to sf::Cursor::~Cursor().
-    ///
-    ////////////////////////////////////////////////////////////
-    ~CursorImpl();
+    CursorImpl& operator=(const CursorImpl&) = delete;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Create a cursor with the provided image
-    ///
-    /// Returns false.
-    ///
-    ////////////////////////////////////////////////////////////
-    bool loadFromPixels(const Uint8* pixels, Vector2u size, Vector2u hotspot);
+    bool loadFromPixels(const std::uint8_t* pixels, Vector2u size, Vector2u hotspot);
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Create a native system cursor
-    ///
-    /// Returns false.
-    ///
     ////////////////////////////////////////////////////////////
     bool loadFromSystem(Cursor::Type type);
 };
 
-} // namespace priv
-
-} // namespace sf
-
-#endif // SFML_CURSORIMPLANDROID_HPP
+} // namespace sf::priv

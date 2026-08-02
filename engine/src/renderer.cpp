@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <sys/_types/_u_int32_t.h>
 #include <thread>
@@ -26,28 +27,32 @@
 TwoHalfD::Renderer::Renderer(sf::RenderWindow &window, const EngineSettings &settings, EngineClocks &clocks)
     : m_window(window), m_settings(settings), m_clocks(clocks) {
 
-    m_renderTexture.create(settings.resolution.x, settings.resolution.y);
+    if (!m_renderTexture.resize({static_cast<unsigned>(settings.resolution.x), static_cast<unsigned>(settings.resolution.y)})) {
+        std::cerr << "Failed to create render texture!" << std::endl;
+        std::exit(1);
+    }
 
     if (!sf::Shader::isAvailable()) {
         std::cerr << "Shaders not available!" << std::endl;
     }
 
     std::string shadersPath = static_cast<std::string>(ROOT_DIR) + "/engine/include/TwoHalfD/" + "shaders/perspectiveshader.frag";
-    if (!m_perspectiveShader.loadFromFile(shadersPath, sf::Shader::Fragment)) {
+    if (!m_perspectiveShader.loadFromFile(shadersPath, sf::Shader::Type::Fragment)) {
         std::cerr << "Failed to load shader!" << std::endl;
         std::exit(1);
     }
 
     std::string floorShaderPath = static_cast<std::string>(ROOT_DIR) + "/engine/include/TwoHalfD/" + "shaders/floorShader.frag";
-    if (!m_floorShader.loadFromFile(floorShaderPath, sf::Shader::Fragment)) {
+    if (!m_floorShader.loadFromFile(floorShaderPath, sf::Shader::Type::Fragment)) {
         std::cerr << "Failed to load floor shader!" << std::endl;
         std::exit(1);
     }
     std::string fontPath = static_cast<std::string>(ASSETS_DIR) + "/fonts/JetBrainsMono-2/fonts/ttf/JetBrainsMono-Regular.ttf";
-    if (!m_debugSettings.debugFont.loadFromFile(fontPath)) {
+    if (!m_debugSettings.debugFont.openFromFile(fontPath)) {
         std::cerr << "Failed to load font!" << std::endl;
         std::exit(1);
     }
+    m_debugSettings.cachedText.emplace(m_debugSettings.debugFont);
     m_debugSettings.debugColor = sf::Color(0, 255, 0, 255);
     m_debugSettings.fontSize = std::min(std::max(m_window.getSize().y / 40, m_debugSettings.minFontSize), m_debugSettings.maxFontSize);
 }
@@ -73,8 +78,8 @@ void TwoHalfD::Renderer::render(const CameraObject &camera, BSPManager &bsp) {
 
     m_renderTexture.display();
     sf::Sprite sprite(m_renderTexture.getTexture());
-    sprite.setScale(static_cast<float>(m_settings.windowDim.x) / m_settings.resolution.x,
-                    static_cast<float>(m_settings.windowDim.y) / m_settings.resolution.y);
+    sprite.setScale({static_cast<float>(m_settings.windowDim.x) / m_settings.resolution.x,
+                     static_cast<float>(m_settings.windowDim.y) / m_settings.resolution.y});
     m_window.clear(sf::Color::Black);
     m_window.draw(sprite);
     m_window.display();
@@ -202,7 +207,7 @@ void TwoHalfD::Renderer::renderSegment(const TwoHalfD::Segment &segment, const C
 
     const sf::Texture &tex = it->second.texture;
 
-    sf::VertexArray quad(sf::Quads, 4);
+    sf::VertexArray quad(sf::PrimitiveType::TriangleFan, 4);
 
     quad[0].position = sf::Vector2f(p_xScreenPosV1, p_topWallStart);
     quad[1].position = sf::Vector2f(p_xScreenPosV1, p_bottomWallStart);
@@ -258,10 +263,9 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
     int tiledW = static_cast<int>(texSize.x / spriteEntity.scaleX);
     int tiledH = static_cast<int>(texSize.y / spriteEntity.scaleY);
 
-    sf::Sprite sprite;
-    sprite.setTexture(tex);
-    sprite.setTextureRect(sf::IntRect(0, 0, tiledW, tiledH));
-    sprite.setOrigin(tiledW / 2.0f, tiledH / 2.0f);
+    sf::Sprite sprite(tex);
+    sprite.setTextureRect(sf::IntRect({0, 0}, {tiledW, tiledH}));
+    sprite.setOrigin({tiledW / 2.0f, tiledH / 2.0f});
 
     float cameraDirRad = camera.cameraPos.direction;
     sf::Vector2f direction{std::cos(cameraDirRad), std::sin(cameraDirRad)};
@@ -288,10 +292,10 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
 
     const float spriteScreenX = (m_settings.resolution.x / 2.0f) + focalLength * dotProduct(toSpriteVec, n_plane) / perpWorldDistance;
 
-    sprite.setPosition(spriteScreenX, topSpriteScreen + spriteHeightScreen / 2.0f);
-    sprite.setScale(spriteHeightScreen / tiledH, spriteHeightScreen / tiledH);
+    sprite.setPosition({spriteScreenX, topSpriteScreen + spriteHeightScreen / 2.0f});
+    sprite.setScale({spriteHeightScreen / tiledH, spriteHeightScreen / tiledH});
     float shade = std::min(1.0f, m_settings.shaderScale / perpWorldDistance);
-    sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
+    std::uint8_t shadeValue = static_cast<std::uint8_t>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
     m_renderTexture.draw(sprite);
     ++m_debugSettings.numSpritesRenderedFrame;
@@ -321,17 +325,16 @@ void TwoHalfD::Renderer::renderSprite(const TwoHalfD::SpriteEntity &spriteEntity
         int tiledW = static_cast<int>(overlayTexSize.x / overlay.textureScaleX);
         int tiledH = static_cast<int>(overlayTexSize.y / overlay.textureScaleY);
 
-        sf::Sprite overlaySprite;
-        overlaySprite.setTexture(overlayTex);
-        overlaySprite.setTextureRect(sf::IntRect(0, 0, tiledW, tiledH));
-        overlaySprite.setOrigin(tiledW / 2.0f, tiledH / 2.0f);
+        sf::Sprite overlaySprite(overlayTex);
+        overlaySprite.setTextureRect(sf::IntRect({0, 0}, {tiledW, tiledH}));
+        overlaySprite.setOrigin({tiledW / 2.0f, tiledH / 2.0f});
         float overlayWidthScreen = focalLength * overlay.width / perpWorldDistance;
         float overlayHeightScreen = focalLength * overlay.height / perpWorldDistance;
-        overlaySprite.setScale(overlayWidthScreen / tiledW, overlayHeightScreen / tiledH);
+        overlaySprite.setScale({overlayWidthScreen / tiledW, overlayHeightScreen / tiledH});
 
         float ox = spriteLeft + overlay.x * spriteWidthScreen;
         float oy = spriteTop + overlay.y * spriteHeightScreen;
-        overlaySprite.setPosition(ox, oy);
+        overlaySprite.setPosition({ox, oy});
 
         overlaySprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
         m_renderTexture.draw(overlaySprite);
@@ -373,15 +376,14 @@ void TwoHalfD::Renderer::renderEffect(const TwoHalfD::AnimationEffect &effect, c
     int tiledW = static_cast<int>(texSize.x / effect.scaleX);
     int tiledH = static_cast<int>(texSize.y / effect.scaleY);
 
-    sf::Sprite sprite;
-    sprite.setTexture(tex);
-    sprite.setTextureRect(sf::IntRect(0, 0, tiledW, tiledH));
-    sprite.setOrigin(tiledW / 2.0f, tiledH / 2.0f);
-    sprite.setPosition(screenX, topScreen + heightScreen / 2.0f);
-    sprite.setScale(widthScreen / tiledW, heightScreen / tiledH);
+    sf::Sprite sprite(tex);
+    sprite.setTextureRect(sf::IntRect({0, 0}, {tiledW, tiledH}));
+    sprite.setOrigin({tiledW / 2.0f, tiledH / 2.0f});
+    sprite.setPosition({screenX, topScreen + heightScreen / 2.0f});
+    sprite.setScale({widthScreen / tiledW, heightScreen / tiledH});
 
     float shade = std::min(1.0f, m_settings.shaderScale / signedPerpWorldDistance);
-    sf::Uint8 shadeValue = static_cast<sf::Uint8>(255 * shade);
+    std::uint8_t shadeValue = static_cast<std::uint8_t>(255 * shade);
     sprite.setColor(sf::Color(shadeValue, shadeValue, shadeValue, 255));
     m_renderTexture.draw(sprite);
     ++m_debugSettings.numEffectsRenderedFrame;
@@ -516,7 +518,7 @@ void TwoHalfD::Renderer::renderFloor(const CameraObject &camera) {
         }
         const sf::Texture &floorTileTexture = it->second.texture;
 
-        sf::VertexArray quad(sf::Quads, 4);
+        sf::VertexArray quad(sf::PrimitiveType::TriangleFan, 4);
         quad[0].position = sf::Vector2f(0, m_settings.resolution.y / 2.0f);
         quad[1].position = sf::Vector2f(0, m_settings.resolution.y);
         quad[2].position = sf::Vector2f(m_settings.resolution.x, m_settings.resolution.y);
@@ -621,12 +623,12 @@ void TwoHalfD::Renderer::renderDebugOverlays(const TwoHalfD::CameraObject &camer
             }
         }
 
-        m_debugSettings.cachedText.setFont(m_debugSettings.debugFont);
-        m_debugSettings.cachedText.setFillColor(m_debugSettings.debugColor);
-        m_debugSettings.cachedText.setCharacterSize(m_debugSettings.fontSize);
-        m_debugSettings.cachedText.setPosition(10, 10);
-        m_debugSettings.cachedText.setString(text);
+        m_debugSettings.cachedText->setFont(m_debugSettings.debugFont);
+        m_debugSettings.cachedText->setFillColor(m_debugSettings.debugColor);
+        m_debugSettings.cachedText->setCharacterSize(m_debugSettings.fontSize);
+        m_debugSettings.cachedText->setPosition({10, 10});
+        m_debugSettings.cachedText->setString(text);
     }
 
-    m_renderTexture.draw(m_debugSettings.cachedText);
+    m_renderTexture.draw(*m_debugSettings.cachedText);
 }

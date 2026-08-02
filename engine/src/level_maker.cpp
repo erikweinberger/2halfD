@@ -97,7 +97,9 @@ TwoHalfD::TextureSignature TwoHalfD::LevelMaker::_makeTexture(std::string textur
     }
     if (!tex.loadFromFile(fs::path(ASSETS_DIR) / filePath)) {
         std::cerr << "Incorrect filepath given: (" << filePath << ") will use default\n";
-        tex.loadFromFile(m_defaultTextureFilePath);
+        if (!tex.loadFromFile(m_defaultTextureFilePath)) {
+            std::cerr << "Failed to load default texture: (" << m_defaultTextureFilePath << ")\n";
+        }
     }
 
     tex.setRepeated(true);

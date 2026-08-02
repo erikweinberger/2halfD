@@ -44,7 +44,7 @@ class Engine {
     Engine(const EngineSettings &engineSettings)
         : m_engineSettings(engineSettings), m_engineState(EngineState::None), m_cameraObject(),
           m_engineClocks(EngineClocks{m_engineSettings.graphicsFpsCap, m_engineSettings.gameFpsCap}),
-          m_window(sf::VideoMode(engineSettings.windowDim.x, engineSettings.windowDim.y), "Two Half D"),
+          m_window(sf::VideoMode({static_cast<unsigned>(engineSettings.windowDim.x), static_cast<unsigned>(engineSettings.windowDim.y)}), "Two Half D"),
           m_renderer(m_window, m_engineSettings, m_engineClocks), m_inputManager(m_window) {
 
         m_window.setVerticalSyncEnabled(false);

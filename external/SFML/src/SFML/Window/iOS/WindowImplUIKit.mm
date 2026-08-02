@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -25,25 +25,19 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#include <SFML/Window/iOS/WindowImplUIKit.hpp>
+#include <SFML/Window/WindowEnums.hpp>
+#include <SFML/Window/iOS/SFAppDelegate.hpp>
 #include <SFML/Window/iOS/SFView.hpp>
 #include <SFML/Window/iOS/SFViewController.hpp>
-#include <SFML/Window/iOS/SFAppDelegate.hpp>
-#include <SFML/Window/WindowStyle.hpp>
+#include <SFML/Window/iOS/WindowImplUIKit.hpp>
+
 #include <SFML/System/Err.hpp>
+
 #include <UIKit/UIKit.h>
 
-#if defined(__APPLE__)
-    #if defined(__clang__)
-        #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    #elif defined(__GNUC__)
-        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    #endif
-#endif
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-namespace sf
-{
-namespace priv
+namespace sf::priv
 {
 ////////////////////////////////////////////////////////////
 WindowImplUIKit::WindowImplUIKit(WindowHandle /* handle */)
@@ -55,53 +49,42 @@ WindowImplUIKit::WindowImplUIKit(WindowHandle /* handle */)
 ////////////////////////////////////////////////////////////
 WindowImplUIKit::WindowImplUIKit(VideoMode mode,
                                  const String& /* title */,
-                                 unsigned long style,
+                                 std::uint32_t style,
+                                 State         state,
                                  const ContextSettings& /* settings */)
 {
     m_backingScale = static_cast<float>([SFAppDelegate getInstance].backingScaleFactor);
 
     // Apply the fullscreen flag
-    [UIApplication sharedApplication].statusBarHidden = !(style & Style::Titlebar) || (style & Style::Fullscreen);
+    [UIApplication sharedApplication].statusBarHidden = !(style & Style::Titlebar) || (state == State::Fullscreen);
 
-    // Set the orientation according to the requested size
-    if (mode.width > mode.height)
-        [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationLandscapeLeft];
-    else
-        [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationPortrait];
-
-    // Create the window
-    CGRect frame = [UIScreen mainScreen].bounds; // Ignore user size, it wouldn't make sense to use something else
-    m_window = [[UIWindow alloc] initWithFrame:frame];
-    m_hasFocus = true;
+    // Create the window the size of the screen
+    const CGRect frame = [UIScreen mainScreen].bounds;
+    m_window           = [[UIWindow alloc] initWithFrame:frame];
+    m_hasFocus         = true;
 
     // Assign it to the application delegate
     [SFAppDelegate getInstance].sfWindow = this;
 
-    CGRect viewRect = frame;
-    // if UI-orientation doesn't match window-layout, swap the view size and notify the window about it
-    // iOS 7 and 8 do different stuff here. In iOS 7 frame.x<frame.y always! In iOS 8 it correctly depends on orientation
-    if (NSFoundationVersionNumber <= NSFoundationVersionNumber_iOS_7_1)
-        if ((mode.width > mode.height) != (frame.size.width > frame.size.height))
-            std::swap(viewRect.size.width, viewRect.size.height);
+    const CGRect viewRect = frame;
 
     // Create the view
     m_view = [[SFView alloc] initWithFrame:viewRect andContentScaleFactor:(static_cast<double>(m_backingScale))];
     [m_view resignFirstResponder];
 
     // Create the view controller
-    m_viewController = [SFViewController alloc];
-    m_viewController.view = m_view;
-    m_viewController.orientationCanChange = style & Style::Resize;
+    m_viewController            = [SFViewController alloc];
+    m_viewController.view       = m_view;
     m_window.rootViewController = m_viewController;
 
     // Make it the current window
     [m_window makeKeyAndVisible];
-}
 
-
-////////////////////////////////////////////////////////////
-WindowImplUIKit::~WindowImplUIKit()
-{
+    // If the size doesn't match what the user requested, we must notify them so they can adjust
+    if (mode.size.x != frame.size.width || mode.size.y != frame.size.height)
+    {
+        forwardEvent(sf::Event::Resized{getSize()});
+    }
 }
 
 
@@ -114,40 +97,28 @@ void WindowImplUIKit::processEvents()
 
 
 ////////////////////////////////////////////////////////////
-WindowHandle WindowImplUIKit::getSystemHandle() const
+WindowHandle WindowImplUIKit::getNativeHandle() const
 {
-#if defined(__APPLE__)
-    #if defined(__clang__)
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wold-style-cast"
-    #elif defined(__GNUC__)
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wold-style-cast"
-    #endif
-#endif
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
 
     return (__bridge WindowHandle)m_window;
 
-#if defined(__APPLE__)
-    #if defined(__clang__)
-        #pragma clang diagnostic pop
-    #elif defined(__GNUC__)
-        #pragma GCC diagnostic pop
-    #endif
-#endif
+#pragma GCC diagnostic pop
 }
 
 
 ////////////////////////////////////////////////////////////
 Vector2i WindowImplUIKit::getPosition() const
 {
-    CGPoint origin = m_window.frame.origin;
-    return Vector2i(static_cast<int>(origin.x * static_cast<double>(m_backingScale)), static_cast<int>(origin.y * static_cast<double>(m_backingScale)));
+    const CGPoint origin = m_window.frame.origin;
+    return {static_cast<int>(origin.x * static_cast<double>(m_backingScale)),
+            static_cast<int>(origin.y * static_cast<double>(m_backingScale))};
 }
 
 
 ////////////////////////////////////////////////////////////
-void WindowImplUIKit::setPosition(const Vector2i& /* position */)
+void WindowImplUIKit::setPosition(Vector2i /* position */)
 {
 }
 
@@ -155,29 +126,34 @@ void WindowImplUIKit::setPosition(const Vector2i& /* position */)
 ////////////////////////////////////////////////////////////
 Vector2u WindowImplUIKit::getSize() const
 {
-    CGRect physicalFrame = m_window.frame;
-    // iOS 7 and 8 do different stuff here. In iOS 7 frame.x<frame.y always! In iOS 8 it correctly depends on orientation
-    if ((NSFoundationVersionNumber <= NSFoundationVersionNumber_iOS_7_1)
-        && UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication] statusBarOrientation]))
-        std::swap(physicalFrame.size.width, physicalFrame.size.height);
-    return Vector2u(static_cast<unsigned int>(physicalFrame.size.width * static_cast<double>(m_backingScale)), static_cast<unsigned int>(physicalFrame.size.height * static_cast<double>(m_backingScale)));
+    const CGRect physicalFrame = m_window.frame;
+    return {static_cast<unsigned int>(physicalFrame.size.width * static_cast<double>(m_backingScale)),
+            static_cast<unsigned int>(physicalFrame.size.height * static_cast<double>(m_backingScale))};
 }
 
 
 ////////////////////////////////////////////////////////////
-void WindowImplUIKit::setSize(const Vector2u& size)
+void WindowImplUIKit::setSize(Vector2u /* size */)
 {
-    // @todo ...
+    // TODO ...
 
     // if these sizes are required one day, don't forget to scale them!
     // size.x /= m_backingScale;
     // size.y /= m_backingScale;
+}
 
-    // Set the orientation according to the requested size
-    if (size.x > size.y)
-        [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationLandscapeLeft];
-    else
-        [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationPortrait];
+
+////////////////////////////////////////////////////////////
+void WindowImplUIKit::setMinimumSize(const std::optional<Vector2u>& /* minimumSize */)
+{
+    // Not applicable
+}
+
+
+////////////////////////////////////////////////////////////
+void WindowImplUIKit::setMaximumSize(const std::optional<Vector2u>& /* maximumSize */)
+{
+    // Not applicable
 }
 
 
@@ -189,7 +165,7 @@ void WindowImplUIKit::setTitle(const String& /* title */)
 
 
 ////////////////////////////////////////////////////////////
-void WindowImplUIKit::setIcon(unsigned int /* width */, unsigned int /* height */, const Uint8* /* pixels */)
+void WindowImplUIKit::setIcon(Vector2u /* size */, const std::uint8_t* /* pixels */)
 {
     // Not applicable
 }
@@ -247,9 +223,9 @@ bool WindowImplUIKit::hasFocus() const
 ////////////////////////////////////////////////////////////
 void WindowImplUIKit::forwardEvent(Event event)
 {
-    if (event.type == Event::GainedFocus)
+    if (event.is<Event::FocusGained>())
         m_hasFocus = true;
-    else if (event.type == Event::LostFocus)
+    else if (event.is<Event::FocusLost>())
         m_hasFocus = false;
 
     pushEvent(event);
@@ -272,6 +248,4 @@ void WindowImplUIKit::setVirtualKeyboardVisible(bool visible)
         [m_view resignFirstResponder];
 }
 
-} // namespace priv
-
-} // namespace sf
+} // namespace sf::priv

@@ -5,9 +5,6 @@
 #include "game.h"
 
 int main() {
-    TwoHalfD::EngineSettings engineSettings;
-    TwoHalfD::Engine engine(engineSettings);
-
     Game game{};
 
     game.run();

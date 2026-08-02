@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.prg)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.prg)
 // Copyright (C) 2013 Jonathan De Wachter (dewachter.jonathan@gmail.com)
 //
 // This software is provided 'as-is', without any express or implied warranty.
@@ -43,7 +43,7 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/Config.hpp>
 
-#ifdef SFML_SYSTEM_IOS
+#include <SFML/Window/iOS/SFAppDelegate.hpp>
 
 #include <UIKit/UIKit.h>
 
@@ -51,13 +51,11 @@
 ////////////////////////////////////////////////////////////
 int main(int argc, char** argv)
 {
-    // Note: we intentionally drop command line arguments,
-    // there's no such thing as a command line on an iOS device :)
-
-    // Important: "SFAppDelegate" must always match the name of the
-    // application delegate class defined in sfml-window
-
-    return UIApplicationMain(argc, argv, nil, @"SFAppDelegate");
+    NSString* appDelegateClassName = {};
+    @autoreleasepool
+    {
+        // Setup code that might create autoreleased objects goes here.
+        appDelegateClassName = NSStringFromClass([SFAppDelegate class]);
+    }
+    return UIApplicationMain(argc, argv, nil, appDelegateClassName);
 }
-
-#endif // SFML_SYSTEM_IOS

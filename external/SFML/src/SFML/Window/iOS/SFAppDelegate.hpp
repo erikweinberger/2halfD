@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2023 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2026 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -22,14 +22,15 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_SFAPPDELEGATE_HPP
-#define SFML_SFAPPDELEGATE_HPP
+#pragma once
 
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Window/iOS/WindowImplUIKit.hpp>
+
 #include <UIKit/UIKit.h>
+
 #include <CoreMotion/CoreMotion.h>
 
 
@@ -39,38 +40,20 @@
 /// This class handles global application events.
 ///
 ////////////////////////////////////////////////////////////
-@interface SFAppDelegate : NSObject<UIApplicationDelegate>
+@interface SFAppDelegate : NSObject <UIApplicationDelegate>
 
 ////////////////////////////////////////////////////////////
 /// \brief Return the instance of the application delegate
 ///
 ////////////////////////////////////////////////////////////
-+(SFAppDelegate*)getInstance;
++ (SFAppDelegate*)getInstance;
 
-////////////////////////////////////////////////////////////
-/// \brief Show or hide the virtual keyboard
-///
-/// \param visible True to show, false to hide
-///
 ////////////////////////////////////////////////////////////
 - (void)setVirtualKeyboardVisible:(bool)visible;
 
 ////////////////////////////////////////////////////////////
-/// \brief Get the current touch position for a given finger
-///
-/// \param index Finger index
-///
-/// \return Current touch position, or (-1, -1) if no touch
-///
-////////////////////////////////////////////////////////////
 - (sf::Vector2i)getTouchPosition:(unsigned int)index;
 
-////////////////////////////////////////////////////////////
-/// \brief Receive an external touch begin notification
-///
-/// \param index    Finger index
-/// \param position Position of the touch
-///
 ////////////////////////////////////////////////////////////
 - (void)notifyTouchBegin:(unsigned int)index atPosition:(sf::Vector2i)position;
 
@@ -98,23 +81,7 @@
 /// \param character The typed character
 ///
 ////////////////////////////////////////////////////////////
-- (void)notifyCharacter:(sf::Uint32)character;
-
-////////////////////////////////////////////////////////////
-/// \brief Tells if the dimensions of the current window must be flipped when switching to a given orientation
-///
-/// \param orientation the device has changed to
-///
-////////////////////////////////////////////////////////////
-- (bool)needsToFlipFrameForOrientation:(UIDeviceOrientation)orientation;
-
-////////////////////////////////////////////////////////////
-/// \brief Tells if app and view support a requested device orientation or not
-///
-/// \param orientation the device has changed to
-///
-////////////////////////////////////////////////////////////
-- (bool)supportsOrientation:(UIDeviceOrientation)orientation;
+- (void)notifyCharacter:(char32_t)character;
 
 ////////////////////////////////////////////////////////////
 /// \brief Initializes the factor which is required to convert from points to pixels and back
@@ -125,11 +92,8 @@
 ////////////////////////////////////////////////////////////
 // Member data
 ////////////////////////////////////////////////////////////
-@property (nonatomic) sf::priv::WindowImplUIKit* sfWindow; ///< Main window of the application
-@property (readonly, nonatomic) CMMotionManager* motionManager; ///< Instance of the motion manager
-@property (nonatomic) CGFloat backingScaleFactor;
+@property(nonatomic) sf::priv::WindowImplUIKit* sfWindow;      ///< Main window of the application
+@property(readonly, nonatomic) CMMotionManager* motionManager; ///< Instance of the motion manager
+@property(nonatomic) CGFloat                    backingScaleFactor;
 
 @end
-
-#endif // SFML_SFAPPDELEGATE_HPP
-

@@ -22,182 +22,94 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_WINDOWIMPLANDROID_HPP
-#define SFML_WINDOWIMPLANDROID_HPP
+#pragma once
 
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Window/Android/JoystickButton.hpp>
+#include <SFML/Window/EglContext.hpp>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/WindowImpl.hpp>
-#include <SFML/Window/EglContext.hpp>
+
 #include <SFML/System/Android/Activity.hpp>
+
 #include <android/input.h>
 
+#include <variant>
 
-namespace sf
+
+namespace sf::priv
 {
-namespace priv
-{
-////////////////////////////////////////////////////////////
-/// \brief Android implementation of WindowImpl
-///
 ////////////////////////////////////////////////////////////
 class WindowImplAndroid : public WindowImpl
 {
 public:
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Construct the window implementation from an existing control
-    ///
-    /// \param handle Platform-specific handle of the control
-    ///
     ////////////////////////////////////////////////////////////
     WindowImplAndroid(WindowHandle handle);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Create the window implementation
-    ///
-    /// \param mode     Video mode to use
-    /// \param title    Title of the window
-    /// \param style    Window style (resizable, fixed, or fullscren)
-    /// \param settings Additional settings for the underlying OpenGL context
-    ///
-    ////////////////////////////////////////////////////////////
-    WindowImplAndroid(VideoMode mode, const String& title, unsigned long style, const ContextSettings& settings);
+    WindowImplAndroid(VideoMode mode, const String& title, std::uint32_t style, State state, const ContextSettings& settings);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Destructor
-    ///
-    ////////////////////////////////////////////////////////////
-    ~WindowImplAndroid();
+    ~WindowImplAndroid() override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the OS-specific handle of the window
-    ///
-    /// \return Handle of the window
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual WindowHandle getSystemHandle() const;
+    [[nodiscard]] WindowHandle getNativeHandle() const override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the position of the window
-    ///
-    /// \return Position of the window, in pixels
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual Vector2i getPosition() const;
+    [[nodiscard]] Vector2i getPosition() const override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Change the position of the window on screen
-    ///
-    /// \param position New position of the window, in pixels
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setPosition(const Vector2i& position);
+    void setPosition(Vector2i position) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the client size of the window
-    ///
-    /// \return Size of the window, in pixels
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual Vector2u getSize() const;
+    [[nodiscard]] Vector2u getSize() const override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Change the size of the rendering region of the window
-    ///
-    /// \param size New size, in pixels
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setSize(const Vector2u& size);
+    void setSize(Vector2u size) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Change the title of the window
-    ///
-    /// \param title New title
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setTitle(const String& title);
+    void setMinimumSize(const std::optional<Vector2u>& minimumSize) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Change the window's icon
-    ///
-    /// \param width  Icon's width, in pixels
-    /// \param height Icon's height, in pixels
-    /// \param pixels Pointer to the pixels in memory, format must be RGBA 32 bits
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setIcon(unsigned int width, unsigned int height, const Uint8* pixels);
+    void setMaximumSize(const std::optional<Vector2u>& maximumSize) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Show or hide the window
-    ///
-    /// \param visible True to show, false to hide
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setVisible(bool visible);
+    void setTitle(const String& title) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Show or hide the mouse cursor
-    ///
-    /// \param visible True to show, false to hide
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setMouseCursorVisible(bool visible);
+    void setIcon(Vector2u size, const std::uint8_t* pixels) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Clips or releases the mouse cursor
-    ///
-    /// \param grabbed True to enable, false to disable
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setMouseCursorGrabbed(bool grabbed);
+    void setVisible(bool visible) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Set the displayed cursor to a native system cursor
-    ///
-    /// \param cursor Native system cursor type to display
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setMouseCursor(const CursorImpl& cursor);
+    void setMouseCursorVisible(bool visible) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Enable or disable automatic key-repeat
-    ///
-    /// \param enabled True to enable, false to disable
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setKeyRepeatEnabled(bool enabled);
+    void setMouseCursorGrabbed(bool grabbed) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Request the current window to be made the active
-    ///        foreground window
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void requestFocus();
+    void setMouseCursor(const CursorImpl& cursor) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Check whether the window has the input focus
-    ///
-    /// \return True if window has focus, false otherwise
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual bool hasFocus() const;
+    void setKeyRepeatEnabled(bool enabled) override;
 
-    static void forwardEvent(const Event& event);
+    ////////////////////////////////////////////////////////////
+    void requestFocus() override;
+
+    ////////////////////////////////////////////////////////////
+    [[nodiscard]] bool hasFocus() const override;
+
+    static void               forwardEvent(const Event& event);
     static WindowImplAndroid* singleInstance;
 
 protected:
-
     ////////////////////////////////////////////////////////////
-    /// \brief Process incoming events from the operating system
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void processEvents();
+    void processEvents() override;
 
 private:
-
     ////////////////////////////////////////////////////////////
     /// \brief Process messages from the looper associated with the main thread
     ///
@@ -210,20 +122,45 @@ private:
     ////////////////////////////////////////////////////////////
     static int processEvent(int fd, int events, void* data);
 
-    static int processScrollEvent(AInputEvent* _event, ActivityStates& states);
-    static int processKeyEvent(AInputEvent* _event, ActivityStates& states);
-    static int processMotionEvent(AInputEvent* _event, ActivityStates& states);
+    static int processScrollEvent(AInputEvent* inputEvent, ActivityStates& states);
+    static int processKeyEvent(AInputEvent* inputEvent, ActivityStates& states);
+    static int processKeyboardKeyEvent(AInputEvent*           inputEvent,
+                                       std::int32_t           action,
+                                       sf::Keyboard::Key      key,
+                                       sf::Keyboard::Scancode scancode,
+                                       std::int32_t           metakey);
+    static int processJoystickButtonEvent(AInputEvent*     inputEvent,
+                                          std::int32_t     action,
+                                          Joystick::Button button,
+                                          ActivityStates&  states);
+    static int processMotionEvent(AInputEvent* inputEvent, ActivityStates& states);
     static int processPointerEvent(bool isDown, AInputEvent* event, ActivityStates& states);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Convert a Android key to SFML key code
+    /// \brief Convert a Android key to SFML key code / joystick button code
     ///
     /// \param symbol Android key to convert
     ///
-    /// \return Corresponding SFML key code
+    /// \return Corresponding SFML key code or joystick button code
     ///
     ////////////////////////////////////////////////////////////
-    static Keyboard::Key androidKeyToSF(int32_t key);
+    static std::variant<Keyboard::Key, Joystick::Button> androidKeyToSF(std::int32_t key);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Convert a Android scan code to SFML key code
+    ///
+    /// Scan code mappings on android are not reliable, and can
+    /// also be customised by users in their own projects. For
+    /// this method we match the provided generic layout
+    ///
+    /// \see https://source.android.com/docs/core/interaction/input/key-layout-files
+    ///
+    /// \param symbol Android scan code to convert
+    ///
+    /// \return Corresponding SFML scan code
+    ///
+    ////////////////////////////////////////////////////////////
+    static Keyboard::Scancode androidScanToSF(std::int32_t key);
 
     ////////////////////////////////////////////////////////////
     /// \brief Get Unicode decoded from the input event
@@ -233,17 +170,12 @@ private:
     /// \return The Unicode value
     ///
     ////////////////////////////////////////////////////////////
-    static int getUnicode(AInputEvent* event);
+    static char32_t getUnicode(AInputEvent* event);
 
     Vector2u m_size;
-    bool m_windowBeingCreated;
-    bool m_windowBeingDestroyed;
-    bool m_hasFocus;
+    bool     m_windowBeingCreated{};
+    bool     m_windowBeingDestroyed{};
+    bool     m_hasFocus{true};
 };
 
-} // namespace priv
-
-} // namespace sf
-
-
-#endif // SFML_WINDOWIMPLANDROID_HPP
+} // namespace sf::priv

@@ -55,7 +55,6 @@ struct Level {
 };
 
 struct EngineContext {
-    XYVector prevMousePosition = {0, 0};
     XYVector currentMousePosition = {0, 0};
     XYVector MouseDelta = {0, 0};
 };
