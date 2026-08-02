@@ -4,6 +4,7 @@
 #include "TwoHalfD/types/entity_types.h"
 #include "TwoHalfD/types/math_types.h"
 
+#include <optional>
 #include <memory>
 #include <unordered_set>
 #include <vector>
@@ -28,7 +29,6 @@ struct Segment {
     }
 };
 
-
 struct BSPNode {
     std::unique_ptr<BSPNode> front;
     std::unique_ptr<BSPNode> back;
@@ -37,7 +37,7 @@ struct BSPNode {
     std::unordered_set<int> effectIds;
     Polygon boundingPolygon;
     std::vector<int> boundingSegmentIds;
-    std::unique_ptr<FloorSection> floorSection = nullptr;
+    std::optional<FloorSection> floorSection;
     std::vector<FloorColourOverlay> colourOverlays;
 
     XYVectorf splitterP0;
@@ -46,6 +46,10 @@ struct BSPNode {
 
     int segmentID = -1;
     int leafNodeId = -1;
+
+    float height() const {
+        return floorSection ? floorSection->height : 0.f;
+    }
 };
 
 struct DrawCommand {

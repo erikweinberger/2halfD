@@ -1,11 +1,16 @@
+#include "TwoHalfD/engine_types.h"
+#include "TwoHalfD/types/bsp_types.h"
 #include "TwoHalfD/types/entity_types.h"
 #include "TwoHalfD/types/math_types.h"
+#include "TwoHalfD/utils/collision_util.h"
 #include <TwoHalfD/engine.h>
 
 #include <SFML/Window/Mouse.hpp>
-#include <cmath>
+#include <cstddef>
+#include <objc/objc.h>
 #include <span>
-#include <variant>
+#include <unordered_map>
+#include <unordered_set>
 
 void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     this->m_engineState = EngineState::fpsState;
@@ -33,6 +38,9 @@ void TwoHalfD::Engine::loadLevel(std::string levelFilePath) {
     for (const auto &[entityId, heightStart] : heightStarts) {
         m_entityManager.setHeightStart(entityId, heightStart);
         m_entityManager.setFloorHeight(entityId, heightStart);
+    }
+    for (const auto &[entityId, spriteEntity] : m_entityManager.getAllEntities()) {
+        moveSprite(entityId, spriteEntity.pos.pos);
     }
 
     m_renderer.setData(&m_textures, &m_entityManager, m_defaultFloorHeight, m_defaultFloorTextureId, m_defaultFloorStart);
@@ -62,7 +70,7 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     }
 
     float deltaTime = static_cast<float>(m_engineClocks.getGameDeltaTime());
-    auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings);
+    auto movedEntities = m_entityManager.update(deltaTime, m_engineSettings, m_bspManager, m_cameraObject);
     for (const auto &[entityId, newPos] : movedEntities) {
         moveSprite(entityId, newPos);
     }
@@ -73,20 +81,19 @@ void TwoHalfD::Engine::backgroundFrameUpdates() {
     m_entityManager.eraseExpiredEffects();
 
     auto convexSection = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos);
-    m_cameraObject.cameraFloorHeight =
-        convexSection != nullptr && convexSection->floorSection != nullptr ? convexSection->floorSection->height : m_defaultFloorHeight;
+    m_cameraObject.cameraFloorHeight = convexSection ? convexSection->height() : 0.f;
     m_cameraObject.nodeId = convexSection != nullptr ? convexSection->leafNodeId : -1;
 
     for (size_t i = 0; i < m_cameraObject.perimeterPoints.size(); ++i) {
-        auto *section = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos + m_cameraObject.perimeterPoints[i].offset);
-        m_cameraObject.perimeterPoints[i].floorHeight = (section && section->floorSection) ? section->floorSection->height : m_defaultFloorHeight;
-        m_cameraObject.perimeterPoints[i].nodeId = (section) ? section->leafNodeId : -1;
+        auto *bspRegion = m_bspManager.findConvexSection(m_cameraObject.cameraPos.pos + m_cameraObject.perimeterPoints[i].offset);
+        m_cameraObject.perimeterPoints[i].bspRegion = bspRegion;
     }
 
-    float maxPerimeterFloor =
-        std::max_element(m_cameraObject.perimeterPoints.begin(), m_cameraObject.perimeterPoints.end(), [](const auto &p1, const auto &p2) {
-            return p1.floorHeight < p2.floorHeight;
-        })->floorHeight;
+    float maxPerimeterFloor = m_cameraObject.cameraFloorHeight;
+    for (const auto &p : m_cameraObject.perimeterPoints) {
+        float h = p.height();
+        if (h - m_cameraObject.cameraHeightStart < m_engineSettings.heightClipping) maxPerimeterFloor = std::max(maxPerimeterFloor, h);
+    }
 
     if (maxPerimeterFloor < m_cameraObject.cameraHeightStart) {
         float gravity = m_cameraObject.gravityOverride.value_or(m_engineSettings.gravity);
@@ -121,51 +128,49 @@ void TwoHalfD::Engine::setCameraPosition(const TwoHalfD::Position &newPos) {
 TwoHalfD::Position TwoHalfD::Engine::updateCameraPosition(const TwoHalfD::Position &posUpdate) {
     float maxFloor = m_cameraObject.cameraFloorHeight;
     for (const auto &point : m_cameraObject.perimeterPoints) {
-        maxFloor = std::max(maxFloor, point.floorHeight);
+        maxFloor = std::max(maxFloor, point.height());
     }
     bool isFalling = maxFloor < m_cameraObject.cameraHeightStart;
     if (isFalling && !m_cameraObject.canMoveWhileFallingOverride.value_or(m_engineSettings.canMoveWhileFalling)) {
         return m_cameraObject.cameraPos;
     }
 
-    TwoHalfD::Position prevPos = m_cameraObject.cameraPos;
     m_cameraObject.cameraPos += posUpdate;
     TwoHalfD::XYVectorf moveVec{posUpdate.pos.x, posUpdate.pos.y};
-    TwoHalfD::XYVectorf n_moveVec{moveVec.normalized()};
 
-    float moveMagnitude = 0;
     if (m_engineSettings.cameraCollision) {
-        TwoHalfD::XYVectorf oldPos = prevPos.pos;
-        auto segmentSpans = m_bspManager.findCollisions(m_cameraObject.cameraPos.pos, m_cameraObject.cameraRadius, m_cameraObject.cameraHeightStart);
-        if (segmentSpans.size() > 0) {
-            for (const auto &[start, end] : segmentSpans) {
-                const TwoHalfD::XYVectorf segmentVec = {end.x - start.x, end.y - start.y};
-                TwoHalfD::XYVectorf n_segmentVec{segmentVec.normalized()};
+        std::unordered_set<const TwoHalfD::BSPNode *> bspRegions;
+        bspRegions.reserve(m_cameraObject.perimeterPoints.size());
+        for (const auto &boundingPoint : m_cameraObject.perimeterPoints) {
+            bspRegions.insert(boundingPoint.bspRegion);
+        }
 
-                const float perpPointDistToStart = TwoHalfD::dot(m_cameraObject.cameraPos.pos - start, n_segmentVec);
-                TwoHalfD::XYVectorf perpP{start + n_segmentVec * perpPointDistToStart};
-
-                TwoHalfD::XYVectorf perpVec{m_cameraObject.cameraPos.pos - perpP};
-                TwoHalfD::XYVectorf n_perpVec{perpVec.normalized()};
-
-                TwoHalfD::XYVectorf oldPerpVec{oldPos - perpP};
-                float perpVecLen = perpVec.length();
-
-                float penetrationDepth;
-                if (dot(oldPerpVec, n_perpVec) < 0 && oldPerpVec.length() > perpVecLen) {
-                    penetrationDepth = m_cameraObject.cameraRadius + perpVecLen;
-                } else {
-                    penetrationDepth = m_cameraObject.cameraRadius - perpVecLen;
-                }
-                float moveRatio = std::abs(dot(n_perpVec, n_moveVec));
-                if (std::abs(moveRatio) < 0.01f) continue;
-
-                moveMagnitude = std::min(std::max(moveMagnitude, penetrationDepth / moveRatio), moveVec.length());
+        std::unordered_set<const TwoHalfD::Segment *> boundingSegments;
+        std::unordered_set<const SpriteEntity *> spriteEntities;
+        for (const auto bspRegion : bspRegions) {
+            if (bspRegion == nullptr) continue;
+            for (const auto segmentId : bspRegion->boundingSegmentIds) {
+                boundingSegments.insert(&m_bspManager.getSegment(segmentId));
             }
+            for (const auto spriteId : bspRegion->spriteIds) {
+                const auto &spritePtr = m_entityManager.getEntityPtr(spriteId);
+                if (spritePtr) {
+                    spriteEntities.insert(spritePtr);
+                }
+            }
+        }
 
-            TwoHalfD::Position newPos{m_cameraObject.cameraPos.pos - moveMagnitude * n_moveVec, m_cameraObject.cameraPos.direction};
-            setCameraPosition(newPos);
-            return m_cameraObject.cameraPos;
+        for (const auto segment : boundingSegments) {
+            if (segment->isWall() && m_cameraObject.cameraHeightStart >= segment->wall->wallHeightStart + segment->wall->height) continue;
+            if (segment->isFloorBoundary() && (segment->floorSection->height - m_cameraObject.cameraHeightStart) <= m_engineSettings.heightClipping)
+                continue;
+
+            m_cameraObject.cameraPos.pos += resolveCircleVsSegment(m_cameraObject.cameraPos.pos, m_cameraObject.cameraRadius, *segment);
+        }
+
+        for (auto sprite : spriteEntities) {
+            m_cameraObject.cameraPos.pos +=
+                resolveCircleVsCircle(m_cameraObject.cameraPos.pos, m_cameraObject.cameraRadius, sprite->pos.pos, sprite->radius);
         }
     }
 
@@ -250,11 +255,12 @@ void TwoHalfD::Engine::removeColourOverlay(int id) {
 
 void TwoHalfD::Engine::moveSprite(int entityId, TwoHalfD::XYVectorf newPos) {
     auto entity = m_entityManager.getEntity(entityId);
-    m_bspManager.moveSprite(entityId, newPos);
+    auto node = m_bspManager.moveSprite(entityId, newPos);
+    m_entityManager.setFloorHeight(entityId, node->height());
 
-    for (const auto &perimeterPoint : entity->perimeterPoints) {
-        auto perimeterSection = m_bspManager.findConvexSection(newPos + perimeterPoint.offset);
-        float floorHeight = (perimeterSection && perimeterSection->floorSection) ? perimeterSection->floorSection->height : m_defaultFloorHeight;
-        m_entityManager.setPerimeterFloorHeight(entityId, &perimeterPoint - &entity->perimeterPoints[0], floorHeight);
+    for (int i{}; i < (int)entity->perimeterPoints.size(); ++i) {
+        auto perimeterPoint = entity->perimeterPoints[i];
+        auto bspRegion = m_bspManager.findConvexSection(newPos + perimeterPoint.offset);
+        m_entityManager.setEntityPerimeterRegion(entityId, i, bspRegion);
     }
 }

@@ -3,6 +3,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <filesystem>
+#include <optional>
 #include <sys/_types/_u_int.h>
 #include <sys/_types/_u_int32_t.h>
 
@@ -29,6 +30,11 @@ struct DebugSettings {
     u_int32_t numFloorSectionsRenderedFrame = 0u;
     u_int32_t numColourOverlaysRenderedFrame = 0u;
     u_int32_t numEffectsRenderedFrame = 0u;
+
+    std::optional<sf::Text> cachedText;
+    sf::Clock updateTimer;
+    float updateInterval = 0.5f;
+    bool needsUpdate = true;
 };
 
 class Renderer {
