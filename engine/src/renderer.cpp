@@ -24,6 +24,8 @@
 #include <sys/_types/_u_int32_t.h>
 #include <thread>
 
+const float NEAR_CLIP = 1.0f;
+
 TwoHalfD::Renderer::Renderer(sf::RenderWindow &window, const EngineSettings &settings, EngineClocks &clocks)
     : m_window(window), m_settings(settings), m_clocks(clocks) {
 
@@ -78,8 +80,8 @@ void TwoHalfD::Renderer::render(const CameraObject &camera, BSPManager &bsp) {
 
     m_renderTexture.display();
     sf::Sprite sprite(m_renderTexture.getTexture());
-    sprite.setScale({static_cast<float>(m_settings.windowDim.x) / m_settings.resolution.x,
-                     static_cast<float>(m_settings.windowDim.y) / m_settings.resolution.y});
+    sprite.setScale(
+        {static_cast<float>(m_settings.windowDim.x) / m_settings.resolution.x, static_cast<float>(m_settings.windowDim.y) / m_settings.resolution.y});
     m_window.clear(sf::Color::Black);
     m_window.draw(sprite);
     m_window.display();
@@ -127,7 +129,6 @@ void TwoHalfD::Renderer::renderBSP(const CameraObject &camera, BSPManager &bsp) 
 }
 
 void TwoHalfD::Renderer::renderSegment(const TwoHalfD::Segment &segment, const CameraObject &camera) {
-    const float NEAR_CLIP = 50.0f;
 
     auto wallB = segment.isWall() ? *segment.wall : TwoHalfD::Wall(segment.v1, segment.v2, 1, 1, segment.floorSection->height, 0);
     TwoHalfD::Wall *wall = &wallB;
@@ -393,7 +394,7 @@ void TwoHalfD::Renderer::renderFloorSection(const TwoHalfD::FloorSection *floorS
     float focalLength = (m_settings.resolution.x / 2.0f) / m_settings.fovScale;
     XYVectorf n_direction{std::cos(camera.cameraPos.direction), std::sin(camera.cameraPos.direction)};
     XYVectorf n_plane{-n_direction.y, n_direction.x};
-    const float NEAR_CLIP = 100.0f;
+    const float NEAR_CLIP = 1.0f;
 
     auto texIt = m_textures->find(floorSection->textureId);
     if (texIt == m_textures->end()) {
